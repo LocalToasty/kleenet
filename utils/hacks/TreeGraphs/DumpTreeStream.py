@@ -8,7 +8,7 @@ def getTreeStream(path):
     data = open(path,'rb').read()
     paths = { 0 : ''}
     pos = 0
-    while pos<len(data):
+    while pos+8<=len(data):
         id,tag = struct.unpack('II', data[pos:pos+8])
         pos += 8
         if tag&(1<<31):
@@ -18,8 +18,8 @@ def getTreeStream(path):
             size = tag
             paths[id] += data[pos:pos+size]
             pos += size
-    if pos!=len(data):
-        raise IOError,'bad position'
+#    if pos!=len(data):
+#        raise IOError,'bad position'
     return paths
 
 def writeTreeStream(path, output):

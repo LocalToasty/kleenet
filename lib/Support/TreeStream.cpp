@@ -81,6 +81,7 @@ void TreeStreamWriter::write(TreeOStream &os, const char *s, unsigned size) {
   output->write(reinterpret_cast<const char*>(&size), 4);
   output->write(s, size);
 #endif
+  flush();
 }
 
 void TreeStreamWriter::flushBuffer() {

@@ -38,5 +38,7 @@ namespace kleenet {
       virtual klee::SpecialFunctionHandler* newSpecialFunctionHandler() = 0;
       // KleeNet extension: we inject our own searchers by overriding this.
       virtual klee::Searcher* constructUserSearcher(klee::Executor&);
+      // KleeNet: allow us to create our run environment
+      virtual void run(klee::ExecutionState&) = 0;
   };
 }

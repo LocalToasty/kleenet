@@ -18,6 +18,7 @@ SuperInformation::SuperInformation(SuperStateMapper& m)
   , mapper(m)
   , graphNode(m.graph(), *this)
   , multiplicity(0), vstates() {
+  graphNode.moveToCluster(new StateCluster());
 }
 
 SuperInformation::SuperInformation(SuperInformation const& from)

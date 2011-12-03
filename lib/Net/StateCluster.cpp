@@ -20,6 +20,19 @@ bool Cluster::operator> (Cluster const c2) const { return id >  c2.id; }
 bool Cluster::operator<=(Cluster const c2) const { return id <= c2.id; }
 bool Cluster::operator>=(Cluster const c2) const { return id >= c2.id; }
 
+namespace net {
+  class ClusterAdministrator {
+    friend class StateCluster;
+    private:
+      ClusterId nextClusterId;
+      // This is used to recycle old cluster ids.
+      std::deque<ClusterId> clusterIdGaps;
+      ClusterAdministrator()
+        : nextClusterId(Cluster::FIRST_CLUSTER.id) {
+      }
+  };
+}
+
 void StateClusterGate::depart(MappingInformation* mi) {
   StateCluster* const self = static_cast<StateCluster*>(this);
   self->_members.erase(mi);
@@ -34,19 +47,19 @@ void StateClusterGate::join(MappingInformation* mi) {
 
 Cluster StateCluster::next() const {
   Cluster c;
-  if (mapper.clusterIdGaps.empty()) {
-    c = Cluster(mapper.nextClusterId++);
+  if (admin->clusterIdGaps.empty()) {
+    c = Cluster(admin->nextClusterId++);
   } else {
-    c = mapper.clusterIdGaps.front();
-    mapper.clusterIdGaps.pop_front();
+    c = admin->clusterIdGaps.front();
+    admin->clusterIdGaps.pop_front();
   }
   return c;
 }
 
 
-StateCluster::StateCluster(StateMapper& mapper)
+StateCluster::StateCluster()
   : Observable<StateCluster>(this)
-  , mapper(mapper)
+  , admin(new ClusterAdministrator())
   , members(_members)
   , _cluster(next())
   , cluster(_cluster) {
@@ -54,7 +67,7 @@ StateCluster::StateCluster(StateMapper& mapper)
 
 StateCluster::StateCluster(StateCluster const& branchOf)
   : Observable<StateCluster>(this)
-  , mapper(branchOf.mapper)
+  , admin(branchOf.admin)
   , members(_members)
   , _cluster(next())
   , cluster(_cluster) {
@@ -62,7 +75,7 @@ StateCluster::StateCluster(StateCluster const& branchOf)
 }
 
 StateCluster::~StateCluster() {
-  mapper.clusterIdGaps.push_back(cluster.id);
+  admin->clusterIdGaps.push_back(cluster.id);
 }
 
 StateCluster* StateCluster::of(BasicState* state) {

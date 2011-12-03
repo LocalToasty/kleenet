@@ -10,6 +10,8 @@
 
 #include <algorithm>
 
+#include <iostream>
+
 namespace klee {
   class ObjectState;
 }
@@ -130,7 +132,9 @@ klee::Searcher* Executor::constructUserSearcher(klee::Executor& e) {
 
 void Executor::run(klee::ExecutionState& initialState) {
   KleeNet::RunEnv knRunEnv(kleenet,&initialState);
+  std::cout << "RunEnv WAS CREATED" << std::endl;
   klee::Executor::run(initialState);
+  std::cout << "RunEnv ABOUT TO GO OUT OF SCOPE" << std::endl;
 }
 
 void Executor::terminateStateEarly_klee(klee::ExecutionState& state,

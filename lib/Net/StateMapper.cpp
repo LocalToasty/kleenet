@@ -63,14 +63,6 @@ namespace net {
 
 using namespace net;
 
-ClusterAdministrator::ClusterAdministrator()
-  : nextClusterId(Cluster::FIRST_CLUSTER.id) {
-  // This is somewhat ugly, but it is the only reasonable way without cluttering
-  // StateMapper.h. So we redefined this particular type.
-  assert(sizeof(net::ClusterId) == sizeof(StateMapper::ClusterId)
-         && "Incompatible cluster-id types.");
-}
-
 SmStateLog::SmStateLog(SmStateLogger* logger)
   : logger(logger) {
   logger->subscribers.insert(this);

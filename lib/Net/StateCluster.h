@@ -4,6 +4,8 @@
 
 #include "net/Observer.h"
 
+#include "net/util/SharedPtr.h"
+
 namespace net {
 
   /// CLUSTER
@@ -31,7 +33,7 @@ namespace net {
   class BasicState;
   class StateCluster;
   class MappingInformation;
-  class StateMapper;
+  class ClusterAdministrator;
 
   class StateClusterGate {
     friend class MappingInformation;
@@ -46,15 +48,15 @@ namespace net {
       typedef std::set<MappingInformation*> ClusterMembers;
     private:
       ClusterMembers _members;
+      util::SharedPtr<ClusterAdministrator> admin;
     public:
-      StateMapper& mapper;
       ClusterMembers const& members;
     private:
       Cluster _cluster;
       Cluster next() const;
     public:
       Cluster const& cluster;
-      StateCluster(StateMapper& mapper);
+      StateCluster();
       StateCluster(StateCluster const& branchOf);
       ~StateCluster();
       static StateCluster* of(BasicState*);

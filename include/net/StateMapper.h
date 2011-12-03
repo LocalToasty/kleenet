@@ -39,21 +39,6 @@ namespace net {
       StateMapperInitialiser(bool phonyPackets);
   };
 
-  class ClusterAdministrator {
-    friend class StateCluster;
-    private: // talking to the clusteriser/Searcher
-      // Redefinition of cluster base type (see StateCluster.h)
-      typedef unsigned ClusterId;
-      // We are friends with a special accessor, that can read this hidden
-      // attribute. It will increment it on itself, we only have got to take
-      // care of storing it in our instance (to avoid globals/statics).
-      ClusterId nextClusterId;
-      // This is used to recycle old cluster ids.
-      std::deque<ClusterId> clusterIdGaps;
-    protected:
-      ClusterAdministrator();
-  };
-
   /****************************************************************************
    * StateMapper - Abstract Base Class                                        *
    ****************************************************************************/
@@ -61,7 +46,7 @@ namespace net {
   /// outside world. It is designed to make the entire interface unchangeable
   /// by derived classes. Derived classes implement protected member functions
   /// which are called by the interface wrapper functions.
-  class StateMapper : private StateMapperInitialiser, public ClusterAdministrator {
+  class StateMapper : private StateMapperInitialiser {
     private: // interaction with StateMapperIntermediateBase
       virtual MappingInformation* stateInfo(BasicState const& state) const = 0;
       virtual MappingInformation* stateInfo(BasicState const* state) const = 0;

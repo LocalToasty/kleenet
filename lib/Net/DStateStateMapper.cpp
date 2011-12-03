@@ -11,9 +11,10 @@ using namespace net;
 
 template <typename Mapper,typename Info,typename T> DStateInformation<Mapper,Info,T>::DStateInformation(Mapper& m, DState* peers)
   : MappingInformation(), peers(peers), mapper(m) {
+  changeCluster(peers->cluster);
 }
 template <typename Mapper,typename Info,typename T> DStateInformation<Mapper,Info,T>::DState::DState(NodeCount nc, bool& allowResize, StateMapper& mapper)
-  : util::LockableNodeTable<T>(nc,allowResize), branchTo(this), cluster(new StateCluster(mapper)) {
+  : util::LockableNodeTable<T>(nc,allowResize), branchTo(this), cluster(new StateCluster()) {
 }
 template <typename Mapper,typename Info,typename T> DStateInformation<Mapper,Info,T>::DState::DState(DState const& from)
   : util::LockableNodeTable<T>(from.size(),from.allowResize), branchTo(this), cluster(new StateCluster(*from.cluster)) {

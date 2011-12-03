@@ -31,14 +31,34 @@ namespace klee {
                                                     KInstruction *target, 
                                                     std::vector<ref<Expr> > 
                                                       &arguments);
-    typedef std::map<const llvm::Function*, 
-                     std::pair<Handler,bool> > handlers_ty;
+    struct ExternalHandler {
+      virtual void operator()(ExecutionState &state,
+                              KInstruction *target,
+                              std::vector<ref<Expr> > &arguments) = 0;
+    };
+
+    struct HandlerInfo {
+      const char *name;
+      SpecialFunctionHandler::Handler handler;
+      bool doesNotReturn; /// Intrinsic terminates the process
+      bool hasReturnValue; /// Intrinsic has a return value
+      bool doNotOverride; /// Intrinsic should not be used if already defined
+      ExternalHandler* externalHandler; // extension to allow to break out of klee::SpecialFunctionHandler
+    };
+
+    typedef std::map<const llvm::Function*, HandlerInfo> handlers_ty;
 
     handlers_ty handlers;
     class Executor &executor;
 
+  private:
+    HandlerInfo* lastHandled;
+    std::vector<HandlerInfo> handlerInfo;
+  protected:
+    void learnHandlerInfo(HandlerInfo const&);
   public:
     SpecialFunctionHandler(Executor &_executor);
+    virtual ~SpecialFunctionHandler() {}
 
     /// Perform any modifications on the LLVM module before it is
     /// prepared for execution. At the moment this involves deleting
@@ -64,6 +84,8 @@ namespace klee {
 #define HANDLER(name) void name(ExecutionState &state, \
                                 KInstruction *target, \
                                 std::vector< ref<Expr> > &arguments)
+    HANDLER(handleExternalHandler);
+
     HANDLER(handleAbort);
     HANDLER(handleAssert);
     HANDLER(handleAssertFail);

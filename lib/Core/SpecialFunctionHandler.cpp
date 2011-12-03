@@ -34,32 +34,25 @@ using namespace klee;
 
 ///
 
-struct HandlerInfo {
-  const char *name;
-  SpecialFunctionHandler::Handler handler;
-  bool doesNotReturn; /// Intrinsic terminates the process
-  bool hasReturnValue; /// Intrinsic has a return value
-  bool doNotOverride; /// Intrinsic should not be used if already defined
-};
 
 // FIXME: We are more or less committed to requiring an intrinsic
 // library these days. We can move some of this stuff there,
 // especially things like realloc which have complicated semantics
 // w.r.t. forking. Among other things this makes delayed query
 // dispatch easier to implement.
-HandlerInfo handlerInfo[] = {
+SpecialFunctionHandler::HandlerInfo handlerInfo[] = {
 #define add(name, handler, ret) { name, \
                                   &SpecialFunctionHandler::handler, \
-                                  false, ret, false }
+                                  false, ret, false, NULL }
 #define addDNR(name, handler) { name, \
                                 &SpecialFunctionHandler::handler, \
-                                true, false, false }
+                                true, false, false, NULL }
   addDNR("__assert_rtn", handleAssertFail),
   addDNR("__assert_fail", handleAssertFail),
   addDNR("_assert", handleAssert),
   addDNR("abort", handleAbort),
   addDNR("_exit", handleExit),
-  { "exit", &SpecialFunctionHandler::handleExit, true, false, true },
+  { "exit", &SpecialFunctionHandler::handleExit, true, false, true, NULL },
   addDNR("klee_abort", handleAbort),
   addDNR("klee_silent_exit", handleSilentExit),  
   addDNR("klee_report_error", handleReportError),
@@ -113,12 +106,22 @@ HandlerInfo handlerInfo[] = {
 #undef add  
 };
 
+
 SpecialFunctionHandler::SpecialFunctionHandler(Executor &_executor) 
-  : executor(_executor) {}
+  : executor(_executor)
+  , lastHandled(NULL) {
+  for (HandlerInfo* it = ::handlerInfo,* end = ::handlerInfo+sizeof(::handlerInfo)/sizeof(::handlerInfo[0]); it != end; ++it) {
+    learnHandlerInfo(*it);
+  }
+}
+
+void SpecialFunctionHandler::learnHandlerInfo(HandlerInfo const& hndInfo) {
+  handlerInfo.push_back(hndInfo);
+}
 
 
 void SpecialFunctionHandler::prepare() {
-  unsigned N = sizeof(handlerInfo)/sizeof(handlerInfo[0]);
+  unsigned N = handlerInfo.size();
 
   for (unsigned i=0; i<N; ++i) {
     HandlerInfo &hi = handlerInfo[i];
@@ -142,14 +145,14 @@ void SpecialFunctionHandler::prepare() {
 }
 
 void SpecialFunctionHandler::bind() {
-  unsigned N = sizeof(handlerInfo)/sizeof(handlerInfo[0]);
+  unsigned N = handlerInfo.size();
 
   for (unsigned i=0; i<N; ++i) {
     HandlerInfo &hi = handlerInfo[i];
     Function *f = executor.kmodule->module->getFunction(hi.name);
     
     if (f && (!hi.doNotOverride || f->isDeclaration()))
-      handlers[f] = std::make_pair(hi.handler, hi.hasReturnValue);
+      handlers[f] = hi;
   }
 }
 
@@ -160,14 +163,15 @@ bool SpecialFunctionHandler::handle(ExecutionState &state,
                                     std::vector< ref<Expr> > &arguments) {
   handlers_ty::iterator it = handlers.find(f);
   if (it != handlers.end()) {    
-    Handler h = it->second.first;
-    bool hasReturnValue = it->second.second;
+    Handler h = it->second.handler;
      // FIXME: Check this... add test?
-    if (!hasReturnValue && !target->inst->use_empty()) {
+    if (!it->second.hasReturnValue && !target->inst->use_empty()) {
       executor.terminateStateOnExecError(state, 
                                          "expected return value from void special function");
     } else {
+      lastHandled = &(it->second);
       (this->*h)(state, target, arguments);
+      lastHandled = NULL;
     }
     return true;
   } else {
@@ -176,6 +180,16 @@ bool SpecialFunctionHandler::handle(ExecutionState &state,
 }
 
 /****/
+
+void SpecialFunctionHandler::handleExternalHandler(ExecutionState &state,
+                           KInstruction *target,
+                           std::vector<ref<Expr> > &arguments) {
+  if (lastHandled) {
+    if (lastHandled->externalHandler)
+      (*(lastHandled->externalHandler))(state,target,arguments);
+  }
+  // Note: we should probably throw up if lastHandled is NULL, because then something is seriously fishy
+}
 
 // reads a concrete string from memory
 std::string 

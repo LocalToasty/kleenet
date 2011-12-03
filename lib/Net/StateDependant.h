@@ -86,5 +86,6 @@ namespace net {
         reg.unRegister(this, state);
       }
   };
+  template <typename Child> RegisterChildDependant StateDependant<Child>::reg;
 }
 

@@ -48,7 +48,7 @@ template <typename Child> class AtomIsA : public net::DataAtomT<Child> {
     }
 };
 
-klee::ref<klee::Expr> dataAtomToExpr(net::DataAtomHolder const& atomHolder) {
+klee::ref<klee::Expr> kleenet::dataAtomToExpr(net::DataAtomHolder const& atomHolder) {
   net::DataAtom& atom = *static_cast<net::util::SharedPtr<net::DataAtom> >(atomHolder);
   if (AtomIsA<ConcreteAtom>() == atom)
     return static_cast<ConcreteAtom const&>(atom);

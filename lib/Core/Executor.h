@@ -26,6 +26,9 @@
 #include <map>
 #include <set>
 
+// KleeNet: We use this to inject custom behaviour without changing too much code in this file.
+#include "kleenet/ExecutorInjector.h"
+
 struct KTest;
 
 namespace llvm {
@@ -70,7 +73,7 @@ namespace klee {
   /// during an instruction step. Should contain addedStates,
   /// removedStates, and haltExecution, among others.
 
-class Executor : public Interpreter {
+class Executor : public Interpreter, public kleenet::ExecutorInjector {
   friend class BumpMergingSearcher;
   friend class MergingSearcher;
   friend class RandomPathSearcher;
@@ -91,7 +94,7 @@ public:
 
   typedef std::pair<ExecutionState*,ExecutionState*> StatePair;
 
-private:
+protected: // KleeNet mod
   class TimerInfo;
 
   KModule *kmodule;
@@ -344,6 +347,8 @@ private:
                              const llvm::Twine &message,
                              const char *suffix,
                              const llvm::Twine &longMessage="");
+  // KleeNet extension
+  SpecialFunctionHandler* newSpecialFunctionHandler();
 
   // call error handler and terminate state, for execution errors
   // (things that should not be possible, like illegal instruction or

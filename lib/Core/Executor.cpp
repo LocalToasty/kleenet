@@ -333,6 +333,9 @@ Executor::Executor(const InterpreterOptions &opts,
   memory = new MemoryManager();
 }
 
+SpecialFunctionHandler* Executor::newSpecialFunctionHandler() {
+  return new SpecialFunctionHandler(*this);
+}
 
 const Module *Executor::setModule(llvm::Module *module, 
                                   const ModuleOptions &opts) {
@@ -345,7 +348,7 @@ const Module *Executor::setModule(llvm::Module *module,
   Context::initialize(TD->isLittleEndian(),
                       (Expr::Width) TD->getPointerSizeInBits());
 
-  specialFunctionHandler = new SpecialFunctionHandler(*this);
+  specialFunctionHandler = newSpecialFunctionHandler();
 
   specialFunctionHandler->prepare();
   kmodule->prepare(opts, interpreterHandler);

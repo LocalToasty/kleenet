@@ -18,6 +18,9 @@
 #include "../../lib/Core/AddressSpace.h"
 #include "klee/Internal/Module/KInstIterator.h"
 
+// KleeNet extension:
+#include "kleenet/State.h"
+
 #include <map>
 #include <set>
 #include <vector>
@@ -61,7 +64,7 @@ struct StackFrame {
   ~StackFrame();
 };
 
-class ExecutionState {
+class ExecutionState : public kleenet::State {
 public:
   typedef std::vector<StackFrame> stack_ty;
 

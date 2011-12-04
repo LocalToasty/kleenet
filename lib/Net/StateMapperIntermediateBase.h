@@ -21,9 +21,9 @@ namespace net {
     protected:
       StateMapperIntermediateBase(StateMapperInitialiser const& initialiser,
                                   BasicState* rootState,
-                                  MI* defaultState)
-        : StateMapper(initialiser,rootState,defaultState) {
-        defaultState->setCloner(&Cloner<MI>::getCloner());
+                                  MI* defaultMI)
+        : StateMapper(initialiser,rootState,defaultMI) {
+        defaultMI->setCloner(&Cloner<MI>::getCloner());
       }
 
       /// Get the actual mapping information object of the passed state as its

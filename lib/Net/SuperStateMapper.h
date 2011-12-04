@@ -40,7 +40,7 @@ namespace net {
       Multiplicity multiplicity;
       util::SafeList<VState*> vstates;
 
-      SuperInformation(SuperStateMapper&);
+      SuperInformation(SuperStateMapper&,SdsGraph&);
       SuperInformation(SuperInformation const&);
       Node const& setNode(Node const& n);
   };
@@ -91,6 +91,8 @@ namespace net {
       class MapperInterface {
         friend class DState;
         bool allowResize;
+        protected:
+          MapperInterface() : allowResize(true) {}
       };
       SuperStateMapper &mapper;
       /// The heir member may be outdated, always be sure (e.g. by checking the
@@ -123,16 +125,16 @@ namespace net {
       util::SafeList<DState*> marked;
       void resetMarks();
       bool iterateMarked(util::SafeListIterator<DState*> *sli);
+      SdsGraph* myGraph;
     protected:
       virtual void _map(BasicState &state, Node dest);
       virtual void _phonyMap(std::set<BasicState*> const &state, Node dest);
       virtual void _remove(const std::set<BasicState*> &remstates);
-      virtual void _findTargets(const BasicState &state,
-          const Node dest) const;
+      virtual void _findTargets(const BasicState &state, const Node dest) const;
     public:
-      virtual SdsGraph& graph() = 0;
+      SdsGraph* graph() const;
       virtual DState* getRootDState() = 0;
-      SuperStateMapper(net::StateMapperInitialiser const&, BasicState*);
+      SuperStateMapper(net::StateMapperInitialiser const&, BasicState*, SdsGraph*);
       ~SuperStateMapper();
       bool doProperBranches() const;
       // All dstate objects that are currently administrated by this mapper.
@@ -150,7 +152,6 @@ namespace net {
   template <typename Graph> class SuperStateMapperWithClustering
     : public SuperStateMapper {
     private:
-      Graph myGraph;
       // The root dstate is used for states arriving at a node.
       // The root is set up at creation and is unset when the first
       // communication occurs in the network, because by then, we assume
@@ -163,7 +164,6 @@ namespace net {
     public:
       SuperStateMapperWithClustering(StateMapperInitialiser const& initialiser, BasicState* rootState);
       ~SuperStateMapperWithClustering();
-      SdsGraph& graph();
       DState* getRootDState();
   };
   // Please see the cpp file. There we make sure that these types are actually

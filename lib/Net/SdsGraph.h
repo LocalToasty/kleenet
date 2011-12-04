@@ -121,7 +121,7 @@ namespace net {
       void getNodeIterator(util::SafeListIterator<SdsNode*>& i);
     public:
       SdsGraph(SuperStateMapper&);
-      ~SdsGraph();
+      virtual ~SdsGraph();
       virtual void equipEdge(SdsEdge* edge, GEI*& gei) = 0;
       virtual void equipNode(SdsNode* node, GNI*& gni) = 0;
       virtual void removedEdge(SdsEdge*) = 0;

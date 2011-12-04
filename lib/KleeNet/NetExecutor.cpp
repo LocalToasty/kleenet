@@ -10,7 +10,7 @@
 
 #include <algorithm>
 
-#include <iostream>
+//#include <iostream>
 
 namespace klee {
   class ObjectState;
@@ -68,7 +68,8 @@ namespace kleenet {
         for (std::vector<klee::ExecutionState*>::const_iterator it(appendix.begin()), end(appendix.end()); it != end; ++it) {
           (*it)->mergeConstraints(state);
         }
-        e->netInterpreterHandler->incDScenariosExplored();
+        if (!appendix.empty())
+          e->netInterpreterHandler->incDScenariosExplored();
         (*this)(state);
         switch (distributedTerminateBehaviour) {
           case DTB_singleTestCase:
@@ -132,9 +133,9 @@ klee::Searcher* Executor::constructUserSearcher(klee::Executor& e) {
 
 void Executor::run(klee::ExecutionState& initialState) {
   KleeNet::RunEnv knRunEnv(kleenet,&initialState);
-  std::cout << "RunEnv WAS CREATED" << std::endl;
+  //std::cout << "RunEnv WAS CREATED" << std::endl;
   klee::Executor::run(initialState);
-  std::cout << "RunEnv ABOUT TO GO OUT OF SCOPE" << std::endl;
+  //std::cout << "RunEnv ABOUT TO GO OUT OF SCOPE" << std::endl;
 }
 
 void Executor::terminateStateEarly_klee(klee::ExecutionState& state,
@@ -153,7 +154,7 @@ void Executor::terminateStateEarly(klee::ExecutionState& state,
   };
   TSE hnd(this,message);
   kleenet.terminateCluster(state,hnd);
-  updateStates(NULL);
+  //updateStates(NULL); // XXX !!! XXX
 }
 
 void Executor::terminateStateOnExit_klee(klee::ExecutionState& state) {
@@ -170,7 +171,7 @@ void Executor::terminateStateOnExit(klee::ExecutionState& state) {
   };
   TSoE hnd(this);
   kleenet.terminateCluster(state,hnd);
-  updateStates(NULL);
+  //updateStates(NULL); // XXX !!! XXX
 }
 
 
@@ -197,5 +198,5 @@ void Executor::terminateStateOnError(klee::ExecutionState& state,
   };
   TSoE hnd(this,messaget,suffix,info);
   kleenet.terminateCluster(state,hnd);
-  updateStates(NULL);
+  //updateStates(NULL); // XXX !!! XXX
 }

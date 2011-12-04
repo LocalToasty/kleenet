@@ -213,6 +213,8 @@ void StateMapper::explode(BasicState* state,
     " Invalidate first.");
   assert(state && "Cannot explode dstate of NULL.");
   assert(stateInfo(state) && "Exploding state without Mapping Information.");
+  if (stateInfo(state)->getNode() == Node::INVALID_NODE)
+    return;
   // In this log we will collect all states we have to explode. Especially, it
   // will be passed to the fork method which will append all newly created
   // states, so that we do not miss new siblings. Note that 'state' will never
@@ -242,7 +244,7 @@ void StateMapper::explode(BasicState* state,
           i != e; ++i) {
     nlt[i->id - min.id] = 1;
   }
-  log.reserve(log.size()+nukeNodes.size()-1);
+  log.reserve(log.size()+nukeNodes.size());
   // States on different nodes; Find all reachable states and put them in the log.
   for (std::set<Node>::const_iterator i = nukeNodes.begin(), e = nukeNodes.end();
           i != e; ++i) {
@@ -296,7 +298,9 @@ void StateMapper::explode(BasicState* state,
 }
 
 void StateMapper::remove(BasicState *state) {
-  assert(state && stateInfo(state) && "Unknown state");
+  assert(state && "Unknown state");
+  if (!stateInfo(state))
+    return;
   if (stateInfo(state)->getNode() == Node::INVALID_NODE) {
     delete stateInfo(state);
     return;
@@ -388,26 +392,30 @@ void StateMapper::setNodeCount(unsigned nodeCount) {
 }
 
 void StateMapper::terminateCluster(BasicState& state, TerminateStateHandler const& terminate) {
-  std::vector<BasicState*> siblings;
-  explode(&state, &siblings);
-  // NOTE: updateStates() is NOT required, because we don't examine any of the engine's data structures
-  // anyway (let alone have to inform the searcher)
-  // also, everything is faster if the states can be immediately dispatched!
-
-  // grab target states
+  MappingInformation* const mi = stateInfo(state);
   std::vector<BasicState*> targets;
-  for (Nodes::iterator it = nodes().begin(), ite = nodes().end(); it != ite; ++it) {
-    // skip state's node
-    if (*it != stateInfo(state)->getNode()) {
-      targets.reserve(targets.size() + findTargets(state,*it));
-      targets.insert(targets.end(),begin(),end());
-      invalidate();
+  std::vector<BasicState*> siblings;
+
+  if (mi) {
+    explode(&state, &siblings);
+    // NOTE: updateStates() is NOT required, because we don't examine any of the engine's data structures
+    // anyway (let alone have to inform the searcher)
+    // also, everything is faster if the states can be immediately dispatched!
+
+    // grab target states
+    for (Nodes::iterator it = nodes().begin(), ite = nodes().end(); it != ite; ++it) {
+      // skip state's node
+      if (*it != mi->getNode()) {
+        targets.reserve(targets.size() + findTargets(state,*it));
+        targets.insert(targets.end(),begin(),end());
+        invalidate();
+      }
     }
-  }
-  if (nodes().size()) {
-    // this should fail if the dscenario has not been exploded yet
-    assert((targets.size() == nodes().size()-1) &&
-      "incorrect number of targets");
+    if (nodes().size()) {
+      // this should fail if the dscenario has not been exploded yet
+      assert((targets.size() == nodes().size()-1) &&
+        "incorrect number of targets");
+    }
   }
   // finally, terminate all involved states (state + targets)
   terminate(state,targets);

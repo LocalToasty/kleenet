@@ -18,6 +18,8 @@ namespace net {
 
   /// Information template base class for dstate aware mappers.
   template <typename Mapper_,typename Info,typename T> class DStateInformation : public MappingInformation {
+    private:
+      DStateInformation(); // not implemented
     public:
       typedef DStateInformation DStateInformationBase;
       struct DState : public util::LockableNodeTable<T> {

@@ -96,8 +96,8 @@ template <typename Mapper,typename Info,typename T> typename DStateInformation<M
     plus(static_cast<typename Mapper::Info*>(info));
     info->peers = this;
     info->changeCluster(cluster);
-  } else {
-    info->changeCluster(NULL);
+  //} else {
+  //  info->changeCluster(NULL);
   }
   return *this;
 }
@@ -105,7 +105,7 @@ template <typename Mapper,typename Info,typename T> typename DStateInformation<M
   if (this == info->peers && info->getNode() != Node::INVALID_NODE) {
     minus(static_cast<typename Mapper::Info*>(info));
     info->peers = NULL;
-    info->changeCluster(NULL);
+  //  info->changeCluster(NULL); // it stays in the cluster, even if it's not in the DState; Weird, I give you this.
   }
   return *this;
 }

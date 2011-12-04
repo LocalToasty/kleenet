@@ -2,6 +2,8 @@
 
 #include "StateDependant.h"
 
+#include "util/ObjectProperties.h"
+
 #include <assert.h>
 
 using namespace net;
@@ -12,16 +14,33 @@ size_t& BasicState::tableSize() {
   return _tableSize;
 }
 
-BasicState::BasicState() : dependants(tableSize(),NULL) {
+BasicState::BasicState() : dependants(tableSize(),NULL), fake(util::isOnStack(this)) {
 }
 
-BasicState::BasicState(BasicState const& from) : dependants(tableSize(), NULL) {
+bool BasicState::isFake() const {
+  return fake;
+}
+
+BasicState::BasicState(BasicState const& from) : dependants(tableSize(), NULL), fake(util::isOnStack(this)) {
+  assert((fake || !from.fake) && "Attempt to create a non-fake state from a fake state.");
   assert(from.dependants.size() == tableSize() && "Table size was changed after initialisation");
-  for (size_t i = 0; i < tableSize(); i++) {
-    StateDependantI* const dep(from.dependants[i]);
-    if (dep)
-      dependants[i] = static_cast<StateDependantI*>(dep->getCloner()(dep));
+  if (!fake) {
+    for (size_t i = 0; i < tableSize(); i++) {
+      StateDependantI* const dep(from.dependants[i]);
+      if (dep) {
+        // This will automatically set dependants[i] to the new StateDepedantI*
+        static_cast<StateDependantI*>(dep->getCloner()(dep))->setState(this);
+      }
+    }
   }
 }
 
-BasicState::~BasicState() {}
+BasicState::~BasicState() {
+  for (size_t i = 0; i < tableSize(); i++) {
+    StateDependantI* const dep(dependants[i]);
+    if (dep) {
+      assert(!fake && "A fake state should not have dependants!");
+      delete dep;
+    }
+  }
+}

@@ -10,10 +10,10 @@ size_t& BasicState::tableSize() {
   return x;
 }
 
-BasicState::BasicState() : dependants() {
+BasicState::BasicState() : dependants(), fake(true) {
 }
 
-BasicState::BasicState(BasicState const& from) : dependants() {
+BasicState::BasicState(BasicState const& from) : dependants(), fake(true) {
 }
 
 BasicState::~BasicState() {}

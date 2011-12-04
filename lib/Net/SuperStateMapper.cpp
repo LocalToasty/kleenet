@@ -6,17 +6,17 @@
 #include <cassert>
 #include <utility>
 
-#include <iostream>
+//#include <iostream>
 
 using namespace net;
 
 /// Super DState Mapper
 
-SuperInformation::SuperInformation(SuperStateMapper& m)
+SuperInformation::SuperInformation(SuperStateMapper& m, SdsGraph& graph)
   : MappingInformation()
   , input(0), wasFound(0)
   , mapper(m)
-  , graphNode(m.graph(), *this)
+  , graphNode(graph, *this)
   , multiplicity(0), vstates() {
   graphNode.moveToCluster(new StateCluster());
 }
@@ -25,7 +25,7 @@ SuperInformation::SuperInformation(SuperInformation const& from)
   : MappingInformation(from)
   , input(0), wasFound(0)
   , mapper(from.mapper)
-  , graphNode(mapper.graph(), *this)
+  , graphNode(*mapper.graph(), *this)
   , multiplicity(0), vstates() {
   if (mapper.doProperBranches() && getNode() != Node::INVALID_NODE) {
     Multiplicity vstateCount = 0;
@@ -78,13 +78,13 @@ DStates::DStates() : list(_list) {
 DState::DState(SuperStateMapper& ssm, NodeCount expectedNodeCount)
   : vstates(expectedNodeCount, ssm.allowResize), sli_mark(NULL)
   , sli_actives(ssm.activeDStates._list.put(this))
-  , graphNode(ssm.graph(),*this), mapper(ssm), heir(NULL) {
+  , graphNode(*ssm.graph(),*this), mapper(ssm), heir(NULL) {
   assert(!vstates.isLocked());
 }
 DState::DState(DState& ds)
   : vstates(ds.vstates.size(), ds.mapper.allowResize), sli_mark(NULL)
   , sli_actives(ds.mapper.activeDStates._list.put(this))
-  , graphNode(ds.mapper.graph(),*this), mapper(ds.mapper), heir(NULL) {
+  , graphNode(*ds.mapper.graph(),*this), mapper(ds.mapper), heir(NULL) {
   ds.heir = this;
   vstates.lock();
 }
@@ -160,13 +160,15 @@ bool SuperStateMapper::iterateMarked(util::SafeListIterator<DState*> *sli) {
 }
 
 
-SuperStateMapper::SuperStateMapper(net::StateMapperInitialiser const& initialiser, BasicState* rootState)
-  : StateMapperIntermediateBase<SuperInformation>(initialiser,rootState,new SuperInformation(*this))
-  , ignoreProperBranches(0) {
+SuperStateMapper::SuperStateMapper(net::StateMapperInitialiser const& initialiser, BasicState* rootState, SdsGraph* myGraph)
+  : StateMapperIntermediateBase<SuperInformation>(initialiser,rootState,new SuperInformation(*this,*myGraph))
+  , ignoreProperBranches(0)
+  , myGraph(myGraph) {
 }
 
 SuperStateMapper::~SuperStateMapper() {
   assert(!activeDStates.list.size() && "There are still active dstates.");
+  delete myGraph;
 }
 
 void SuperStateMapper::setNodeCount(NodeCount nodeCount) {
@@ -270,6 +272,11 @@ void SuperStateMapper::_findTargets(const BasicState &state,
     this->stateInfo(*it)->wasFound = 0;
   }
 }
+
+SdsGraph* SuperStateMapper::graph() const {
+  return myGraph;
+}
+
 
 namespace {
   template <typename T> class SimpleLock {
@@ -438,7 +445,7 @@ void SuperStateMapper::_map(BasicState &es, Node dest) {
 }
 
 void SuperStateMapper::_phonyMap(std::set<BasicState*> const &states, Node dest) {
-  std::cout << "phonyMap" << std::endl;
+  //std::cout << "phonyMap" << std::endl;
   assert(states.size() && "Empty mapping request?");
   Node const origin = stateInfo(*states.begin())->getNode();
   resetMarks();
@@ -470,7 +477,7 @@ void SuperStateMapper::_phonyMap(std::set<BasicState*> const &states, Node dest)
     }
   }
 
-  std::cout << "found a total of " << vpackets.size() << " vpackets" << std::endl;
+  //std::cout << "found a total of " << vpackets.size() << " vpackets" << std::endl;
 
   std::vector<VState*> allvt;
   allvt.reserve(vpackets.size());
@@ -483,7 +490,7 @@ void SuperStateMapper::_phonyMap(std::set<BasicState*> const &states, Node dest)
     size_t const sending = i->second.size();
     assert(sending);
     assert(sending <= total);
-    std::cout << "total states: " << total << "; sending: " << sending << std::endl;
+    //std::cout << "total states: " << total << "; sending: " << sending << std::endl;
     if (sending < total) {
       if (!ds->isMarked()) {
         new DState(*ds); // is automatically stored in ds->heir
@@ -492,7 +499,7 @@ void SuperStateMapper::_phonyMap(std::set<BasicState*> const &states, Node dest)
       target = new VState(target->info());
       ds->heir->adoptVState(target);
     } else {
-      std::cout << "IGNORING PHONY PACKET!" << std::endl;
+      //std::cout << "IGNORING PHONY PACKET!" << std::endl;
     }
     // Note that it is not possible to add any vstate
     // twice as the vstate is the key of the data structure
@@ -553,7 +560,7 @@ void SuperStateMapper::_phonyMap(std::set<BasicState*> const &states, Node dest)
       }
     }
     for (Joblist::const_iterator i = jobs.begin(), e = jobs.end(); i != e; ++i) {
-      std::cout << i->first << " (" << i->first->info() << "[" << i->first->info()->multiplicity << "]" << " ~> " << i->second << "[" << i->second->multiplicity << "])" << std::endl;
+      //std::cout << i->first << " (" << i->first->info() << "[" << i->first->info()->multiplicity << "]" << " ~> " << i->second << "[" << i->second->multiplicity << "])" << std::endl;
       assert(i->first->info()->multiplicity > 1);
       i->first->moveTo(i->second);
     }
@@ -584,8 +591,7 @@ template <typename Graph> void SuperStateMapperWithClustering<Graph>::_remove(st
 }
 
 template <typename Graph> SuperStateMapperWithClustering<Graph>::SuperStateMapperWithClustering(StateMapperInitialiser const& initialiser, BasicState* rootState)
-  : SuperStateMapper(initialiser,rootState)
-  , myGraph(*this)
+  : SuperStateMapper(initialiser,rootState,new Graph(*this))
   , rootDState(new DState(*this, 0)) {
 }
 template <typename Graph> SuperStateMapperWithClustering<Graph>::~SuperStateMapperWithClustering() {
@@ -594,10 +600,6 @@ template <typename Graph> SuperStateMapperWithClustering<Graph>::~SuperStateMapp
     delete rootDState;
     rootDState = NULL;
   }
-}
-
-template <typename Graph> SdsGraph& SuperStateMapperWithClustering<Graph>::graph() {
-  return *static_cast<SdsGraph*>(&myGraph);
 }
 
 template <typename Graph> DState* SuperStateMapperWithClustering<Graph>::getRootDState() {

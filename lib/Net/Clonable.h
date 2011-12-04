@@ -7,6 +7,7 @@ namespace net {
   class Clonable {
     public:
       virtual ClonerI const& getCloner() const = 0;
+      virtual ~Clonable() {}
   };
 
   class ClonerI {

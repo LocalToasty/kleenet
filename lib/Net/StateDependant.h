@@ -12,6 +12,8 @@ namespace net {
 
   class StateDependantI : public Clonable {
     friend class BasicState;
+    protected:
+      virtual void setState(BasicState*) = 0;
   };
   //typedef Clonable StateDependantI;
 

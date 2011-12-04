@@ -27,7 +27,7 @@ SdsNode::SdsNode(SdsNode const& from)
 }
 
 SdsNode::~SdsNode() {
-  graph.nodes.dropOwn(sli_node);
+  graph.nodes.drop(sli_node);
   if (gni) {
     delete gni;
     gni = NULL;
@@ -156,9 +156,9 @@ SdsDStateNode* SdsEdge::getDState() const {
 void SdsEdge::remove() {
   if (state && dstate) {
     assert(sli_state && sli_dstate);
-    state->edgeif.neighbours.dropOwn(sli_state);
+    state->edgeif.neighbours.drop(sli_state);
     sli_state = NULL;
-    dstate->edgeif.neighbours.dropOwn(sli_dstate);
+    dstate->edgeif.neighbours.drop(sli_dstate);
     sli_dstate = NULL;
     graph.removedEdge(this);
   }

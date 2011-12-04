@@ -54,7 +54,7 @@ void VState::moveTo(SuperInformation *s) {
     assert(sli_si && "Inconsistent link.");
     si->multiplicity--;
     assert(!si->vstates.isLocked());
-    util::SafeList<VState*>::drop(sli_si);
+    si->vstates.drop(sli_si);
   }
   assert(s && "Cannot move to NULL.");
   si = s;
@@ -89,7 +89,7 @@ DState::DState(DState& ds)
   vstates.lock();
 }
 DState::~DState() {
-  util::SafeList<DState*>::drop(sli_actives);
+  mapper.activeDStates._list.drop(sli_actives);
 }
 
 DState *DState::adoptVState(VState *vs) {
@@ -111,7 +111,7 @@ DState *DState::adoptVState(VState *vs) {
 void DState::abandonVState(VState *vs) {
   assert(vs && vs->sli_ds && vs->ds == this);
   assert(!vstates[vs->info()->getNode()].isLocked());
-  util::SafeList<VState*>::drop(vs->sli_ds);
+  vstates[vs->info()->getNode()].drop(vs->sli_ds);
   vs->ds = NULL;
   vs->sli_ds = NULL;
   vs->graphEdge.setDState(NULL);

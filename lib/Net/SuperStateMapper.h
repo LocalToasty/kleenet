@@ -51,9 +51,9 @@ namespace net {
   class VState {
     friend class DState;
     private:
-      util::SafeListItem<VState*> *sli_si;
-      SuperInformation *si;
-      util::SafeListItem<VState*> *sli_ds;
+      util::SafeListItem<VState*>* sli_si;
+      SuperInformation* si;
+      util::SafeListItem<VState*>* sli_ds;
       DState *ds;
     public:
       SdsEdge graphEdge;
@@ -81,7 +81,7 @@ namespace net {
   class DState {
     friend class SuperStateMapper;
     public:
-      typedef util::LockableNodeTable<util::SafeList<VState*> > VStates;
+      typedef util::LockableNodeTable<util::SharedSafeList<VState*> > VStates;
     private:
       VStates vstates;
       util::SafeListItem<DState*>* sli_mark; // allows fast lookups
@@ -108,7 +108,7 @@ namespace net {
       NodeCount getNodeCount();
       /// use: for (util::SafeListIterator<BasicState*> it(dstate.look(node));
       ///          it.more(); it.next()) {it.get()->dostuff();}
-      util::SafeList<VState*>& look(Node node);
+      util::SharedSafeList<VState*>& look(Node node);
       bool areRivals(Node source);
       void setMark(util::SafeList<DState*> &marked);
       void resetMark(util::SafeList<DState*> &marked);

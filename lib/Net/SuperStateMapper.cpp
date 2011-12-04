@@ -121,7 +121,7 @@ NodeCount DState::getNodeCount() {
 }
 // use: for (util::SafeListIterator<BasicState*> it(dstate.look(node)); it.more();
 //          it.next()) {it.get()->dostuff();}
-util::SafeList<VState*> &DState::look(Node node) {
+util::SharedSafeList<VState*> &DState::look(Node node) {
   return vstates[node];
 }
 bool DState::areRivals(Node source) {
@@ -517,7 +517,7 @@ void SuperStateMapper::_phonyMap(std::set<BasicState*> const &states, Node dest)
       for (Nodes::const_iterator n = this->nodes().begin(), ne = this->nodes().end(); n != ne; ++n)
         if (*n != dest) {
           std::vector<std::pair<DState*,VState*> > cache;
-          util::SafeList<VState*>& slist(dsit.get()->look(*n));
+          util::SharedSafeList<VState*>& slist(dsit.get()->look(*n));
           cache.reserve(slist.size());
           for (util::SafeListIterator<VState*> vs(slist); vs.more(); vs.next())
             cache.push_back(std::make_pair(dsit.get()->heir,(*n == origin)?vs.get():new VState(vs.get()->info())));

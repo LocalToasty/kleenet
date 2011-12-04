@@ -105,7 +105,7 @@ namespace net {
    ****************************************************************************/
   class CoWInformation;
   class CoWStateMapper;
-  class CoWInformation : public DStateInformation<CoWStateMapper,CoWInformation,util::SafeList<CoWInformation*> > {
+  class CoWInformation : public DStateInformation<CoWStateMapper,CoWInformation,util::SharedSafeList<CoWInformation*> > {
     friend class StateMapperIntermediateBase<CoWInformation>;
     public:
       struct DState : public DStateInformationBase::DState {

@@ -3,6 +3,8 @@
 #include <cassert>
 #include <stdlib.h>
 
+#include "net/util/SharedPtr.h"
+
 namespace net {
   namespace util {
     // forward declarations
@@ -46,10 +48,10 @@ namespace net {
           assert(right && "right must not be NULL!");
           assert(left->head == right->head && "Cannot join two lists.");
         }
-        ~SafeListItem() {}
       protected:
         SafeListItem(SafeListHeadItem<T>* head)
           : left(this), right(this), head(head), content() {} // O(1)
+        ~SafeListItem() {}
       public:
         // Suggest pointer or base type (not tested for non-pod).
         T content;
@@ -123,23 +125,12 @@ namespace net {
           assert(locks && "Attempt to unlock a non-locked list.");
           return --locks;
         }
-        // THIS WILL BE REMOVED
-        //SafeList(SafeList const& takeover) __attribute__ ((deprecated)) : _size(0), locks(0) { // O(1)
-        //  assert((!(takeover.locks)) && "Attempt of taking over a locked list.");
-        //  // hack to mutate the const object
-        //  SafeList<T>* to = const_cast<SafeList<T>*>(&takeover);
-        //  // pull the old switcheroo with the head member
-        //  head = to->head;
-        //  to->head = new SafeListHeadItem<T>(to); // ALLOCATE
-        //  const_cast<SafeList<T>*>(head->list) = this;
-        //  _size = to->_size;
-        //  to->_size = 0;
-        //  assert(to->head->check());
-        //  assert(head->check());
-        //}
+        SafeList(SafeList const& takeover) __attribute__ ((deprecated)) : head(this), _size(0), locks(0) { // O(1)
+          assert(0 && "Calling COPY-CTOR of SafeList is not supported.");
+        }
       public:
         typedef SafeListIterator<T> iterator;
-        SafeList() : head(SafeListHeadItem<T>(this)), _size(0), locks(0) { // O(1)
+        SafeList() : head(this), _size(0), locks(0) { // O(1)
           assert(head.check());
           assert(head.list == this);
         }
@@ -159,9 +150,9 @@ namespace net {
           assert(head.right && "Invalid FL: right is NULL");
           _size++;
           // We insert the element between 'head' and 'head.right'.
-          head.right = (head.right->left = (SafeListItem<T>::allocate(c, head, head.right)));
+          head.right = (head.right->left = (SafeListItem<T>::allocate(c, &head, head.right)));
           assert(head.check() && head.right->check() &&
-            "SafeList::put yielded an inconsistent result. I cannot recover, sorry.");
+            "SafeList::put produced an inconsistent result. I cannot recover, sorry.");
           return head.right;
         }
         void drop(SafeListItem<T> *i) { // O(1)
@@ -179,15 +170,6 @@ namespace net {
         }
         void dropAll() { // O(1)
           assert((!locks) && "Attempt to clear locked list.");
-          //head.left->right = NULL;
-          //// NULL iff the list is "empty".
-          //SafeListItem<T> *i = head.right;
-          //SafeListItem<T> *j = NULL;
-          //head.left = head.right = &head;
-          //while (i) {
-          //  i = (j = i)->right;
-          //  delete j;
-          //}
           if (_size) {
             _size = 0;
             head.left->right = head.right;
@@ -197,9 +179,35 @@ namespace net {
           }
         }
     };
+    template <class T> class SharedSafeList {
+      friend class SafeListIterator<T>;
+      private:
+        SharedPtr<SafeList<T> > safeList;
+      public:
+        typedef typename SafeList<T>::iterator iterator;
+        SharedSafeList() : safeList(new SafeList<T>()) {
+        }
+        // DEFAULT COPY CTOR!!! That's what we do that whole mumbo jumbo for, after all!
+        // DEFAULT DTOR
+        size_t size() const {
+          return safeList->size();
+        }
+        unsigned char isLocked() const { // O(1)
+          return safeList->isLocked();
+        }
+        SafeListItem<T>* put(T c) { // O(1)
+          return safeList->put(c);
+        }
+        void drop(SafeListItem<T>* i) { // O(1)
+          safeList->drop(i);
+        }
+        void dropAll() { // O(1)
+          safeList->dropAll();
+        }
+    };
     template <class T> class SafeListIterator {
       private:
-        SafeListHeadItem<T>* head;
+        SafeListHeadItem<T> const* head;
         SafeListItem<T>* move;
       public:
         // use this at your own risk! iterating WILL THROW A SEGFAULT!
@@ -217,6 +225,12 @@ namespace net {
         SafeListIterator(SafeList<T> const& sl) : head(NULL), move(NULL) {
           reassign(sl);
         }
+        SafeListIterator(SharedSafeList<T> const* sl) : head(NULL), move(NULL) {
+          reassign(sl);
+        }
+        SafeListIterator(SharedSafeList<T> const& sl) : head(NULL), move(NULL) {
+          reassign(sl);
+        }
         void unassign() {
           if (head) {
             // remove the old lock
@@ -225,21 +239,27 @@ namespace net {
             move = NULL;
           }
         }
-        void reassign(SafeList<T> const* sl) {
+        void reassign(SafeList<T> const& sl) {
           unassign();
           // we are friends with SafeList<T>
-          head = &(sl->head);
-          sl->getLock();
+          head = &(sl.head);
+          sl.getLock();
           restart();
         }
-        void reassign(SafeList<T> const& sl) {
-          reassign(&sl);
+        void reassign(SafeList<T> const* sl) {
+          reassign(*sl);
+        }
+        void reassign(SharedSafeList<T> const& sl) {
+          reassign(*(sl.safeList));
+        }
+        void reassign(SharedSafeList<T> const* sl) {
+          reassign(*sl);
         }
         void restart() {
           move = head->right;
         }
         bool more() const {
-          return move != static_cast<SafeListItem<T>*>(head);
+          return move != head;
         }
         void next() {
           move = move->right;

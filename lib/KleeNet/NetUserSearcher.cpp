@@ -1,9 +1,10 @@
+#include "NetUserSearcher.h"
+
+
 #include "kleenet/CustomSearcherFactory.h"
 
 #include "llvm/Support/CommandLine.h"
 #include "klee/Internal/ADT/RNG.h"
-
-#include <memory>
 
 #include "kleenet/Searcher.h"
 
@@ -14,13 +15,17 @@
 #include "net/ClusterSearcher.h"
 
 #include "net/ClusterSearcherStrategies.h"
-#include "net/util/SharedPtr.h"
+
+#include <iostream>
 
 namespace klee {
   extern RNG theRNG;
 }
 
-namespace kleenet {
+
+namespace {
+
+
   llvm::cl::opt<bool>
   UseLockStepSearch("use-lockstep-search",
                     llvm::cl::desc("Execute all states in a lock-step fashion (default)"));
@@ -56,6 +61,9 @@ namespace kleenet {
   UseRandomStrategy("random-strategy",
               llvm::cl::desc("Use random strategy to choose the next cluster"),
               llvm::cl::init(false));
+}
+
+namespace kleenet {
 
   struct RandomStrategy : net::RandomStrategy {
     unsigned prng(unsigned size) const {
@@ -67,9 +75,6 @@ namespace kleenet {
   };
 
   namespace searcherautorun {
-    struct AF {
-      virtual ~AF() {}
-    };
     typedef llvm::cl::opt<bool> O;
     template <typename S> struct KleeNetSearcherAF : AF, CustomSearcherAutoFactory<S,O> {
       KleeNetSearcherAF(O& o) : CustomSearcherAutoFactory<S,O>(o,kleenet::CustomSearcherFactory::CSFP_OVERRIDE_LEGACY) {}
@@ -104,22 +109,17 @@ namespace kleenet {
         return new net::GenericClusterSearcher<net::CoojaSearcher,Alloc>(strat,pcb);
       }
     };
-    class SearcherAutoRun {
-      static SearcherAutoRun self;
-      typedef std::auto_ptr<AF> F;
-      net::util::SharedPtr<net::SearcherStrategy> baseStrategy;
-      net::util::SharedPtr<net::SearcherStrategy> strategyAdapter;
-      F lockStep, cooja, clusterLockStep, clusterCooja;
-      SearcherAutoRun()
-        : baseStrategy(UseFifoStrategy?static_cast<net::SearcherStrategy*>(new net::FifoStrategy()):(UseRandomStrategy?static_cast<net::SearcherStrategy*>(new RandomStrategy()):static_cast<net::SearcherStrategy*>(new net::NullStrategy())))
-        , strategyAdapter((ClusterInstructions <= 1)?baseStrategy:net::util::SharedPtr<net::SearcherStrategy>(new net::RepeatStrategy(baseStrategy,ClusterInstructions)))
-        , lockStep(new KleeNetSearcherAF<net::LockStepSearcher>(UseLockStepSearch))
-        , cooja(new KleeNetSearcherAF<net::CoojaSearcher>(UseCoojaSearch))
-        , clusterLockStep(new KleeNetSearcherAF<net::GenericClusterSearcher<net::LockStepSearcher> >(UseLockStepClusterSearch,strategyAdapter))
-        , clusterCooja(new KleeNetSearcherAF<net::GenericClusterSearcher<net::CoojaSearcher> >(UseCoojaSearch,strategyAdapter))
-        {
-        (void)self;
-      }
-    };
+    SearcherAutoRun::SearcherAutoRun()
+      : baseStrategy(UseFifoStrategy?static_cast<net::SearcherStrategy*>(new net::FifoStrategy()):(UseRandomStrategy?static_cast<net::SearcherStrategy*>(new RandomStrategy()):static_cast<net::SearcherStrategy*>(new net::NullStrategy())))
+      , strategyAdapter((ClusterInstructions <= 1)?baseStrategy:net::util::SharedPtr<net::SearcherStrategy>(new net::RepeatStrategy(baseStrategy,ClusterInstructions)))
+      , lockStep(new KleeNetSearcherAF<net::LockStepSearcher>(UseLockStepSearch))
+      , cooja(new KleeNetSearcherAF<net::CoojaSearcher>(UseCoojaSearch))
+      , clusterLockStep(new KleeNetSearcherAF<net::GenericClusterSearcher<net::LockStepSearcher> >(UseLockStepClusterSearch,strategyAdapter))
+      , clusterCooja(new KleeNetSearcherAF<net::GenericClusterSearcher<net::CoojaSearcher> >(UseCoojaSearch,strategyAdapter))
+      {
+    }
+    void SearcherAutoRun::noop() const {
+    }
+    SearcherAutoRun const SearcherAutoRun::self;
   }
 }

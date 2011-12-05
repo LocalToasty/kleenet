@@ -10,14 +10,17 @@ namespace net {
     private:
       virtual ConstIteratable* dup() const = 0;
       virtual void reclaim() = 0;
+      virtual ConstIteratorHolder<T> const* isHolder() const {
+        return 0; // double dispatch, in a sense
+      }
     public:
       virtual T const& operator*() const = 0;
       virtual T const& operator->() const {
         return **this;
       }
       virtual ConstIteratable& operator++() = 0;
-      virtual bool operator==(ConstIteratable const&) = 0;
-      virtual bool operator!=(ConstIteratable const& with) {
+      virtual bool operator==(ConstIteratable const&) const = 0;
+      virtual bool operator!=(ConstIteratable const& with) const {
         return !(*this == with);
       }
   };
@@ -31,6 +34,9 @@ namespace net {
       void reclaim() {
         delete this;
       }
+      ConstIteratorHolder const* isHolder() const {
+        return this;
+      }
     public:
       ConstIteratorHolder(ConstIteratable<T> const& iter) : it(iter.dup()) {}
       ConstIteratorHolder(ConstIteratorHolder const& from) : it(from.it->dup()) {}
@@ -41,8 +47,10 @@ namespace net {
         ++*it;
         return *this;
       }
-      bool operator==(ConstIteratable<T> const& with) {
-        return *static_cast<ConstIteratorHolder const&>(with).it == *it;
+      bool operator==(ConstIteratable<T> const& with) const {
+        if (with.isHolder())
+          return *(with.isHolder()->it) == *it;
+        return with == *it; // good luck :)
       }
   };
 
@@ -71,7 +79,7 @@ namespace net {
         subject = 0;
         return *this;
       }
-      bool operator==(ConstIteratable<T> const& with) {
+      bool operator==(ConstIteratable<T> const& with) const {
         return static_cast<SingletonIterator const&>(with).subject == subject;
       }
   };
@@ -97,7 +105,7 @@ namespace net {
         ++it;
         return *this;
       }
-      bool operator==(ConstIteratable<T> const& with) {
+      bool operator==(ConstIteratable<T> const& with) const {
         return static_cast<StdConstIterator const&>(with).it == it;
       }
   };

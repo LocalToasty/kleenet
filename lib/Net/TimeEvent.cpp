@@ -38,9 +38,6 @@ void TimeEvent::removeState(BasicState* es) {
 }
 
 void TimeEvent::removeStateOnNode(BasicState* es, Node const node) {
-  for (Table::const_iterator it = scheduledNodes.begin(), en = scheduledNodes.end(); it != en; ++it)
-    std::cout << "Available node for TimeEvent: " << it->first.id << std::endl;
-  std::cout << "Looking for node " << node.id << std::endl;
   assert(scheduledNodes.count(node) && "the state is not scheduled, the node entry does not exist"); // TODO refactor me
   scheduledNodes[node].remove(es); // TODO refactor me
   if (scheduledNodes[node].empty())

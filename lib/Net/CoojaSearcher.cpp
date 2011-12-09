@@ -100,6 +100,8 @@ void CoojaSearcher::scheduleState(BasicState* state, Time time, EventKind ekind)
   if (ekind == EK_Boot) {
     schedInfo->scheduledBootTime = time;
     while (removeState(state,&Node::INVALID_NODE));
+    schedInfo->scheduledTime.insert(0);
+    calQueue[0].pushBack(state);
   }
   if (schedInfo->isScheduled()) {
     if (schedInfo->scheduledBootTime > time || schedInfo->virtualTime >= time) {
@@ -129,10 +131,10 @@ BasicState* CoojaSearcher::selectState() {
   cih.stateInfo(headState)->virtualTime = head->first;
   updateLowerBound(head->first);
   /*XXX*/static BasicState* last = NULL;
-  /*XXX*/if (last != headState) {
-  /*XXX*/  std::cout << "Selecting State " << headState << std::endl;
+  /*XXX*///if (last != headState) {
+  /*XXX*/  std::cout << "Selecting State " << headState << " at time " << head->first << std::endl;
   /*XXX*/  last = headState;
-  /*XXX*/}
+  /*XXX*///}
   return headState;
 }
 

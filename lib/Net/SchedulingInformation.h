@@ -20,12 +20,15 @@ namespace net {
     private:
       using StateDependant<SI>::setState;
       using StateDependant<SI>::setCloner;
+    protected:
+      SchedulingInformation() : StateDependant<SI>(), virtualTime(0) {
+      }
+      SchedulingInformation(SchedulingInformation const& from) : StateDependant<SI>(from), virtualTime(from.virtualTime) {
+      }
     public:
       Time virtualTime;
 
-      SchedulingInformation() : virtualTime(0) {}
       ~SchedulingInformation() {}
-
   };
   template <typename SI> struct SchedulingInformationHandler {
     protected:
@@ -35,7 +38,7 @@ namespace net {
         if (SI::retrieveDependant(state) == NULL) {
           SI* const si = new SI();
           si->setState(state);
-          si->setCloner(&Cloner<SchedulingInformation<SI> >::getCloner());
+          si->setCloner(&Cloner<SI>::getCloner());
         }
         // else: already equipped => do nothing
       }

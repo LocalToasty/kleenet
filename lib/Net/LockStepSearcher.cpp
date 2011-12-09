@@ -10,6 +10,7 @@
 namespace net {
   struct LockStepInformation : SchedulingInformation<LockStepInformation> {
     std::vector<BasicState*>::size_type slot;
+    LockStepInformation() : slot(-1) {}
   };
   struct LockStepInformationHandler : SchedulingInformationHandler<LockStepInformation> {
     std::vector<BasicState*> states;

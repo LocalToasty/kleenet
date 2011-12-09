@@ -11,6 +11,10 @@ namespace net {
     bool isScheduled;
     Time scheduledBootTime;
     Time scheduledTime;
+    CoojaInformation() : SchedulingInformation<CoojaInformation>(), isScheduled(false), scheduledBootTime(0), scheduledTime(0) {
+    }
+    CoojaInformation(CoojaInformation const& from) : SchedulingInformation<CoojaInformation>(from), isScheduled(false), scheduledBootTime(0), scheduledTime(0) {
+    }
   };
   struct CoojaInformationHandler : SchedulingInformationHandler<CoojaInformation> {
     CoojaInformationHandler() : SchedulingInformationHandler<CoojaInformation>() {}
@@ -63,9 +67,9 @@ bool CoojaSearcher::removeState(BasicState* state) {
 }
 
 void CoojaSearcher::add(ConstIteratable<BasicState*> const& begin, ConstIteratable<BasicState*> const& end) {
-  for (ConstIteratorHolder<BasicState*> it = begin; it != end; ++it) {
-    std::cout << "Got new BS: " << *it << std::endl;
-  }
+  //for (ConstIteratorHolder<BasicState*> it = begin; it != end; ++it) {
+  //  std::cout << "Got new BS: " << *it << std::endl;
+  //}
   for (ConstIteratorHolder<BasicState*> it = begin; it != end; ++it) {
     cih.equipState(*it);
     CoojaInformation* schInfo = cih.stateInfo(*it);

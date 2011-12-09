@@ -115,6 +115,11 @@ BasicState* CoojaSearcher::selectState() {
   BasicState* const headState = head->second.peakState();
   cih.stateInfo(headState)->virtualTime = head->first;
   updateLowerBound(head->first);
+  static BasicState* last = NULL;
+  if (last != headState) {
+    std::cout << "Selecting State " << headState << std::endl;
+    last = headState;
+  }
   return headState;
 }
 

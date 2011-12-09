@@ -12,6 +12,8 @@
 
 #include <algorithm>
 
+#include "../Net/StateDependant.h"
+#include "../Net/MappingInformation.h"
 //#include <iostream>
 
 namespace klee {
@@ -156,6 +158,14 @@ void Executor::terminateStateEarly(klee::ExecutionState& state,
     }
   };
   TSE hnd(this,message);
+  for (std::set<klee::ExecutionState*>::iterator it = states.begin(), en = states.end(); it != en; ++it) {
+    net::MappingInformation* mi = net::StateDependant<net::MappingInformation>::retrieveDependant(*it);
+    if (mi) {
+      std::cout << "ES " << *it << ": " << mi->getNode().id << std::endl;
+    } else {
+      std::cout << "ES " << *it << ": has no MI" << std::endl;
+    }
+  }
   kleenet.terminateCluster(state,hnd);
   //updateStates(NULL); // XXX !!! XXX
 }

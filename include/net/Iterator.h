@@ -2,20 +2,23 @@
 
 #include <assert.h>
 
+#include "util/SharedPtr.h"
+#include "util/Type.h"
+
 namespace net {
   template <typename T> class ConstIteratorHolder;
 
   template <typename T> class ConstIteratable {
     template <typename U> friend class ConstIteratorHolder;
     private:
-      virtual ConstIteratable* dup() const = 0;
-      virtual void reclaim() = 0;
+      virtual util::SharedPtr<ConstIteratable> dup() const = 0;
       virtual ConstIteratorHolder<T> const* isHolder() const {
         return 0; // double dispatch, in a sense
       }
     public:
-      virtual T const& operator*() const = 0;
-      virtual T const& operator->() const {
+      typedef typename util::ConstRefUnlessPtr<T>::Type Content;
+      virtual Content operator*() const = 0;
+      virtual Content operator->() const {
         return **this;
       }
       virtual ConstIteratable& operator++() = 0;
@@ -27,20 +30,17 @@ namespace net {
 
   template <typename T> class ConstIteratorHolder : public ConstIteratable<T> {
     private:
-      ConstIteratable<T>* it;
-      ConstIteratable<T>* dup() const {
-        return new ConstIteratorHolder(*this);
-      }
-      void reclaim() {
-        delete this;
+      util::SharedPtr<ConstIteratable<T> > it;
+      util::SharedPtr<ConstIteratable<T> > dup() const {
+        return util::SharedPtr<ConstIteratable<T> >(new ConstIteratorHolder(*this));
       }
       ConstIteratorHolder const* isHolder() const {
         return this;
       }
     public:
       ConstIteratorHolder(ConstIteratable<T> const& iter) : it(iter.dup()) {}
-      ConstIteratorHolder(ConstIteratorHolder const& from) : it(from.it->dup()) {}
-      T const& operator*() const {
+      ConstIteratorHolder(ConstIteratorHolder const& from) : it(from.it) {}
+      typename ConstIteratable<T>::Content operator*() const {
         return **it;
       }
       ConstIteratable<T>& operator++() {
@@ -60,18 +60,15 @@ namespace net {
   template <typename T> class SingletonIterator : public ConstIteratable<T> {
     private:
       T const* subject;
-      SingletonIterator<T>* dup() const {
-        return new SingletonIterator(*this);
-      }
-      void reclaim() {
-        delete this;
+      util::SharedPtr<ConstIteratable<T> > dup() const {
+        return util::SharedPtr<ConstIteratable<T> >(new SingletonIterator(*this));
       }
     public:
       SingletonIterator(T const* subject) : subject(subject) {}
       // dereferencing a default-ctor'd iterator results in undefined behaviour
       SingletonIterator() : subject(0) {}
       SingletonIterator(SingletonIterator const& from) : subject(from.subject) {}
-      T const& operator*() const {
+      typename ConstIteratable<T>::Content operator*() const {
         assert(subject);
         return *subject;
       }
@@ -87,19 +84,16 @@ namespace net {
   template <typename T, typename Container> class StdConstIterator : public ConstIteratable<T> {
     private:
       typename Container::const_iterator it;
-      ConstIteratable<T>* dup() const {
-        return new StdConstIterator(*this);
-      }
-      void reclaim() {
-        delete this;
+      util::SharedPtr<ConstIteratable<T> > dup() const {
+        return util::SharedPtr<ConstIteratable<T> >(new StdConstIterator(*this));
       }
     public:
-      StdConstIterator(typename Container::const_iterator it) : it(it) {}
-      StdConstIterator(StdConstIterator const& from) : it(from.it) {}
-      T const& operator*() const {
-        // Sadly, without i, the compiler doesn't understand what we are doing!
-        T const& i(*it);
-        return i;
+      StdConstIterator(typename Container::const_iterator it) : it(it) {
+      }
+      StdConstIterator(StdConstIterator const& from) : it(from.it) {
+      }
+      typename ConstIteratable<T>::Content operator*() const {
+        return static_cast<typename ConstIteratable<T>::Content>(*it);
       }
       ConstIteratable<T>& operator++() {
         ++it;

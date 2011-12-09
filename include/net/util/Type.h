@@ -14,5 +14,12 @@ namespace net {
     };
     template <typename T> struct Type<T&> : Type__impl<T> {
     };
+
+    template <typename T> struct ConstRefUnlessPtr {
+      typedef typename Type<T>::ConstRef Type;
+    };
+    template <typename T> struct ConstRefUnlessPtr<T*> {
+      typedef T* Type;
+    };
   }
 }

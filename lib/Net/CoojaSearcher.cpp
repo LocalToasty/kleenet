@@ -64,6 +64,9 @@ bool CoojaSearcher::removeState(BasicState* state) {
 
 void CoojaSearcher::add(ConstIteratable<BasicState*> const& begin, ConstIteratable<BasicState*> const& end) {
   for (ConstIteratorHolder<BasicState*> it = begin; it != end; ++it) {
+    std::cout << "Got new BS: " << *it << std::endl;
+  }
+  for (ConstIteratorHolder<BasicState*> it = begin; it != end; ++it) {
     cih.equipState(*it);
     CoojaInformation* schInfo = cih.stateInfo(*it);
     schInfo->scheduledTime = 0;

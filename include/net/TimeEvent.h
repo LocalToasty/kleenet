@@ -17,12 +17,11 @@ namespace net {
       TimeEvent();
       ~TimeEvent();
 
-      // XXX: boilerplate?
-      // FIXME please!
       BasicState* peakState();
       void popState();
       void pushBack(BasicState*);
       void removeState(BasicState*);
+      void removeStateOnNode(BasicState*, Node const);
       bool empty() const;
       bool isNodeScheduled(Node node);
   };

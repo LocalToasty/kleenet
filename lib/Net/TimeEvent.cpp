@@ -28,14 +28,21 @@ void TimeEvent::popState() {
     scheduledNodes.erase(it);
 }
 
-void TimeEvent::pushBack(BasicState *es) {
+void TimeEvent::pushBack(BasicState* es) {
   scheduledNodes[MappingInformation::retrieveDependant(es)->getNode()].push_back(es);
 }
 
-void TimeEvent::removeState(BasicState *es) {
+void TimeEvent::removeState(BasicState* es) {
   Node const node = MappingInformation::retrieveDependant(es)->getNode();
-  assert(scheduledNodes.count(node) && "the state is not scheduled, the node entry does not exist");
-  scheduledNodes[node].remove(es);
+  removeStateOnNode(es,node);
+}
+
+void TimeEvent::removeStateOnNode(BasicState* es, Node const node) {
+  for (Table::const_iterator it = scheduledNodes.begin(), en = scheduledNodes.end(); it != en; ++it)
+    std::cout << "Available node for TimeEvent: " << it->first.id << std::endl;
+  std::cout << "Looking for node " << node.id << std::endl;
+  assert(scheduledNodes.count(node) && "the state is not scheduled, the node entry does not exist"); // TODO refactor me
+  scheduledNodes[node].remove(es); // TODO refactor me
   if (scheduledNodes[node].empty())
     scheduledNodes.erase(node);
 }
@@ -43,15 +50,6 @@ void TimeEvent::removeState(BasicState *es) {
 bool TimeEvent::empty() const {
   return scheduledNodes.empty();
 }
-
-//void TimeEvent::printInfo() {
-//  std::cout << scheduledNodes.size() << " node(s)";
-//  for (Table::iterator i = scheduledNodes.begin(), e = scheduledNodes.end(); i != e; ++i) {
-//    std::list<BasicState*> &tmp = i->second;
-//    std::cout << ", " << i->first << ": " << tmp.size() << " states";
-//  }
-//  std::cout << "\n";
-//}
 
 bool TimeEvent::isNodeScheduled(Node node) {
   return scheduledNodes.count(node);

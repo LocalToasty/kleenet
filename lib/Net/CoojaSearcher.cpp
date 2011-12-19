@@ -94,7 +94,6 @@ void CoojaSearcher::remove(ConstIteratable<BasicState*> const& begin, ConstItera
 
 void CoojaSearcher::scheduleState(BasicState* state, Time time, EventKind ekind) {
   CoojaInformation* schedInfo = cih.stateInfo(state);
-  assert(time >= lowerBound());
   std::cout << "Schedule request for node " << state << " at time " << time << std::endl;
   std::cout << "Queue Size before scheduling " << calQueue.size() << std::endl;
   if (ekind == EK_Boot) {
@@ -115,6 +114,8 @@ void CoojaSearcher::scheduleState(BasicState* state, Time time, EventKind ekind)
       removeState(state);
     }
   }
+  std::cout << "Honouring schedule request for node " << state << " at time " << time << " (i.e. was not dropped)." << std::endl;
+  assert(time >= lowerBound());
   // set scheduled time
   schedInfo->scheduledTime.insert(time);
   // push the state into the fifo queue of the specified time event

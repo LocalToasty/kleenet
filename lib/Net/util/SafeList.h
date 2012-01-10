@@ -150,13 +150,15 @@ namespace net {
           assert(head.right && "Invalid FL: right is NULL");
           _size++;
           // We insert the element between 'head' and 'head.right'.
-          head.right = (head.right->left = (SafeListItem<T>::allocate(c, &head, head.right)));
+          head.right->left = (SafeListItem<T>::allocate(c, &head, head.right));
+          head.right = head.right->left;
           assert(head.check() && head.right->check() &&
             "SafeList::put produced an inconsistent result. I cannot recover, sorry.");
           return head.right;
         }
         void drop(SafeListItem<T> *i) { // O(1)
           assert(i);
+          assert(i->head && "Attempt to delete an item without list.");
           assert(i->head == &head && "Attempt to delete foreign item.");
           // This is essentially impossible outside the list, but better safe than sorry.
           assert(i != i->head && "Attempt to delete sentinel element.");

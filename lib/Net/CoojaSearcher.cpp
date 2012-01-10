@@ -150,6 +150,14 @@ void CoojaSearcher::yieldState(BasicState* bs) {
   assert(!calQueue.empty() && "Yielding state although none is active!");
   assert(cih.stateInfo(bs)->isScheduled() && "Yielding an unscheduled state!");
   std::cout << "Queue Size before yielding " << calQueue.size() << std::endl;
+  /*XXX*/if (calQueue.size() == 1) {
+  /*XXX*/  static int count = 10;
+  /*XXX*/  if (count) {
+  /*XXX*/    count--;
+  /*XXX*/  std::cout << "WARNING !!! Ignoring yield request to keep the queue from running empty. THIS IS A BUG IN YOUR CODE!   Remaining warnings: " << count << std::endl;
+  /*XXX*/  return;
+  /*XXX*/  }
+  /*XXX*/}
   bool wasin = removeState(bs);
   std::cout << "Queue Size after yielding " << calQueue.size() << std::endl;
   assert(wasin);

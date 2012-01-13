@@ -117,12 +117,12 @@ SdsEdge::~SdsEdge() {
 
 void SdsEdge::setState(SdsStateNode* newState) {
   if (state != newState) {
-    SuperInformation* a = NULL;
-    SuperInformation* b = NULL;
-    if (state)
-      a = &(state->si);
-    if (newState)
-      b = &(newState->si);
+    //SuperInformation* a = NULL;
+    //SuperInformation* b = NULL;
+    //if (state)
+    //  a = &(state->si);
+    //if (newState)
+    //  b = &(newState->si);
     //std::cout << "[edge " << this << "] setState: " << a << " -> " << b << std::endl;
     remove();
     state = newState;
@@ -136,12 +136,12 @@ SdsStateNode* SdsEdge::getState() const {
 
 void SdsEdge::setDState(SdsDStateNode* newDState) {
   if (dstate != newDState) {
-    DState* a = NULL;
-    DState* b = NULL;
-    if (dstate)
-      a = &(dstate->ds);
-    if (newDState)
-      b = &(newDState->ds);
+    //DState* a = NULL;
+    //DState* b = NULL;
+    //if (dstate)
+    //  a = &(dstate->ds);
+    //if (newDState)
+    //  b = &(newDState->ds);
     //std::cout << "[edge " << this << "] setDState: " << a << " -> " << b << std::endl;
     remove();
     dstate = newDState;

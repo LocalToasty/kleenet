@@ -214,8 +214,7 @@ namespace kleenet {
     ha.state.addressSpace.resolve(ha.state, executor->solver, ha.arguments[0], rl);
     assert(rl.size() == 1 && "kleenet_get_global_symbol: dest must resolve to precisely one object");
     klee::MemoryObject const* destMo = rl[0].first;
-    unsigned const destOffset = dyn_cast<ConstantExpr>(destMo->getOffsetExpr(ha.arguments[0]))->getZExtValue();
-    assert(!destOffset && "mo offset must be 0");
+    assert(!dyn_cast<ConstantExpr>(destMo->getOffsetExpr(ha.arguments[0]))->getZExtValue() && "mo offset must be 0");
     rl.clear();
 
     std::string const symbol = main->readStringAtAddress(ha.state, ha.arguments[1]);
@@ -404,7 +403,7 @@ namespace kleenet {
       net::StateMapper* const sm = executor->kleeNet.getStateMapper();
       // call mapping
       sm->map(ha.state, dest);
-      sm->findTargets(ha.state, destId);
+      sm->findTargets(ha.state, dest);
       for (net::StateMapper::iterator it = sm->begin(), end = sm->end(); it != end; ++it) {
         net::BasicState *bs = *it;
         // schedule immediate wakeup

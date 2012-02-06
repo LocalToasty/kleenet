@@ -84,7 +84,8 @@ StateCluster* SdsDStateNode::getCluster() {
     SdsNode* n = i.get()->traverseFrom(this);
     assert(n && n->isA == SNT_STATE_NODE);
     void dumpDSC(SdsDStateNode* ds, SdsNode* s);
-    dumpDSC(this,n);
+    // FIXME: missing reference to dumpDSC
+    //dumpDSC(this,n);
     myCluster = n->getCluster();
   }
   return myCluster;

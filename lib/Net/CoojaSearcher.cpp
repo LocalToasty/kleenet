@@ -11,10 +11,11 @@
 namespace net {
   struct CoojaInformation : SchedulingInformation<CoojaInformation> {
     std::set<Time> scheduledTime;
+    std::set<Time> danglingTimes;
     Time scheduledBootTime;
     CoojaInformation() : SchedulingInformation<CoojaInformation>(), scheduledTime(), scheduledBootTime(0) {
     }
-    CoojaInformation(CoojaInformation const& from) : SchedulingInformation<CoojaInformation>(from), scheduledTime(), scheduledBootTime(0) {
+    CoojaInformation(CoojaInformation const& from) : SchedulingInformation<CoojaInformation>(from), scheduledTime(), danglingTimes(scheduledTime), scheduledBootTime(from.scheduledBootTime) {
     }
     bool isScheduled() {
       return !scheduledTime.empty();
@@ -75,14 +76,19 @@ bool CoojaSearcher::removeState(BasicState* state, Node const* node) {
 }
 
 void CoojaSearcher::add(ConstIteratable<BasicState*> const& begin, ConstIteratable<BasicState*> const& end) {
-  //for (ConstIteratorHolder<BasicState*> it = begin; it != end; ++it) {
-  //  std::cout << "Got new BS: " << *it << std::endl;
-  //}
   for (ConstIteratorHolder<BasicState*> it = begin; it != end; ++it) {
     cih.equipState(*it);
-    CoojaInformation* schInfo = cih.stateInfo(*it);
+    CoojaInformation* const schInfo = cih.stateInfo(*it);
     assert(!schInfo->isScheduled() && "Newly added state is already scheduled? How?");
-    scheduleState(*it, schInfo->virtualTime, EK_Normal); // FIXME: Do we really have to pass Normal? Or do we need Boot?
+    // if we are forked from another state, we have to mirror its schedule times, otherwise we will have too bootstrap
+    if (schInfo->danglingTimes.empty()) {
+      scheduleState(*it, schInfo->virtualTime, EK_Normal);
+    } else {
+      for (std::set<Time>::const_iterator tm = schInfo->danglingTimes.begin(), tmEnd = schInfo->danglingTimes.end(); tm != tmEnd; ++tm) {
+        scheduleState(*it, *tm, EK_Normal);
+      }
+      schInfo->danglingTimes.clear();
+    }
   }
 }
 
@@ -94,16 +100,16 @@ void CoojaSearcher::remove(ConstIteratable<BasicState*> const& begin, ConstItera
 
 void CoojaSearcher::scheduleState(BasicState* state, Time time, EventKind ekind) {
   CoojaInformation* schedInfo = cih.stateInfo(state);
-  assert(time >= lowerBound());
   std::cout << "Schedule request for node " << state << " at time " << time << std::endl;
   std::cout << "Queue Size before scheduling " << calQueue.size() << std::endl;
   if (ekind == EK_Boot) {
     schedInfo->scheduledBootTime = time;
     while (removeState(state,&Node::INVALID_NODE));
-    schedInfo->scheduledTime.insert(0);
-    calQueue[0].pushBack(state);
+    //schedInfo->scheduledTime.insert(0); // XXX do we still need this? if so, why?
+    //calQueue[0].pushBack(state);
   }
   if (schedInfo->isScheduled()) {
+    // FIXME FIXME FIXME: Generate Error/Testcase if we schedule an event in the past (unless we havn't been booted yet)
     if (schedInfo->scheduledBootTime > time || schedInfo->virtualTime >= time) {
       // ignore wakeup request; XXX: Why are we doing this again?
       std::cout << "  ignoring schedule request!" << std::endl;
@@ -115,6 +121,8 @@ void CoojaSearcher::scheduleState(BasicState* state, Time time, EventKind ekind)
       removeState(state);
     }
   }
+  std::cout << "Honouring schedule request for node " << state << " at time " << time << " (i.e. was not dropped)." << std::endl;
+  assert(time >= lowerBound());
   // set scheduled time
   schedInfo->scheduledTime.insert(time);
   // push the state into the fifo queue of the specified time event
@@ -131,10 +139,10 @@ BasicState* CoojaSearcher::selectState() {
   cih.stateInfo(headState)->virtualTime = head->first;
   updateLowerBound(head->first);
   /*XXX*/static BasicState* last = NULL;
-  /*XXX*///if (last != headState) {
+  /*XXX*/if (last != headState) {
   /*XXX*/  std::cout << "Selecting State " << headState << " at time " << head->first << std::endl;
   /*XXX*/  last = headState;
-  /*XXX*///}
+  /*XXX*/}
   return headState;
 }
 
@@ -142,6 +150,14 @@ void CoojaSearcher::yieldState(BasicState* bs) {
   assert(!calQueue.empty() && "Yielding state although none is active!");
   assert(cih.stateInfo(bs)->isScheduled() && "Yielding an unscheduled state!");
   std::cout << "Queue Size before yielding " << calQueue.size() << std::endl;
+  /*XXX*/if (calQueue.size() == 1) {
+  /*XXX*/  static int count = 10;
+  /*XXX*/  if (count) {
+  /*XXX*/    count--;
+  /*XXX*/  std::cout << "WARNING !!! Ignoring yield request to keep the queue from running empty. THIS IS A BUG IN YOUR CODE!   Remaining warnings: " << count << std::endl;
+  /*XXX*/  return;
+  /*XXX*/  }
+  /*XXX*/}
   bool wasin = removeState(bs);
   std::cout << "Queue Size after yielding " << calQueue.size() << std::endl;
   assert(wasin);

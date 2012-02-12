@@ -1,5 +1,7 @@
 #pragma once
 
+#include <stddef.h>
+
 #include <set>
 #include <deque>
 #include <vector>
@@ -71,6 +73,7 @@ namespace net {
       /// If paranoid explosions are enabled, the explode method will perform a
       /// consistency check after exploding a state.
       static bool const PARANOID_EXPLOSIONS = false;
+      bool paranoidExplosionsActive() const;
       /// A log where newly created states are protocolled, you have to subscribe to it.
       SmStateLogger* const stateLogger;
       /// Which nodes are defined?

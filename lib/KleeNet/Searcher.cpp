@@ -29,7 +29,7 @@ net::Searcher* Searcher::netSearcher() const {
 
 klee::ExecutionState& Searcher::selectState() {
   klee::ExecutionState* const state = static_cast<klee::ExecutionState*>(ns->selectState());
-  assert(state);
+  assert(state && "The selected searcher probably ran out of states and panicked by returning NULL. This could be caused by yielding all states without them being scheduled.");
   return *state;
 }
 void Searcher::update(klee::ExecutionState* current, std::set<klee::ExecutionState*> const& added, std::set<klee::ExecutionState*> const& removed) {

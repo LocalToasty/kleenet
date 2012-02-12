@@ -208,15 +208,13 @@ namespace kleenet {
 
     size_t const len = args[2]->getZExtValue();
     assert(len > 0 && "n must be > 0");
-    Node destId = args[3]->getZExtValue();
 
     // grab the source os
     klee::ResolutionList rl;
     ha.state.addressSpace.resolve(ha.state, executor->solver, ha.arguments[0], rl);
     assert(rl.size() == 1 && "kleenet_get_global_symbol: dest must resolve to precisely one object");
     klee::MemoryObject const* destMo = rl[0].first;
-    unsigned const destOffset = dyn_cast<ConstantExpr>(destMo->getOffsetExpr(ha.arguments[0]))->getZExtValue();
-    assert(!destOffset && "mo offset must be 0");
+    assert(!dyn_cast<ConstantExpr>(destMo->getOffsetExpr(ha.arguments[0]))->getZExtValue() && "mo offset must be 0");
     rl.clear();
 
     std::string const symbol = main->readStringAtAddress(ha.state, ha.arguments[1]);
@@ -232,7 +230,7 @@ namespace kleenet {
         assert(len == it->second->size && "size mismatch");
 
         std::set<Node> tmpSet;
-        tmpSet.insert(Node(destId));
+        tmpSet.insert(dest);
         std::vector<net::BasicState*> siblings;
         /* XXX
            Why are we exploding in a logically non-mutating get request?
@@ -243,7 +241,7 @@ namespace kleenet {
         for (std::vector<net::BasicState*>::iterator sit = siblings.begin(),
             sie = siblings.end(); sit != sie; ++sit) {
           klee::ExecutionState* siblingEs = static_cast<klee::ExecutionState*>(*sit);
-          sm->findTargets(*siblingEs, destId);
+          sm->findTargets(*siblingEs, dest);
           net::StateMapper::iterator smit = sm->begin();
           assert(smit != sm->end() && "No states available");
           klee::ExecutionState* destEs = static_cast<klee::ExecutionState*>(*smit);
@@ -400,12 +398,12 @@ namespace kleenet {
   HAND(void,kleenet_wakeup_dest_states,1) {
     net::EventSearcher* const ev = executor->getNetSearcher()->netSearcher()->toEventSearcher();
     if (ev) { // hey, we do have an event-capable searcher :)
-      Node const destId = args[0]->getZExtValue();
+      Node const dest = args[0]->getZExtValue();
 
       net::StateMapper* const sm = executor->kleeNet.getStateMapper();
       // call mapping
-      sm->map(ha.state, destId);
-      sm->findTargets(ha.state, destId);
+      sm->map(ha.state, dest);
+      sm->findTargets(ha.state, dest);
       for (net::StateMapper::iterator it = sm->begin(), end = sm->end(); it != end; ++it) {
         net::BasicState *bs = *it;
         // schedule immediate wakeup

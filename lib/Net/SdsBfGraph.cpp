@@ -139,8 +139,10 @@ void SdsBfGraph::removedEdge(SdsEdge* e) {
   ddebug std::cout << "DONE removing Edge" << std::endl;
 }
 
-void dumpDSC(SdsDStateNode* ds, SdsNode* s) {
-  ddebug std::cout << "mirroring cluster of " << static_cast<BfN*>(s->info)->id << " by dstate " << static_cast<BfN*>(ds->info)->id << std::endl;
+namespace net {
+  void dumpDSC(SdsDStateNode* ds, SdsNode* s) {
+    ddebug std::cout << "mirroring cluster of " << static_cast<BfN*>(s->info)->id << " by dstate " << static_cast<BfN*>(ds->info)->id << std::endl;
+  }
 }
 
 void SdsBfGraph::addedEdge(SdsEdge* e) {

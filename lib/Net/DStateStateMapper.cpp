@@ -53,18 +53,23 @@ template <typename T> void DStateMapper<T>::_remove(std::set<BasicState*> const&
   // Check that all are in the same DState.
   Peers* ds = this->stateInfo(*(remstates.begin()))->peers;
   assert(ds);
-  // Check that they are all in the same Cluster.
-  StateCluster* c = this->stateInfo(*remstates.begin())->getCluster();
-  for (std::set<BasicState*>::iterator si = remstates.begin(),
-       se = remstates.end(); si != se; ++si) {
-    assert(this->stateInfo(*si)->peers == ds);
-    assert(this->stateInfo(*remstates.begin())->getCluster() == c);
+  bool performTests = false;
+  assert((performTests = true));
+  if (performTests) {
+    // Check that they are all in the same Cluster.
+    StateCluster* c = this->stateInfo(*remstates.begin())->getCluster();
+    (void)c;
+    for (std::set<BasicState*>::iterator si = remstates.begin(),
+         se = remstates.end(); si != se; ++si) {
+      assert(this->stateInfo(*si)->peers == ds);
+      assert(this->stateInfo(*remstates.begin())->getCluster() == c);
+    }
+    // See that the DState contains exactly the right states
+    // -- ALMOST perfect check - but cheap
+    assert(ds->size() == this->nodes().size());
+    // See that the Cluster contains exactly the right states
+    // XXX XXX XXX assert(c->members.size() == remstates.size());
   }
-  // See that the DState contains exactly the right states
-  // -- ALMOST perfect check - but cheap
-  assert(ds->size() == this->nodes().size());
-  // See that the Cluster contains exactly the right states
-  // XXX XXX XXX assert(c->members.size() == remstates.size());
 
   // Okay, we are convinced that noting too bad will happen
   // ... so go on with the real job.

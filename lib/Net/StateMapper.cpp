@@ -195,6 +195,13 @@ void StateMapper::map(std::set<BasicState*> const& states, Node dest) {
   }
 }
 
+
+bool StateMapper::paranoidExplosionsActive() const {
+  bool active = false;
+  assert((active = true));
+  return active && PARANOID_EXPLOSIONS;
+}
+
 void StateMapper::explode(BasicState* state) {
   explode(state, NULL);
 }
@@ -259,7 +266,7 @@ void StateMapper::explode(BasicState* state,
   std::set<BasicState*> check;
   while (!log.empty()) {
     BasicState* const s = log.back();
-    if (PARANOID_EXPLOSIONS)
+    if (paranoidExplosionsActive())
       check.insert(s);
     log.pop_back();
     if (siblings && stateInfo(s)->getNode() == nd) {
@@ -269,7 +276,7 @@ void StateMapper::explode(BasicState* state,
       siblings->push_back(s);
     }
     if (nlt[stateInfo(s)->getNode().id - min.id]) {
-      if (PARANOID_EXPLOSIONS)
+      if (paranoidExplosionsActive())
         check.insert(s);
       for (std::set<Node>::const_iterator it = cleanWithRespectTo.begin(), en = cleanWithRespectTo.end();
               it != en; ++it) {
@@ -280,7 +287,7 @@ void StateMapper::explode(BasicState* state,
       }
     }
   }
-  if (PARANOID_EXPLOSIONS) {
+  if (paranoidExplosionsActive()) {
     /*********** only for verification **/
     for (std::set<BasicState*>::iterator i = check.begin(), e = check.end();
             i != e; ++i) {

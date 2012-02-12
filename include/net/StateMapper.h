@@ -3,6 +3,7 @@
 #include <set>
 #include <deque>
 #include <vector>
+#include <cstddef>
 
 // Due to the excessive polymorphism used here you can loose track very easily
 // which methods are SUPPOSED to be customised and which are base class methods

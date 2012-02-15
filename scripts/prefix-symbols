@@ -1,0 +1,11 @@
+#!/bin/bash
+
+unamestr=`uname`
+ext="so"
+
+if [[ "$unamestr" == 'Darwin' ]]; then
+  ext="dylib"
+fi
+
+$LLVM_HOME/Release/bin/opt -load $KLEE/Release+Asserts/lib/prefix-symbols.$ext --llvm-prefix-symbols $@
+

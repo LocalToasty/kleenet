@@ -7,13 +7,16 @@
 
 namespace net {
   namespace util {
+    struct SafeListPoolDefault {
+      static const bool value = true;
+    };
     // forward declarations
-    template <class T, bool pool = true> class SafeList;
-    template <class T, bool pool = true> class SafeListMonad;
-    template <class T, bool pool = true> class SafeListIterator;
-    template <class T, bool pool = true> class SafeListHeadItem;
-
-    template <class T, bool pool = true> class SafeListItem {
+    template <class T, bool pool = SafeListPoolDefault::value> class SafeList;
+    template <class T, bool pool = SafeListPoolDefault::value> class SharedSafeList;
+    template <class T, bool pool = SafeListPoolDefault::value> class SafeListMonad;
+    template <class T, bool pool = SafeListPoolDefault::value> class SafeListIterator;
+    template <class T, bool pool = SafeListPoolDefault::value> class SafeListHeadItem;
+    template <class T, bool pool = SafeListPoolDefault::value> class SafeListItem {
       // SafeList not supported for non-pointer types!
       static const char error[(sizeof(T))-10000];
     };

@@ -9,6 +9,13 @@ namespace net {
       private:
         mutable SharedPtrBase const* left;
         mutable SharedPtrBase const* right;
+        // The idea behind "owned" is this: If at least one node in the ring
+        // votes for "false", the entire ring adopts this. But instead of
+        // propagating the transition from "true"->"false" at one node
+        // immediately, we wait, until the ring has collapsed to one single
+        // node (where propagation is not necessary). While nodes leave, they
+        // "infect" one of their neighbours with negative ownership.
+        mutable bool owned;
       protected:
         SharedPtrBase();
         SharedPtrBase(SharedPtrBase const& from);
@@ -17,7 +24,8 @@ namespace net {
         void join(SharedPtrBase const* where) const;
         void assertWrapper(bool) const;
       public:
-        bool isSingleton() const;
+        bool shouldDelete() const;
+        void release();
     };
     // TODO: make specialisation for something that provides us with a nested refcoutner
     // Eg. we could specialise for children of some 'SharedPtrAble' using SFINAE.
@@ -42,10 +50,10 @@ namespace net {
         Delete del;
         T* ptr;
         void drop() {
-          if (ptr && isSingleton()) {
+          if (ptr && shouldDelete()) {
             del(ptr);
-            ptr = NULL;
           }
+          ptr = NULL;
           leave();
         }
       public:
@@ -67,6 +75,9 @@ namespace net {
             join(&from);
           }
           return *this;
+        }
+        SharedPtr& operator=(T* from) {
+          return *this = SharedPtr(from,del);
         }
         bool operator==(SharedPtr const& with) const {
           return operator==(with.ptr);
@@ -90,9 +101,9 @@ namespace net {
         operator bool() const {
           return ptr;
         }
-        // NOTE: if one day needed, realease could be implemented with an anti-token
-        // that is included in the ring-list at an arbitrary position and prevents the last
-        // SharedPtr from invoking 'del`.
+        void release() { // use with extreme caution
+          SharedPtrBase::release();
+        }
     };
   }
 }

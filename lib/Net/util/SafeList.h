@@ -80,10 +80,7 @@ namespace net {
             arena.list->right->left = arena.list->left;
             arena.list = arena.list->right;
           }
-          result->left = l;
-          result->right = r;
-          result->content = c;
-          return result;
+          return new(result) SafeListItem(c,l,r);
         }
         static void reclaimAll(SafeListItem* i) {
           assert(i && i->left && i->right && "Cannot reclaim nonsense");
@@ -100,6 +97,8 @@ namespace net {
             arena.list->check();
             arena.list->left->check();
             arena.list->right->check();
+            // NOTE: calling ~SafeListItem on each item is omitted for efficiency.
+            // This is a pointer specialisation anyway!
           } else {
             i->left->right = NULL;
             do {

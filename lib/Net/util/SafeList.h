@@ -209,7 +209,7 @@ namespace net {
         }
         // DEFAULT COPY CTOR!!! That's what we do that whole mumbo jumbo for, after all!
         // DEFAULT DTOR
-        size_t size() const {
+        size_t size() const { // O(1)
           return safeList->size();
         }
         unsigned char isLocked() const { // O(1)
@@ -229,26 +229,27 @@ namespace net {
       private:
         SafeListHeadItem<T,pool> const* head;
         SafeListItem<T,pool>* move;
+        ssize_t remaining;
       public:
         // use this at your own risk! iterating WILL THROW A SEGFAULT!
         // more() will work, however
         // the reason for this constructor is to delay the assignment (call 'reassign' before using the object)
-        SafeListIterator() : head(NULL), move(NULL) {}
+        SafeListIterator() : head(NULL), move(NULL), remaining(0) {}
         ~SafeListIterator() {
           unassign();
         }
         // for(SafeListIterator it(sl); it.more(); it.next()) {dostuff(it.get());}
         // call 'get' when there are no more elements and get bogus!
-        SafeListIterator(SafeList<T,pool> const* sl) : head(NULL), move(NULL) {
+        SafeListIterator(SafeList<T,pool> const* sl) : head(NULL), move(NULL), remaining(0) {
           reassign(sl);
         }
-        SafeListIterator(SafeList<T,pool> const& sl) : head(NULL), move(NULL) {
+        SafeListIterator(SafeList<T,pool> const& sl) : head(NULL), move(NULL), remaining(0) {
           reassign(sl);
         }
-        SafeListIterator(SharedSafeList<T,pool> const* sl) : head(NULL), move(NULL) {
+        SafeListIterator(SharedSafeList<T,pool> const* sl) : head(NULL), move(NULL), remaining(0) {
           reassign(sl);
         }
-        SafeListIterator(SharedSafeList<T,pool> const& sl) : head(NULL), move(NULL) {
+        SafeListIterator(SharedSafeList<T,pool> const& sl) : head(NULL), move(NULL), remaining(0) {
           reassign(sl);
         }
         void unassign() {
@@ -276,15 +277,19 @@ namespace net {
           reassign(*sl);
         }
         void restart() {
+          remaining = head->list->size();
           move = head->right;
         }
         bool more() const {
+          assert(remaining >= 0 && "SafeList bounds overrun");
           return move != head;
         }
         void next() {
+          assert(remaining-- > 0 && "SafeList bounds overrun");
           move = move->right;
         }
         T get() const {
+          assert(remaining > 0 && "SafeList bounds overrun");
           return move->content;
         }
         bool empty() const {

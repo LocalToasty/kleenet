@@ -12,11 +12,15 @@
 namespace net {
   struct CoojaInformation : SchedulingInformation<CoojaInformation> {
     std::set<Time> scheduledTime;
+    // danglingTimes are only used for copy construction of states
+    // (to duplicate the scheduleTimes of the original state).
+    // That is, these are times the state thinks it is scheduled,
+    // but that it has not yet been to in our data structures.
     std::set<Time> danglingTimes;
     Time scheduledBootTime;
     CoojaInformation() : SchedulingInformation<CoojaInformation>(), scheduledTime(), scheduledBootTime(0) {
     }
-    CoojaInformation(CoojaInformation const& from) : SchedulingInformation<CoojaInformation>(from), scheduledTime(), danglingTimes(scheduledTime), scheduledBootTime(from.scheduledBootTime) {
+    CoojaInformation(CoojaInformation const& from) : SchedulingInformation<CoojaInformation>(from), scheduledTime(), danglingTimes(from.scheduledTime), scheduledBootTime(from.scheduledBootTime) {
     }
     bool isScheduled() {
       return !scheduledTime.empty();
@@ -156,7 +160,7 @@ void CoojaSearcher::yieldState(BasicState* bs) {
   /*XXX*/  if (count) {
   /*XXX*/    count--;
   /*XXX*/  std::cout << "WARNING !!! Ignoring yield request to keep the queue from running empty. THIS IS A BUG IN YOUR CODE!   Remaining warnings: " << count << std::endl;
-  /*XXX*/  return;
+  /*XXX*/  //return;
   /*XXX*/  }
   /*XXX*/}
   bool wasin = removeState(bs);

@@ -108,7 +108,7 @@ namespace kleenet {
           unsigned k = 0;
           constArgs.reserve(ha.arguments.size());
           for (std::vector<klee::ref<Expr> >::const_iterator it = ha.arguments.begin(), en = ha.arguments.end(); it != en; ++it,++k) {
-            ConstantExpr* const ce = dyn_cast<ConstantExpr>(ha.arguments[0]);
+            ConstantExpr* const ce = dyn_cast<ConstantExpr>(*it);
             if (ce) {
               constArgs.push_back(ce);
             } else {
@@ -413,6 +413,10 @@ namespace kleenet {
       // invalidate found states
       sm->invalidate();
     }
+  }
+
+  HAND(uintptr_t,kleenet_get_state,0) {
+    return reinterpret_cast<uintptr_t>(&(ha.state));
   }
 
 }

@@ -162,6 +162,12 @@ bool StateMapper::checkMappingAdmissible(BasicState const* es, Node n) const {
     && "State to map has no valid mapping information.");
   assert(nodes().find(stateInfo(es)->getNode()) != nodes().end()
     && "Cannot map from a non-existant node.");
+  if (nodes().find(n) == nodes().end()) {
+    std::cout << " ! WARNING ! Trying to map to node " << n.id << " while the valid nodes are:" << std::endl;
+    for (Nodes::const_iterator it = nodes().begin(), en = nodes().end(); it != en; ++it) {
+      std::cout << "  * " << it->id << std::endl;
+    }
+  }
   assert(nodes().find(n) != nodes().end()
     && "Cannot map to a non-existant node.");
   // no local delivery => call custom code
@@ -363,9 +369,6 @@ size_t StateMapper::findTargets(BasicState const& state, Node const dest) const 
     "Invalidate first.");
   assert(stateInfo(state) &&
     "Cannot find targets for a state without mapping information.");
-  if (nodes().find(stateInfo(state)->getNode()) == nodes().end()) {
-    MappingInformation* const mi = stateInfo(state);
-  }
   assert(nodes().find(dest) != nodes().end() &&
     "Cannot findTargets of a non-existant node.");
   assert(nodes().find(stateInfo(state)->getNode()) != nodes().end() &&

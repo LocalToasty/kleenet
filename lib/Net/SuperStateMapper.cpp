@@ -594,20 +594,17 @@ template <typename Graph> void SuperStateMapperWithClustering<Graph>::_map(Basic
   // Prelimiary work:
   //  We are transmitting, so the complete network must be booted.
   //  Hence we remove the rootDState.
-  std::cerr << "invalidating rootDState before _map" << std::endl;
   rootDState = NULL;
   SuperStateMapper::_map(state,dest);
 }
 
 template <typename Graph> void SuperStateMapperWithClustering<Graph>::_phonyMap(std::set<BasicState*> const &state, Node dest) {
-  std::cerr << "invalidating rootDState before _phonyMap" << std::endl;
   rootDState = NULL;
   SuperStateMapper::_phonyMap(state,dest);
 }
 
 template <typename Graph> void SuperStateMapperWithClustering<Graph>::_remove(std::set<BasicState*> const& remstates) {
   SuperStateMapper::_remove(remstates);
-  std::cerr << "invalidating rootDState after _remove" << std::endl;
   rootDState = NULL;
 }
 
@@ -619,7 +616,6 @@ template <typename Graph> SuperStateMapperWithClustering<Graph>::~SuperStateMapp
   if (rootDState) {
     assert(activeDStates.list.size() && "Root dstate exists but is not active.");
     delete rootDState;
-    std::cerr << "invalidating rootDState because SDS DTOR" << std::endl;
     rootDState = NULL;
   }
 }

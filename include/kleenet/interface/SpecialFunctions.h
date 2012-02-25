@@ -13,7 +13,8 @@
 #ifndef __KLEENET_H__
 #define __KLEENET_H__
 
-#include "stddef.h"
+#include <stddef.h>
+#include <stdint.h>
 
 #ifdef __cplusplus
 extern "C" {
@@ -107,6 +108,11 @@ extern "C" {
   ///
   /// \param destId - The id of the destination node.
   void kleenet_wakeup_dest_states(int destId);
+
+  /// A routine purely for debug purposes, returning a unique designator.
+  /// The designator is chosen to match the address of the internal representation
+  /// the current state. Note: Future versions may implement this differently or not at all.
+  uintptr_t kleenet_get_state(void);
 
 #ifdef __cplusplus
 }

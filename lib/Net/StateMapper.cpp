@@ -15,20 +15,20 @@ namespace net {
 
   class SmStateLog {
     private:
-      SmStateLogger* const logger;
+      SmStateLogger& logger;
     public:
-      SmStateLog(SmStateLogger*);
-      ~SmStateLog();
+      SmStateLog(SmStateLogger&);
+      virtual ~SmStateLog();
       virtual void tell(BasicState*) = 0;
   };
 
   class SmStateLogger {
     friend class SmStateLog;
     private:
-    std::set<SmStateLog*> subscribers;
+      std::set<SmStateLog*> subscribers;
     public:
-    void newState(BasicState* es) {
-      for (std::set<SmStateLog*>::iterator i(subscribers.begin()), e(subscribers.end()); i != e; ++i) {
+      void newState(BasicState* es) {
+        for (std::set<SmStateLog*>::iterator i(subscribers.begin()), e(subscribers.end()); i != e; ++i) {
         (*i)->tell(es);
       }
     }
@@ -38,9 +38,9 @@ namespace net {
     private:
       Container& log;
     public:
-      SmStateBufferLog(SmStateLogger* logger, Container& log)
+      SmStateBufferLog(SmStateLogger& logger, Container& log)
         : SmStateLog(logger), log(log) {
-        }
+      }
       void tell(BasicState* s) {
         log.push_back(s);
       }
@@ -63,13 +63,13 @@ namespace net {
 
 using namespace net;
 
-SmStateLog::SmStateLog(SmStateLogger* logger)
+SmStateLog::SmStateLog(SmStateLogger& logger)
   : logger(logger) {
-  logger->subscribers.insert(this);
+  logger.subscribers.insert(this);
 }
 
 SmStateLog::~SmStateLog() {
-  logger->subscribers.erase(this);
+  logger.subscribers.erase(this);
 }
 
 StateMapper::StateMapper(StateMapperInitialiser const& initialiser, BasicState* rootState, MappingInformation* mi)
@@ -113,7 +113,7 @@ void StateMapper::setStateNode(BasicState const* state, Node const& n) {
 
 /// Fork the passed state but do nothing else.
 BasicState* StateMapper::fork(BasicState* state) {
-  BasicState *ns = state->forceFork();
+  BasicState* ns = state->forceFork();
   assert(ns != state);
 
   stateLogger->newState(ns);
@@ -227,7 +227,7 @@ void StateMapper::explode(BasicState* state,
   // states, so that we do not miss new siblings. Note that 'state' will never
   // be added to the log.
   std::vector<BasicState*> log;
-  SmStateBufferLog<std::vector<BasicState*> > logwrap(stateLogger,log);
+  SmStateBufferLog<std::vector<BasicState*> > logwrap(*stateLogger,log);
   Node const nd = stateInfo(state)->getNode();
   // Now, execute a "cleaning sequence", to get rid of all rivals (we do not
   // want to explode these). We have to map to all nodes to be sure that 'state'
@@ -305,7 +305,9 @@ void StateMapper::explode(BasicState* state,
 }
 
 void StateMapper::remove(BasicState *state) {
-  assert(state && "Unknown state");
+  bool excessiveTests = false;
+  (void)excessiveTests;
+  assert((excessiveTests = true) && state && "Unknown state");
   if (!stateInfo(state))
     return;
   if (stateInfo(state)->getNode() == Node::INVALID_NODE) {
@@ -328,16 +330,18 @@ void StateMapper::remove(BasicState *state) {
   // Check if 'state' has rivals.
   // This test is incomplete, as the target states could have rivals,
   // but that would be too expensive to check, so we don't.
-  for (std::set<BasicState*>::iterator si = states.begin(), se = states.end();
-          si != se; ++si) {
-    assert(stateInfo(*si)->getNode() != Node::INVALID_NODE &&
-      "State has no associated node.");
-    size_t count = findTargets(**si, stateInfo(state)->getNode());
-    assert(count == 1 &&
-      "State was not exploded before removal: Target has ambigous peers.");
-    assert(*(begin()) == state &&
-      "Mapper inconsistency: Visibility is not symmetric; This is bad! Seriously!");
-    invalidate();
+  if (excessiveTests) {
+    for (std::set<BasicState*>::iterator si = states.begin(), se = states.end();
+        si != se; ++si) {
+      assert(stateInfo(*si)->getNode() != Node::INVALID_NODE &&
+          "State has no associated node.");
+      size_t count = findTargets(**si, stateInfo(state)->getNode());
+      assert(count == 1 &&
+          "State was not exploded before removal: Target has ambigous peers.");
+      assert(*(begin()) == state &&
+          "Mapper inconsistency: Visibility is not symmetric; This is bad! Seriously!");
+      invalidate();
+    }
   }
   // Tell the mapping algorithm to throw out this dscenario.
   _remove(states);
@@ -361,12 +365,6 @@ size_t StateMapper::findTargets(BasicState const& state, Node const dest) const 
     "Cannot find targets for a state without mapping information.");
   if (nodes().find(stateInfo(state)->getNode()) == nodes().end()) {
     MappingInformation* const mi = stateInfo(state);
-    std::cout << "findTargets " << mi->getNode().id << " -> " << dest.id << std::endl;
-    std::cout << "Valid Nodes:";
-    for (std::set<Node>::const_iterator it = nodes().begin(), en = nodes().end(); it != en; ++it) {
-      std::cout << " " << it->id;
-    }
-    std::cout << std::endl;
   }
   assert(nodes().find(dest) != nodes().end() &&
     "Cannot findTargets of a non-existant node.");
@@ -433,10 +431,10 @@ void StateMapper::terminateCluster(BasicState& state, TerminateStateHandler cons
         "incorrect number of targets");
     }
   }
-  // finally, terminate all involved states (state + targets)
-  terminate(state,targets);
   // remove dscenario from the mapper
   remove(&state);
+  // finally, terminate all involved states (state + targets)
+  terminate(state,targets);
   // terminate siblings' dscenarios recursively if any
   for (std::vector<BasicState*>::iterator it = siblings.begin(), ie = siblings.end(); it != ie; ++it) {
     if (*it != &state)

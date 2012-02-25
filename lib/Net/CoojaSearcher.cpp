@@ -5,6 +5,7 @@
 #include "net/PacketCache.h"
 
 #include <set>
+#include <iostream>
 
 // TODO: check that we *actually* behave like cooja
 

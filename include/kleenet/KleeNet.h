@@ -62,6 +62,7 @@ namespace kleenet {
       void memTxRequest(klee::ExecutionState&, PacketInfo const&, net::ExData const&) const;
       struct TerminateStateHandler {
         virtual void operator()(klee::ExecutionState&,std::vector<klee::ExecutionState*> const&) const = 0;
+        virtual ~TerminateStateHandler();
       };
       void terminateCluster(klee::ExecutionState& state, TerminateStateHandler const&); // <3 λ
       ~KleeNet();

@@ -5,6 +5,7 @@
 #include <set>
 #include <deque>
 #include <vector>
+#include <memory>
 
 // Due to the excessive polymorphism used here you can loose track very easily
 // which methods are SUPPOSED to be customised and which are base class methods
@@ -74,7 +75,7 @@ namespace net {
       static bool const PARANOID_EXPLOSIONS = false;
       bool paranoidExplosionsActive() const;
       /// A log where newly created states are protocolled, you have to subscribe to it.
-      SmStateLogger* const stateLogger;
+      std::auto_ptr<SmStateLogger> const stateLogger;
       /// Which nodes are defined?
       Nodes _nodes;
       unsigned _truncatedDScenarios;

@@ -61,6 +61,7 @@ namespace net {
       bool isTarget;
 
       VState(SuperInformation *s);
+      ~VState();
       void moveTo(SuperInformation *s);
       SuperInformation *info();
       DState *dstate();

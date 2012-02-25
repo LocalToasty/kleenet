@@ -17,7 +17,7 @@ size_t& BasicState::tableSize() {
 }
 
 BasicState::BasicState() : dependants(tableSize(),NULL), fake(util::isOnStack(this)) {
-  //std::cout << "Creating STATE " << this << std::endl; // XXX
+  //std::cout << "Creating BasicState " << this << std::endl; // XXX
 }
 
 bool BasicState::isFake() const {
@@ -25,11 +25,12 @@ bool BasicState::isFake() const {
 }
 
 BasicState::BasicState(BasicState const& from) : dependants(tableSize(), NULL), fake(util::isOnStack(this)) {
-  //std::cout << "Creating STATE " << this << " (from " << &from << ")" << std::endl; // XXX
+  //std::cout << "Creating BasicState " << this << " (from " << &from << ")" << std::endl; // XXX
 
   assert((fake || !from.fake) && "Attempt to create a non-fake state from a fake state.");
   assert(from.dependants.size() == tableSize() && "Table size was changed after initialisation");
   if (!fake) {
+    //std::cout << "BasicState " << this << " is not a fake." << std::endl;
     for (size_t i = 0; i < tableSize(); i++) {
       StateDependantI* const dep(from.dependants[i]);
       if (dep) {
@@ -41,7 +42,7 @@ BasicState::BasicState(BasicState const& from) : dependants(tableSize(), NULL), 
 }
 
 BasicState::~BasicState() {
-  //std::cout << "Destroying STATE " << this << std::endl; // XXX
+  //std::cout << "Destroying BasicState " << this << std::endl; // XXX
   for (size_t i = 0; i < tableSize(); i++) {
     StateDependantI* const dep(dependants[i]);
     if (dep) {

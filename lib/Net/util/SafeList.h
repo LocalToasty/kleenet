@@ -158,12 +158,19 @@ namespace net {
         ~SafeList() { // O(1)
           assert((!locks) && "Attempt to destroy a locked list.");
           // The list is empty iff head is the only element in the list.
+          //if (!(&head == head.left && &head == head.right)) {
+          //  std::cout << "[" << this << "] ~SafeList while not empty!!!" << std::endl;
+          //  for (SafeListIterator<T> it(*this); it.more(); it.next()) {
+          //    std::cout << "[" << this << "]    - " << it.get() << std::endl;
+          //  }
+          //}
           assert(&head == head.left && &head == head.right && "Attempt to destroy a non-empty list.");
         }
         unsigned char isLocked() const { // O(1)
           return locks;
         }
         SafeListItem<T,pool> *put(T c) { // O(1)
+          //std::cout << "[" << this << "] put(" << c << ")" << std::endl;
           assert((!locks) && "Attempt to modify locked list by insertion.");
           assert(head.right && "Invalid FL: right is NULL");
           _size++;
@@ -175,6 +182,7 @@ namespace net {
           return head.right;
         }
         void drop(SafeListItem<T,pool> *i) { // O(1)
+          //std::cout << "[" << this << "] drop(" << i->content << ")" << std::endl;
           assert(i);
           assert(i->head && "Attempt to delete an item without list.");
           assert(i->head == &head && "Attempt to delete foreign item.");
@@ -189,6 +197,7 @@ namespace net {
           SafeListItem<T,pool>::reclaimAll(i);
         }
         void dropAll() { // O(1)
+          //std::cout << "[" << this << "] dropAll()" << std::endl;
           assert((!locks) && "Attempt to clear locked list.");
           if (_size) {
             _size = 0;

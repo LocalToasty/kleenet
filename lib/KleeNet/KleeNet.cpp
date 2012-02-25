@@ -102,6 +102,9 @@ KleeNet::RunEnv::~RunEnv() {
   kleenet.env = NULL;
 }
 
+KleeNet::TerminateStateHandler::~TerminateStateHandler() {
+}
+
 
 void KleeNet::memTxRequest(klee::ExecutionState& state, PacketInfo const& pi, net::ExData const& exData) const {
   assert(env && "Network environment not running!");
@@ -131,8 +134,7 @@ void KleeNet::terminateCluster(klee::ExecutionState& state, KleeNet::TerminateSt
     public:
       BasicTerminate(KleeNet::TerminateStateHandler const& terminate) : terminate(terminate) {}
       void operator()(net::BasicState& state, std::vector<net::BasicState*> const& appendix) const {
-        cache.resize(0);
-        cache.reserve(appendix.size());
+        cache.resize(appendix.size());
         std::transform(appendix.begin(),appendix.end(),cache.begin(),net::basic_terminate::cast());
         terminate(*(net::basic_terminate::cast()(&state)),cache);
       }

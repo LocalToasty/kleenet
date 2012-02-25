@@ -5,8 +5,6 @@
 #include "MappingInformation.h"
 #include "StateCluster.h"
 
-#include <iostream> // XXX
-
 using namespace net;
 
 MappingInformation::MappingInformation()

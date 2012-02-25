@@ -120,9 +120,9 @@ void SdsBfGraph::removedEdge(SdsEdge* e) {
     ddebug {//debug
       ClCount cc2;
       bool f = find(e->getDState(),e->getState(),&cc2);
-      std::cout << "\tcould not find dstate (s: " << cc.cnt << ", ds: " << cc2.cnt << ")" << std::endl;
+      ddebug std::cout << "\tcould not find dstate (s: " << cc.cnt << ", ds: " << cc2.cnt << ")" << std::endl;
       if (f)
-        std::cout << "BUT THE REVERSE PATH EXISTS!" << std::endl;
+        ddebug std::cout << "BUT THE REVERSE PATH EXISTS!" << std::endl;
     }
     SdsNode* change = e->getDState();
     SdsNode* keep = e->getState();

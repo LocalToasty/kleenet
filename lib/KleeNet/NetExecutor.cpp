@@ -14,7 +14,6 @@
 
 #include "../Net/StateDependant.h"
 #include "../Net/MappingInformation.h"
-//#include <iostream>
 
 namespace klee {
   class ObjectState;
@@ -35,7 +34,7 @@ namespace {
     llvm::cl::desc("Decide what to do when a distributed scenario terminates (default: uniform)."),
     llvm::cl::values(
           clEnumValN(DTB_singleTestCase,
-                     "single", "Create only one test case for the state that terminates."),
+                     "single", "Create only one test case for the distributed scenario that terminates."),
           clEnumValN(DTB_uniformTestCase,
                      "uniform", "Create one test case for each state that belongs to the network that terminates. This is done using the same algorithm which may cause not all test cases to be produced (e.g. if they do not carry new information)."),
           clEnumValN(DTB_forceAllTestCase,
@@ -75,15 +74,18 @@ namespace kleenet {
         if (!appendix.empty())
           e->netInterpreterHandler->incDScenariosExplored();
         (*this)(state);
+        bool generateTestCases = true;
         switch (distributedTerminateBehaviour) {
-          case DTB_singleTestCase:
-            break;
           case DTB_uniformTestCase:
             std::for_each<std::vector<klee::ExecutionState*>::const_iterator,NetExTHnd const&>(appendix.begin(),appendix.end(),*this);
             break;
+          case DTB_singleTestCase:
+            generateTestCases = false;
+            // Intentional fall through!
           case DTB_forceAllTestCase:
             for (std::vector<klee::ExecutionState*>::const_iterator it(appendix.begin()), end(appendix.end()); it != end; ++it) {
-              e->netInterpreterHandler->processTestCase(**it,NULL,NULL);
+              if (generateTestCases)
+                e->netInterpreterHandler->processTestCase(**it,NULL,NULL);
               e->klee::Executor::terminateState(**it);
             }
         }
@@ -138,9 +140,7 @@ klee::Searcher* Executor::constructUserSearcher(klee::Executor& e) {
 
 void Executor::run(klee::ExecutionState& initialState) {
   KleeNet::RunEnv knRunEnv(kleenet,&initialState);
-  //std::cout << "RunEnv WAS CREATED" << std::endl;
   klee::Executor::run(initialState);
-  //std::cout << "RunEnv ABOUT TO GO OUT OF SCOPE" << std::endl;
 }
 
 void Executor::terminateStateEarly_klee(klee::ExecutionState& state,

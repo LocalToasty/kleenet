@@ -33,12 +33,13 @@ namespace net {
             virtual void operator()(ExData const& exData, std::set<BasicState*> const& states) const = 0;
           };
         private:
-          void call(ExData::iterator it, ExData const& exData, Functor const& func) const;
+          void unfoldWith(ExData::iterator it, unsigned remainingDepth, ExData const& exData, Functor const& func) const;
         public:
           StateTrie();
           unsigned insert(ExData::const_iterator begin, ExData::const_iterator end, BasicState* s);
           void call(Functor const& func) const;
           void clear();
+          Tree::size_type size() const;
       };
       void cacheMapping(BasicState* sender, StateTrie& location, ExData const& data);
       struct Transmitter {

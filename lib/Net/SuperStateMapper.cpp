@@ -310,8 +310,6 @@ namespace {
 
 void SuperStateMapper::_map(BasicState &es, Node dest) {
   //std::cout << std::endl << std::endl << "############################################# START MAP" << std::endl;
-  static unsigned LIMIT = 10;
-  assert(LIMIT--);
   // How to read this function:
   //   There are several places where we will (logically) need a map, but
   //   instead of using map<class1*,class2*> you will often see an attribute of

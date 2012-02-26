@@ -23,8 +23,15 @@
 #include "../Core/Context.h"
 #include "../Core/Memory.h"
 
-#include <iostream> // XXX
+#include <iostream>
 
+#include "llvm/Support/CommandLine.h"
+
+namespace {
+  llvm::cl::opt<bool>
+  DumpKleenetSfhCalls("dump-kleenet-sfh-calls",
+      llvm::cl::desc("This is a debug feature for interface code. If you enable this, all invocations of special function handlers will be dumped on standard out, prefixed by 'SFH'."));
+}
 
 namespace kleenet {
   // some aliases
@@ -139,18 +146,22 @@ namespace kleenet {
       void callHnd(klee::KInstruction* target,
                    HandleArgs const ha,
                    ConstArgs const& constArgs) {
-        std::cout << "SFH[" << &ha.state << "]" << " calling " << binding << "(";
-        std::string del = "";
-        for (ConstArgs::const_iterator it = constArgs.begin(), en = constArgs.end(); it != en; ++it) {
-          std::cout << del << (*it)->getZExtValue();
-          del = ", ";
+        if (DumpKleenetSfhCalls) {
+          std::cout << "SFH[" << &ha.state << "]" << " calling " << binding << "(";
+          std::string del = "";
+          for (ConstArgs::const_iterator it = constArgs.begin(), en = constArgs.end(); it != en; ++it) {
+            std::cout << del << (*it)->getZExtValue();
+            del = ", ";
+          }
         }
         Returns ret;
         this->executor->bindLocal(target, ha.state,
           klee::ConstantExpr::create(
             ret = this->hnd(ha,constArgs),
             klee::Context::get().getPointerWidth()));
-        std::cout << ")" << " -> " << ret << std::endl;
+        if (DumpKleenetSfhCalls) {
+          std::cout << ")" << " -> " << ret << std::endl;
+        }
       }
     };
     template <typename Self, unsigned args, char const* binding, bool doesNotReturn, bool doNotOverride>
@@ -158,13 +169,15 @@ namespace kleenet {
       void callHnd(klee::KInstruction* target,
                    HandleArgs const ha,
                    ConstArgs const& constArgs) {
-        std::cout << "SFH[" << &ha.state << "]" << " calling " << binding << "(";
-        std::string del = "";
-        for (ConstArgs::const_iterator it = constArgs.begin(), en = constArgs.end(); it != en; ++it) {
-          std::cout << del << (*it)->getZExtValue();
-          del = ", ";
+        if (DumpKleenetSfhCalls) {
+          std::cout << "SFH[" << &ha.state << "]" << " calling " << binding << "(";
+          std::string del = "";
+          for (ConstArgs::const_iterator it = constArgs.begin(), en = constArgs.end(); it != en; ++it) {
+            std::cout << del << (*it)->getZExtValue();
+            del = ", ";
+          }
+          std::cout << ")" << std::endl;
         }
-        std::cout << ")" << std::endl;
         this->hnd(ha,constArgs);
       }
     };

@@ -163,9 +163,9 @@ bool StateMapper::checkMappingAdmissible(BasicState const* es, Node n) const {
   assert(nodes().find(stateInfo(es)->getNode()) != nodes().end()
     && "Cannot map from a non-existant node.");
   if (nodes().find(n) == nodes().end()) {
-    std::cout << " ! WARNING ! Trying to map to node " << n.id << " while the valid nodes are:" << std::endl;
+    std::cerr << " ! WARNING ! Trying to map to node " << n.id << " while the valid nodes are:" << std::endl;
     for (Nodes::const_iterator it = nodes().begin(), en = nodes().end(); it != en; ++it) {
-      std::cout << "  * " << it->id << std::endl;
+      std::cerr << "  * " << it->id << std::endl;
     }
   }
   assert(nodes().find(n) != nodes().end()

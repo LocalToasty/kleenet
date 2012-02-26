@@ -12,7 +12,7 @@ MappingInformation::MappingInformation()
   , StateDependant<MappingInformation>()
   , cluster(NULL)
   , _node(Node::INVALID_NODE) {
-  std::cout << "[" << this << "] MappingInformation()" << std::endl;
+  std::cerr << "[" << this << "] MappingInformation()" << std::endl;
 }
 MappingInformation::MappingInformation(MappingInformation const& from)
   : Observable<MappingInformation>(this)
@@ -20,7 +20,7 @@ MappingInformation::MappingInformation(MappingInformation const& from)
   , cluster(from.cluster)
   , _node(from._node) {
   from.assimilate(this);
-  std::cout << "[" << this << "] MappingInformation(MappingInformation const&) // node = " << _node.id << std::endl;
+  std::cerr << "[" << this << "] MappingInformation(MappingInformation const&) // node = " << _node.id << std::endl;
 }
 MappingInformation::~MappingInformation() {
   if (cluster) {
@@ -48,7 +48,7 @@ void MappingInformation::changeCluster(StateCluster* newCluster) {
 
 Node const& MappingInformation::setNode(Node const& n) {
   assert(n >= Node::FIRST_NODE);
-  std::cout << "[" << this << "] changing node " << _node.id << " -> " << n.id << std::endl;
+  std::cerr << "[" << this << "] changing node " << _node.id << " -> " << n.id << std::endl;
   _node = n;
   this->change();
   return _node;

@@ -84,11 +84,11 @@ void CoojaSearcher::add(ConstIteratable<BasicState*> const& begin, ConstIteratab
     // if we are forked from another state, we have to mirror its schedule times, otherwise we will have too bootstrap
     if (schInfo->danglingTimes.empty()) {
       std::cout << std::endl << "New State: NO DANGLING EVENTS" << std::endl;
-      scheduleState(*it, schInfo->virtualTime, EK_Normal);
+      scheduleStateAt(*it, schInfo->virtualTime, EK_Normal);
     } else {
       std::cout << std::endl << "New State: " << schInfo->danglingTimes.size() << " DANGLING EVENTS" << std::endl;
       for (std::set<Time>::const_iterator tm = schInfo->danglingTimes.begin(), tmEnd = schInfo->danglingTimes.end(); tm != tmEnd; ++tm) {
-        scheduleState(*it, *tm, EK_Normal);
+        scheduleStateAt(*it, *tm, EK_Normal);
       }
       schInfo->danglingTimes.clear();
     }
@@ -101,7 +101,7 @@ void CoojaSearcher::remove(ConstIteratable<BasicState*> const& begin, ConstItera
   }
 }
 
-void CoojaSearcher::scheduleState(BasicState* state, Time time, EventKind ekind) {
+void CoojaSearcher::scheduleStateAt(BasicState* state, Time time, EventKind ekind) {
   CoojaInformation* schedInfo = cih.stateInfo(state);
   std::cout << "Schedule request (type " << ekind << ") for state " << state << " at time " << time << std::endl;
   std::cout << "Queue Size before scheduling " << calQueue.size() << std::endl;
@@ -113,8 +113,8 @@ void CoojaSearcher::scheduleState(BasicState* state, Time time, EventKind ekind)
   }
   if (schedInfo->isScheduled()) {
     // FIXME FIXME FIXME: Generate Error/Testcase if we schedule an event in the past (unless we havn't been booted yet)
-    //if (schedInfo->scheduledBootTime > time || schedInfo->virtualTime >= time) {
-    if (schedInfo->scheduledBootTime > time || schedInfo->virtualTime > time) {
+    if (schedInfo->scheduledBootTime > time || schedInfo->virtualTime >= time) {
+    //if (schedInfo->scheduledBootTime > time || schedInfo->virtualTime > time) {
       // ignore wakeup request; XXX: Why are we doing this again?
       std::cout << "  ignoring schedule request at " << time << "! Reason: boot-time " << schedInfo->scheduledBootTime << ", virtual-time " << schedInfo->virtualTime << std::endl;
       return;

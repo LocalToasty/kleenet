@@ -54,10 +54,10 @@ ClusterSearcher::SearcherP ClusterSearcher::of(BasicState* state) {
   return SearcherP(NULL);
 }
 
-void ClusterSearcher::scheduleState(BasicState* state, Time time, EventKind ekind) {
+void ClusterSearcher::scheduleStateAt(BasicState* state, Time time, EventKind ekind) {
   SearcherP const p = of(state);
   if (p && p->toEventSearcher()) {
-    p->toEventSearcher()->scheduleState(state,time,ekind);
+    p->toEventSearcher()->scheduleStateAt(state,time,ekind);
   }
 }
 void ClusterSearcher::yieldState(BasicState* state) {

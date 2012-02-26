@@ -43,7 +43,7 @@ namespace net {
       void remove(ConstIteratable<BasicState*> const&, ConstIteratable<BasicState*> const&);
       BasicState* selectState();
       Time getStateTime(BasicState*) const;
-      void scheduleState(BasicState*, Time, EventKind);
+      void scheduleStateAt(BasicState*, Time, EventKind);
       void yieldState(BasicState*);
   };
 

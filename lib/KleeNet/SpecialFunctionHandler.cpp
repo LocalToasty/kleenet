@@ -364,13 +364,13 @@ namespace kleenet {
   HAND(void,kleenet_schedule_boot_state,1) {
     net::EventSearcher* const ev = executor->getNetSearcher()->netSearcher()->toEventSearcher();
     if (ev) { // hey, we do have an event-capable searcher :)
-      ev->scheduleState(&(ha.state),args[0]->getZExtValue(),net::EventSearcher::EK_Boot);
+      ev->scheduleStateIn(&(ha.state),args[0]->getZExtValue(),net::EventSearcher::EK_Boot);
     }
   }
   HAND(void,kleenet_schedule_state,1) {
     net::EventSearcher* const ev = executor->getNetSearcher()->netSearcher()->toEventSearcher();
     if (ev) { // hey, we do have an event-capable searcher :)
-      ev->scheduleState(&(ha.state),args[0]->getZExtValue(),net::EventSearcher::EK_Normal); // EK_Normal is normally implied but wayne
+      ev->scheduleStateIn(&(ha.state),args[0]->getZExtValue(),net::EventSearcher::EK_Normal); // EK_Normal is normally implied but wayne
     }
   }
 
@@ -408,7 +408,7 @@ namespace kleenet {
         net::BasicState *bs = *it;
         // schedule immediate wakeup
         //assert(es->schedulingInformation.isScheduled);
-        ev->scheduleState(bs, ev->getStateTime(&ha.state));
+        ev->scheduleStateAt(bs, ev->getStateTime(&ha.state));
       }
       // invalidate found states
       sm->invalidate();

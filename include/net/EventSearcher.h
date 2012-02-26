@@ -11,7 +11,10 @@ namespace net {
         EK_Boot,
         EK_Normal
       };
-      virtual void scheduleState(BasicState*, Time, EventKind = EK_Normal) = 0;
+      virtual void scheduleStateAt(BasicState*, Time, EventKind = EK_Normal) = 0;
+      virtual void scheduleStateIn(BasicState* bs, Time time, EventKind ek = EK_Normal) {
+        scheduleStateAt(bs,time+getStateTime(bs),ek);
+      }
       virtual void yieldState(BasicState*) = 0;
       EventSearcher* toEventSearcher() {
         return this;

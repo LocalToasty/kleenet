@@ -16,7 +16,7 @@ namespace net {
       FakeEventHandler* const fakeEventHandler;
     public:
       FakeEventSearcher(TimeSortedSearcher*, FakeEventHandler* = 0);
-      void scheduleState(BasicState* state, Time time, EventKind);
+      void scheduleStateAt(BasicState* state, Time time, EventKind);
       void yieldState(BasicState*);
 
       bool supportsPhonyPackets() const;

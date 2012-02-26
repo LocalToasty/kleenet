@@ -9,7 +9,7 @@ FakeEventSearcher::FakeEventSearcher(TimeSortedSearcher* trueSearcher, FakeEvent
   , fakeEventHandler(fakeEventHandler) {
   assert(trueSearcher);
 }
-void FakeEventSearcher::scheduleState(BasicState* state, Time time, EventKind ek) {
+void FakeEventSearcher::scheduleStateAt(BasicState* state, Time time, EventKind ek) {
   if (fakeEventHandler)
     (*fakeEventHandler)(FakeEventHandler::FT_SCHEDULE);
 }

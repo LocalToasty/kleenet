@@ -24,7 +24,6 @@ namespace net {
       SchedulingInformation() : StateDependant<SI>(), virtualTime(0) {
       }
       SchedulingInformation(SchedulingInformation const& from) : StateDependant<SI>(from), virtualTime(from.virtualTime) {
-        std::cerr << std::endl << "[" << this << "] SchedulingInformation(virtualTime = " << virtualTime << ")" << std::endl;
       }
     public:
       Time virtualTime;

@@ -7,6 +7,8 @@
 
 #include <assert.h>
 
+#include "debug.h"
+
 using namespace net;
 
 class TimeEventNodeSlot : public StateDependant<TimeEventNodeSlot> {
@@ -68,20 +70,20 @@ void TimeEvent::popState() {
 
 void TimeEvent::pushBack(BasicState* es) {
   Node const node = TimeEventNodeSlot::getSlot(es)->getNode(TimeEventNodeSlot::EC_more);
-  std::cerr << "Pushing state " << es << " on node " << node.id << "\t (total states here: " << scheduledNodes[node].size() << ")" << std::endl;
+  DDEBUG std::cerr << "Pushing state " << es << " on node " << node.id << "\t (total states here: " << scheduledNodes[node].size() << ")" << std::endl;
   scheduledNodes[node].push_back(es);
-  std::cerr << "        After " << es << "         " << node.id << "\t (total states here: " << scheduledNodes[node].size() << ") .. " << scheduledNodes.size() << " nodes known in total" << std::endl;
+  DDEBUG std::cerr << "        After " << es << "         " << node.id << "\t (total states here: " << scheduledNodes[node].size() << ") .. " << scheduledNodes.size() << " nodes known in total" << std::endl;
 }
 
 void TimeEvent::removeState(BasicState* es) {
   Node const node = TimeEventNodeSlot::getSlot(es)->getNode(TimeEventNodeSlot::EC_less);
-  std::cerr << "Removing BS " << es << " from Node " << node.id << "\t (total states here: " << scheduledNodes[node].size() << ")" << std::endl;
+  DDEBUG std::cerr << "Removing BS " << es << " from Node " << node.id << "\t (total states here: " << scheduledNodes[node].size() << ")" << std::endl;
   assert(scheduledNodes[node].size() && "the state is not scheduled, the node entry does not exist"); // TODO refactor me
   scheduledNodes[node].remove(es); // TODO refactor me
-  std::cerr << "      After " << es << "           " << node.id << "\t (total states here: " << scheduledNodes[node].size() << ")";
+  DDEBUG std::cerr << "      After " << es << "           " << node.id << "\t (total states here: " << scheduledNodes[node].size() << ")";
   if (scheduledNodes[node].empty())
     scheduledNodes.erase(node);
-  std::cerr << " .. " << scheduledNodes.size() << " nodes known in total" << std::endl;
+  DDEBUG std::cerr << " .. " << scheduledNodes.size() << " nodes known in total" << std::endl;
 }
 
 bool TimeEvent::empty() const {

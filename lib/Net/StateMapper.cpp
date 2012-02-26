@@ -11,6 +11,8 @@
 #include <vector>
 #include <stdint.h>
 
+#include "debug.h"
+
 namespace net {
 
   class SmStateLog {
@@ -162,10 +164,10 @@ bool StateMapper::checkMappingAdmissible(BasicState const* es, Node n) const {
     && "State to map has no valid mapping information.");
   assert(nodes().find(stateInfo(es)->getNode()) != nodes().end()
     && "Cannot map from a non-existant node.");
-  if (nodes().find(n) == nodes().end()) {
-    std::cerr << " ! WARNING ! Trying to map to node " << n.id << " while the valid nodes are:" << std::endl;
+  DDEBUG if (nodes().find(n) == nodes().end()) {
+    DDEBUG std::cerr << " ! WARNING ! Trying to map to node " << n.id << " while the valid nodes are:" << std::endl;
     for (Nodes::const_iterator it = nodes().begin(), en = nodes().end(); it != en; ++it) {
-      std::cerr << "  * " << it->id << std::endl;
+      DDEBUG std::cerr << "  * " << it->id << std::endl;
     }
   }
   assert(nodes().find(n) != nodes().end()
@@ -409,7 +411,7 @@ void StateMapper::setNodeCount(unsigned nodeCount) {
 }
 
 void StateMapper::terminateCluster(BasicState& state, TerminateStateHandler const& terminate) {
-  std::cerr << "Terminating Cluster (SM) on pivot state " << &state << std::endl;
+  DDEBUG std::cerr << "Terminating Cluster (SM) on pivot state " << &state << std::endl;
   MappingInformation* const mi = MappingInformation::retrieveDependant(&state);
 
   if (mi) {

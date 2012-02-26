@@ -7,6 +7,8 @@
 #include <set>
 #include <iostream>
 
+#include "debug.h"
+
 // TODO: check that we *actually* behave like cooja
 
 namespace net {
@@ -83,10 +85,10 @@ void CoojaSearcher::add(ConstIteratable<BasicState*> const& begin, ConstIteratab
     assert(!schInfo->isScheduled() && "Newly added state is already scheduled? How?");
     // if we are forked from another state, we have to mirror its schedule times, otherwise we will have too bootstrap
     if (schInfo->danglingTimes.empty()) {
-      std::cerr << std::endl << "New State: NO DANGLING EVENTS" << std::endl;
+      DDEBUG std::cerr << std::endl << "New State: NO DANGLING EVENTS" << std::endl;
       scheduleStateAt(*it, schInfo->virtualTime, EK_Normal);
     } else {
-      std::cerr << std::endl << "New State: " << schInfo->danglingTimes.size() << " DANGLING EVENTS" << std::endl;
+      DDEBUG std::cerr << std::endl << "New State: " << schInfo->danglingTimes.size() << " DANGLING EVENTS" << std::endl;
       for (std::set<Time>::const_iterator tm = schInfo->danglingTimes.begin(), tmEnd = schInfo->danglingTimes.end(); tm != tmEnd; ++tm) {
         scheduleStateAt(*it, *tm, EK_Normal);
       }
@@ -103,8 +105,8 @@ void CoojaSearcher::remove(ConstIteratable<BasicState*> const& begin, ConstItera
 
 void CoojaSearcher::scheduleStateAt(BasicState* state, Time time, EventKind ekind) {
   CoojaInformation* schedInfo = cih.stateInfo(state);
-  std::cerr << "Schedule request (type " << ekind << ") for state " << state << " at time " << time << std::endl;
-  std::cerr << "Queue Size before scheduling " << calQueue.size() << std::endl;
+  DDEBUG std::cerr << "Schedule request (type " << ekind << ") for state " << state << " at time " << time << std::endl;
+  DDEBUG std::cerr << "Queue Size before scheduling " << calQueue.size() << std::endl;
   if (ekind == EK_Boot) {
     schedInfo->scheduledBootTime = time;
     while (removeState(state));
@@ -116,22 +118,22 @@ void CoojaSearcher::scheduleStateAt(BasicState* state, Time time, EventKind ekin
     if (schedInfo->scheduledBootTime > time || schedInfo->virtualTime >= time) {
     //if (schedInfo->scheduledBootTime > time || schedInfo->virtualTime > time) {
       // ignore wakeup request; XXX: Why are we doing this again?
-      std::cerr << "  ignoring schedule request at " << time << "! Reason: boot-time " << schedInfo->scheduledBootTime << ", virtual-time " << schedInfo->virtualTime << std::endl;
+      DDEBUG std::cerr << "  ignoring schedule request at " << time << "! Reason: boot-time " << schedInfo->scheduledBootTime << ", virtual-time " << schedInfo->virtualTime << std::endl;
       return;
     }
     while (schedInfo->isScheduled() && time <= *(schedInfo->scheduledTime.begin())) {
-      std::cerr << "  rescheduling!" << std::endl;
+      DDEBUG std::cerr << "  rescheduling!" << std::endl;
       // remove the state from the time event in the future
       removeState(state);
     }
   }
-  std::cerr << "Honouring schedule request for state " << state << " at time " << time << " (i.e. was not dropped)." << std::endl;
+  DDEBUG std::cerr << "Honouring schedule request for state " << state << " at time " << time << " (i.e. was not dropped)." << std::endl;
   assert(time >= lowerBound());
   // set scheduled time
   schedInfo->scheduledTime.insert(time);
   // push the state into the fifo queue of the specified time event
   calQueue[time].pushBack(state);
-  std::cerr << "Queue Size after scheduling " << calQueue.size() << std::endl;
+  DDEBUG std::cerr << "Queue Size after scheduling " << calQueue.size() << std::endl;
 }
 
 BasicState* CoojaSearcher::selectState() {
@@ -142,24 +144,26 @@ BasicState* CoojaSearcher::selectState() {
   BasicState* const headState = head->second.peakState();
   assert(cih.stateInfo(headState)->virtualTime <= head->first);
   if (cih.stateInfo(headState)->virtualTime != head->first) {
-    std::cerr << "[" << cih.stateInfo(headState) << "] virtualTime := " << head->first << " was " << cih.stateInfo(headState)->virtualTime << std::endl;
+    DDEBUG std::cerr << "[" << cih.stateInfo(headState) << "] virtualTime := " << head->first << " was " << cih.stateInfo(headState)->virtualTime << std::endl;
   }
   cih.stateInfo(headState)->virtualTime = head->first;
   updateLowerBound(head->first);
-  /*XXX*/static BasicState* last = NULL;
-  /*XXX*/if (last != headState) {
-  /*XXX*/  std::cerr << std::endl << "Selecting State " << headState << " at time " << head->first << " (vt advanced to " << getStateTime(headState) << ")" << std::endl;
-  /*XXX*/  last = headState;
-  /*XXX*/}
+  DDEBUG {
+    static BasicState* last = NULL;
+    if (last != headState) {
+      DDEBUG std::cerr << std::endl << "Selecting State " << headState << " at time " << head->first << " (vt advanced to " << getStateTime(headState) << ")" << std::endl;
+      last = headState;
+    }
+  }
   return headState;
 }
 
 void CoojaSearcher::yieldState(BasicState* bs) {
   assert(!calQueue.empty() && "Yielding state although none is active!");
   assert(cih.stateInfo(bs)->isScheduled() && "Yielding an unscheduled state!");
-  std::cerr << "Queue Size before yielding " << calQueue.size() << std::endl;
+  DDEBUG std::cerr << "Queue Size before yielding " << calQueue.size() << std::endl;
   bool wasin = removeState(bs);
-  std::cerr << "Queue Size after yielding " << calQueue.size() << std::endl;
+  DDEBUG std::cerr << "Queue Size after yielding " << calQueue.size() << std::endl;
   assert(wasin);
   assert(calQueue.size() && "Our FES ran empty.");
 }

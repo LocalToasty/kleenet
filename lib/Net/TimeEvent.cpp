@@ -2,9 +2,47 @@
 
 #include "MappingInformation.h"
 
+#include "StateDependant.h"
+#include "net/Node.h"
+
 #include <assert.h>
 
 using namespace net;
+
+class TimeEventNodeSlot : public StateDependant<TimeEventNodeSlot> {
+  friend class Cloner<TimeEventNodeSlot>;
+  private:
+    Node node;
+    size_t events;
+    TimeEventNodeSlot(BasicState* bs)
+      : StateDependant<TimeEventNodeSlot>(bs), node(Node::INVALID_NODE), events(0) {
+      setCloner(&Cloner<TimeEventNodeSlot>::getCloner());
+    }
+    TimeEventNodeSlot(TimeEventNodeSlot const& from) // called by Cloner
+      : StateDependant<TimeEventNodeSlot>(from), node(Node::INVALID_NODE), events(0) {
+    }
+  public:
+    enum EventChange {
+      EC_less = -1,
+      EC_none =  0,
+      EC_more = +1
+    };
+    static TimeEventNodeSlot* getSlot(BasicState* state) {
+      TimeEventNodeSlot* const ns = retrieveDependant(state);
+      return ns?ns:(new TimeEventNodeSlot(state));
+      // We will not delete this ourself, because it is shared by all TimeEvents.
+      // It will be automatically released by BasicState::~BasicState.
+    }
+    Node getNode(EventChange ec = EC_none) { // not const !
+      if (!events) {
+        MappingInformation* const mi = MappingInformation::retrieveDependant(getState());
+        node = mi?(mi->getNode()):(Node::INVALID_NODE);
+      }
+      events += ec;
+      return node;
+    }
+};
+
 
 TimeEvent::TimeEvent() {
 }
@@ -29,16 +67,13 @@ void TimeEvent::popState() {
 }
 
 void TimeEvent::pushBack(BasicState* es) {
-  scheduledNodes[MappingInformation::retrieveDependant(es)->getNode()].push_back(es);
+  Node const node = TimeEventNodeSlot::getSlot(es)->getNode(TimeEventNodeSlot::EC_more);
+  scheduledNodes[node].push_back(es);
 }
 
 void TimeEvent::removeState(BasicState* es) {
-  Node const node = MappingInformation::retrieveDependant(es)->getNode();
-  removeStateOnNode(es,node);
-}
-
-void TimeEvent::removeStateOnNode(BasicState* es, Node const node) {
-  assert(scheduledNodes.count(node) && "the state is not scheduled, the node entry does not exist"); // TODO refactor me
+  Node const node = TimeEventNodeSlot::getSlot(es)->getNode(TimeEventNodeSlot::EC_less);
+  assert(scheduledNodes[node].size() && "the state is not scheduled, the node entry does not exist"); // TODO refactor me
   scheduledNodes[node].remove(es); // TODO refactor me
   if (scheduledNodes[node].empty())
     scheduledNodes.erase(node);
@@ -49,5 +84,5 @@ bool TimeEvent::empty() const {
 }
 
 bool TimeEvent::isNodeScheduled(Node node) {
-  return scheduledNodes.count(node);
+  return scheduledNodes.find(node) != scheduledNodes.end();
 }

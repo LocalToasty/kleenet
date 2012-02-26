@@ -42,6 +42,9 @@ SuperInformation::SuperInformation(SuperInformation const& from)
   }
 }
 
+SuperInformation::~SuperInformation() {
+}
+
 VState::VState(SuperInformation *s)
   : sli_si(NULL), si(NULL), sli_ds(NULL), ds(NULL),
     graphEdge(s->graphNode.graph), isTarget(false) {

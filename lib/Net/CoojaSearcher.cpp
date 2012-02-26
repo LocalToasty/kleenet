@@ -57,17 +57,13 @@ bool CoojaSearcher::empty() const {
   return calQueue.empty();
 }
 
-bool CoojaSearcher::removeState(BasicState* state, Node const* node) {
+bool CoojaSearcher::removeState(BasicState* state) {
   CoojaInformation* schInfo = cih.stateInfo(state);
   bool const result = schInfo->isScheduled();
   if (result) {
     CalQueue::iterator it = calQueue.find(*(schInfo->scheduledTime.begin()));
     if (it != calQueue.end()) {
-      if (node) {
-        it->second.removeStateOnNode(state,*node);
-      } else {
-        it->second.removeState(state);
-      }
+      it->second.removeState(state);
       if (it->second.empty()) {
         if (it == calQueue.begin() && packetCache) {
           packetCache->commitMappings();
@@ -105,11 +101,11 @@ void CoojaSearcher::remove(ConstIteratable<BasicState*> const& begin, ConstItera
 
 void CoojaSearcher::scheduleState(BasicState* state, Time time, EventKind ekind) {
   CoojaInformation* schedInfo = cih.stateInfo(state);
-  std::cout << "Schedule request for node " << state << " at time " << time << std::endl;
+  std::cout << "Schedule request (type " << ekind << ") for state " << state << " at time " << time << std::endl;
   std::cout << "Queue Size before scheduling " << calQueue.size() << std::endl;
   if (ekind == EK_Boot) {
     schedInfo->scheduledBootTime = time;
-    while (removeState(state,&Node::INVALID_NODE));
+    while (removeState(state));
     //schedInfo->scheduledTime.insert(0); // XXX do we still need this? if so, why?
     //calQueue[0].pushBack(state);
   }
@@ -126,7 +122,7 @@ void CoojaSearcher::scheduleState(BasicState* state, Time time, EventKind ekind)
       removeState(state);
     }
   }
-  std::cout << "Honouring schedule request for node " << state << " at time " << time << " (i.e. was not dropped)." << std::endl;
+  std::cout << "Honouring schedule request for state " << state << " at time " << time << " (i.e. was not dropped)." << std::endl;
   assert(time >= lowerBound());
   // set scheduled time
   schedInfo->scheduledTime.insert(time);
@@ -145,7 +141,7 @@ BasicState* CoojaSearcher::selectState() {
   updateLowerBound(head->first);
   /*XXX*/static BasicState* last = NULL;
   /*XXX*/if (last != headState) {
-  /*XXX*/  std::cout << "Selecting State " << headState << " at time " << head->first << std::endl;
+  /*XXX*/  std::cout << std::endl << "Selecting State " << headState << " at time " << head->first << " (vt advanced to " << getStateTime(headState) << ")" << std::endl;
   /*XXX*/  last = headState;
   /*XXX*/}
   return headState;

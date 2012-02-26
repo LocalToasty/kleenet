@@ -42,6 +42,7 @@ namespace net {
 
       SuperInformation(SuperStateMapper&,SdsGraph&);
       SuperInformation(SuperInformation const&);
+      ~SuperInformation();
       Node const& setNode(Node const& n);
   };
 

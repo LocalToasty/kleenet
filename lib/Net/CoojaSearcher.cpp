@@ -83,8 +83,10 @@ void CoojaSearcher::add(ConstIteratable<BasicState*> const& begin, ConstIteratab
     assert(!schInfo->isScheduled() && "Newly added state is already scheduled? How?");
     // if we are forked from another state, we have to mirror its schedule times, otherwise we will have too bootstrap
     if (schInfo->danglingTimes.empty()) {
+      std::cout << std::endl << "New State: NO DANGLING EVENTS" << std::endl;
       scheduleState(*it, schInfo->virtualTime, EK_Normal);
     } else {
+      std::cout << std::endl << "New State: " << schInfo->danglingTimes.size() << " DANGLING EVENTS" << std::endl;
       for (std::set<Time>::const_iterator tm = schInfo->danglingTimes.begin(), tmEnd = schInfo->danglingTimes.end(); tm != tmEnd; ++tm) {
         scheduleState(*it, *tm, EK_Normal);
       }
@@ -111,9 +113,10 @@ void CoojaSearcher::scheduleState(BasicState* state, Time time, EventKind ekind)
   }
   if (schedInfo->isScheduled()) {
     // FIXME FIXME FIXME: Generate Error/Testcase if we schedule an event in the past (unless we havn't been booted yet)
-    if (schedInfo->scheduledBootTime > time || schedInfo->virtualTime >= time) {
+    //if (schedInfo->scheduledBootTime > time || schedInfo->virtualTime >= time) {
+    if (schedInfo->scheduledBootTime > time || schedInfo->virtualTime > time) {
       // ignore wakeup request; XXX: Why are we doing this again?
-      std::cout << "  ignoring schedule request!" << std::endl;
+      std::cout << "  ignoring schedule request at " << time << "! Reason: boot-time " << schedInfo->scheduledBootTime << ", virtual-time " << schedInfo->virtualTime << std::endl;
       return;
     }
     while (schedInfo->isScheduled() && time <= *(schedInfo->scheduledTime.begin())) {
@@ -137,6 +140,10 @@ BasicState* CoojaSearcher::selectState() {
   }
   CalQueue::iterator head = calQueue.begin();
   BasicState* const headState = head->second.peakState();
+  assert(cih.stateInfo(headState)->virtualTime <= head->first);
+  if (cih.stateInfo(headState)->virtualTime != head->first) {
+    std::cout << "[" << cih.stateInfo(headState) << "] virtualTime := " << head->first << " was " << cih.stateInfo(headState)->virtualTime << std::endl;
+  }
   cih.stateInfo(headState)->virtualTime = head->first;
   updateLowerBound(head->first);
   /*XXX*/static BasicState* last = NULL;

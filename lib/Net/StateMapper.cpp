@@ -409,11 +409,12 @@ void StateMapper::setNodeCount(unsigned nodeCount) {
 }
 
 void StateMapper::terminateCluster(BasicState& state, TerminateStateHandler const& terminate) {
-  MappingInformation* const mi = stateInfo(state);
-  std::vector<BasicState*> targets;
-  std::vector<BasicState*> siblings;
+  std::cerr << "Terminating Cluster (SM) on pivot state " << &state << std::endl;
+  MappingInformation* const mi = MappingInformation::retrieveDependant(&state);
 
   if (mi) {
+    std::vector<BasicState*> targets;
+    std::vector<BasicState*> siblings;
     explode(&state, &siblings);
     // NOTE: updateStates() is NOT required, because we don't examine any of the engine's data structures
     // anyway (let alone have to inform the searcher)
@@ -433,14 +434,15 @@ void StateMapper::terminateCluster(BasicState& state, TerminateStateHandler cons
       assert((targets.size() == nodes().size()-1) &&
         "incorrect number of targets");
     }
-  }
-  // remove dscenario from the mapper
-  remove(&state);
-  // finally, terminate all involved states (state + targets)
-  terminate(state,targets);
-  // terminate siblings' dscenarios recursively if any
-  for (std::vector<BasicState*>::iterator it = siblings.begin(), ie = siblings.end(); it != ie; ++it) {
-    if (*it != &state)
-      terminateCluster(**it, terminate);
+
+    // remove dscenario from the mapper
+    remove(&state);
+    // finally, terminate all involved states (state + targets)
+    terminate(state,targets);
+    // terminate siblings' dscenarios recursively if any
+    for (std::vector<BasicState*>::iterator it = siblings.begin(), ie = siblings.end(); it != ie; ++it) {
+      if (*it != &state)
+        terminateCluster(**it, terminate);
+    }
   }
 }

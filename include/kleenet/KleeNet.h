@@ -58,7 +58,7 @@ namespace kleenet {
       net::Node getStateNode(klee::ExecutionState const&) const;
       void setStateNode(klee::ExecutionState const*,net::Node const&) const;
       void setStateNode(klee::ExecutionState const&,net::Node const&) const;
-      void newSearcher(Searcher*); // Called by kleenet::Searcher. Do not call otherwise!!!
+      void registerSearcher(Searcher*); // Called by kleenet::Searcher. Do not call otherwise!!!
       void memTxRequest(klee::ExecutionState&, PacketInfo const&, net::ExData const&) const;
       struct TerminateStateHandler {
         virtual void operator()(klee::ExecutionState&,std::vector<klee::ExecutionState*> const&) const = 0;

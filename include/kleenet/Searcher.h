@@ -24,13 +24,11 @@ namespace kleenet {
   class State;
 
   class Searcher : public klee::Searcher {
-    friend class KleeNet;
     private:
-      static KleeNet* globalKleenet; // XXX needs work
       std::auto_ptr<net::Searcher> ns;
     public:
-      Searcher(std::auto_ptr<net::Searcher> ns);
-      virtual ~Searcher();
+      Searcher(KleeNet&, std::auto_ptr<net::Searcher> ns);
+      ~Searcher();
       net::Searcher* netSearcher() const;
       net::Time getStateTime(State*) const;
       net::Time getStateTime(State&) const;
@@ -40,21 +38,5 @@ namespace kleenet {
       bool empty();
   };
 
-  //template <typename NetSearcher, char const* name> class AutoSearcher : public Searcher {
-  //  private:
-  //    static std::auto_ptr<net::Searcher> mkNs() {
-  //      return new NetSearcher();
-  //    }
-  //  public:
-  //    AutoSearcher()
-  //      : Searcher(mkNs()) {
-  //    }
-  //    static Searcher* create() {
-  //      return new Searcher(mkNs());
-  //    }
-  //    void printName(std::ostream &os) {
-  //      os << "KleeNet::" << name << std::endl;
-  //    }
-  //};
 }
 

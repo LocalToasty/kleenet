@@ -125,14 +125,14 @@ klee::SpecialFunctionHandler* Executor::newSpecialFunctionHandler() {
 
 klee::Searcher* Executor::constructUserSearcher(klee::Executor& e) {
   net::PacketCacheBase* const pcb = kleenet.getPacketCache();
-  if ((netSearcher = CustomSearcherFactory::attemptConstruction(CustomSearcherFactory::/*Precedence::*/CSFP_OVERRIDE_LEGACY,pcb))) {
+  if ((netSearcher = CustomSearcherFactory::attemptConstruction(CustomSearcherFactory::/*Precedence::*/CSFP_OVERRIDE_LEGACY,kleenet,pcb))) {
     return netSearcher;
   }
   klee::Searcher* ks;
   if ((ks = klee::Executor::constructUserSearcher(e))) {
     return ks;
   }
-  if ((netSearcher = CustomSearcherFactory::attemptConstruction(CustomSearcherFactory::/*Precedence::*/CSFP_AMEND_LEGACY,pcb))) {
+  if ((netSearcher = CustomSearcherFactory::attemptConstruction(CustomSearcherFactory::/*Precedence::*/CSFP_AMEND_LEGACY,kleenet,pcb))) {
     return netSearcher;
   }
   return NULL;

@@ -11,13 +11,10 @@
 
 using namespace kleenet;
 
-KleeNet* Searcher::globalKleenet = NULL;
-
-Searcher::Searcher(std::auto_ptr<net::Searcher> ns)
+Searcher::Searcher(KleeNet& kn, std::auto_ptr<net::Searcher> ns)
   : klee::Searcher()
   , ns(ns) {
-  if (globalKleenet)
-    globalKleenet->newSearcher(this);
+  kn.registerSearcher(this);
 }
 
 Searcher::~Searcher() {

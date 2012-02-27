@@ -49,7 +49,6 @@ KleeNet::KleeNet(Executor* executor)
   : phonyPackets(UsePhonyPackets)
   , env(NULL)
   , executor(executor) {
-  Searcher::globalKleenet = this;
 }
 
 KleeNet::PacketCache* KleeNet::getPacketCache() const {
@@ -82,11 +81,10 @@ void KleeNet::setStateNode(klee::ExecutionState const& state, net::Node const& n
 }
 
 KleeNet::~KleeNet() {
-  Searcher::globalKleenet = NULL;
 }
 
-void KleeNet::newSearcher(Searcher* s) {
-  phonyPackets = phonyPackets && s->ns->supportsPhonyPackets();
+void KleeNet::registerSearcher(Searcher* s) {
+  phonyPackets = phonyPackets && s->netSearcher()->supportsPhonyPackets();
 }
 
 KleeNet::RunEnv::RunEnv(KleeNet& kleenet, klee::ExecutionState* rootState)

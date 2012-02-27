@@ -29,10 +29,10 @@ void CustomSearcherFactory::unregisterFactory(CustomSearcherFactory* factory) {
   }
 }
 
-Searcher* CustomSearcherFactory::attemptConstruction(Precedence precedence, net::PacketCacheBase* pcb) {
+Searcher* CustomSearcherFactory::attemptConstruction(Precedence precedence, KleeNet& kn, net::PacketCacheBase* pcb) {
   FactoryContainer::Factories& f(fetchContainer().member[precedence]);
   for (FactoryContainer::Factories::const_iterator i = f.begin(), e = f.end(); i != e; ++i) {
-    Searcher* const result((*i)->createSearcher(pcb));
+    Searcher* const result((*i)->createSearcher(kn,pcb));
     if (result)
       return result;
   }

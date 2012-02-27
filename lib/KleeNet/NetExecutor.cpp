@@ -159,7 +159,6 @@ void Executor::terminateStateEarly(klee::ExecutionState& state,
   };
   TSE hnd(this,message);
   kleenet.terminateCluster(state,hnd);
-  //updateStates(NULL); // XXX !!! XXX
 }
 
 void Executor::terminateStateOnExit_klee(klee::ExecutionState& state) {
@@ -176,7 +175,6 @@ void Executor::terminateStateOnExit(klee::ExecutionState& state) {
   };
   TSoE hnd(this);
   kleenet.terminateCluster(state,hnd);
-  //updateStates(NULL); // XXX !!! XXX
 }
 
 
@@ -203,5 +201,4 @@ void Executor::terminateStateOnError(klee::ExecutionState& state,
   };
   TSoE hnd(this,messaget,suffix,info);
   kleenet.terminateCluster(state,hnd);
-  //updateStates(NULL); // XXX !!! XXX
 }

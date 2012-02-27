@@ -287,7 +287,6 @@ namespace kleenet {
        ##                                               KInstruction *target,
        ##                                               std::vector<ref<Expr> > &arguments) {
        ##    assert(arguments.size()==0 && "invalid number of arguments to kleenet_get_node_id");
-       ##    // XXX
        ##    Expr::Width WordSize = Context::get().getPointerWidth();
        ##    if (WordSize == Expr::Int32) {
        ##      executor.bindLocal(target, state,

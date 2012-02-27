@@ -32,8 +32,6 @@ namespace kleenet {
     friend class NetExTHnd;
     friend class State;
     private:
-      // temporary automatic states, that should not be dispatched
-      //std::set<klee::ExecutionState*> protectedAutomatics; // XXX remove me
       void addedState(klee::ExecutionState*);
       klee::PTree* getPTree() const;
     protected:

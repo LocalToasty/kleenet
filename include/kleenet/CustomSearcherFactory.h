@@ -20,7 +20,6 @@ namespace kleenet { // implemented for the KleeNet project
   class Searcher;
   struct FactoryContainer;
 
-  // NOTE: due to its versatility this sits in the klee:: namespace
   class CustomSearcherFactory {
     public:
       enum Precedence {

@@ -76,42 +76,69 @@ namespace kleenet {
 
   namespace searcherautorun {
     typedef llvm::cl::opt<bool> O;
-    template <typename S> struct KleeNetSearcherAF : AF, CustomSearcherAutoFactory<S,O> {
-      KleeNetSearcherAF(O& o) : CustomSearcherAutoFactory<S,O>(o,kleenet::CustomSearcherFactory::CSFP_OVERRIDE_LEGACY) {}
+
+    /* building all Searchers that can be constructed generically (e.g. non-cluster Cooja Searcher) */
+    template <typename S>
+    struct KleeNetSearcherAF
+    : AF, CustomSearcherAutoFactory<S,O> {
+      KleeNetSearcherAF(O& o) :
+        CustomSearcherAutoFactory<S,O>(o,kleenet::CustomSearcherFactory::CSFP_OVERRIDE_LEGACY) {
+      }
     };
-    template <> struct KleeNetSearcherAF<net::LockStepSearcher> : AF, CustomSearcherAutoFactory<net::LockStepSearcher,O> {
-      KleeNetSearcherAF(O& o) : CustomSearcherAutoFactory<net::LockStepSearcher,O>(o,kleenet::CustomSearcherFactory::CSFP_OVERRIDE_LEGACY) {}
+
+    /* building LockStep Searcher */
+    template <>
+    struct KleeNetSearcherAF<net::LockStepSearcher>
+    : AF, CustomSearcherAutoFactory<net::LockStepSearcher,O> {
+      KleeNetSearcherAF(O& o) :
+        CustomSearcherAutoFactory<net::LockStepSearcher,O>(o,kleenet::CustomSearcherFactory::CSFP_OVERRIDE_LEGACY) {
+      }
       net::Searcher* newSearcher(net::PacketCacheBase* pcb) {
         return new net::LockStepSearcher(pcb,LockStepIncrement);
       }
     };
-    template <> struct KleeNetSearcherAF<net::GenericClusterSearcher<net::LockStepSearcher> > : AF, CustomSearcherAutoFactory<net::GenericClusterSearcher<net::LockStepSearcher>,llvm::cl::opt<bool>,false> {
+
+    /* building Cluster-LockStep Searcher */
+    template <>
+    struct KleeNetSearcherAF<net::GenericClusterSearcher<net::LockStepSearcher> >
+    : AF, CustomSearcherAutoFactory<net::GenericClusterSearcher<net::LockStepSearcher>,llvm::cl::opt<bool>,false> {
       struct Alloc {
         net::Searcher* operator()(net::PacketCacheBase* pcb) {
           return new net::LockStepSearcher(pcb,LockStepIncrement);
         }
       };
       net::util::SharedPtr<net::SearcherStrategy> strat;
-      KleeNetSearcherAF(O& o,net::util::SharedPtr<net::SearcherStrategy> strat) : CustomSearcherAutoFactory<net::GenericClusterSearcher<net::LockStepSearcher>,llvm::cl::opt<bool>,false>(o,kleenet::CustomSearcherFactory::CSFP_OVERRIDE_LEGACY), strat(strat) {}
+      KleeNetSearcherAF(O& o,net::util::SharedPtr<net::SearcherStrategy> strat) :
+        CustomSearcherAutoFactory<net::GenericClusterSearcher<net::LockStepSearcher>,llvm::cl::opt<bool>,false>(o,kleenet::CustomSearcherFactory::CSFP_OVERRIDE_LEGACY), strat(strat) {
+      }
       net::Searcher* newSearcher(net::PacketCacheBase* pcb) {
         return new net::GenericClusterSearcher<net::LockStepSearcher,Alloc>(strat,pcb);
       }
     };
-    template <> struct KleeNetSearcherAF<net::GenericClusterSearcher<net::CoojaSearcher> > : AF, CustomSearcherAutoFactory<net::GenericClusterSearcher<net::CoojaSearcher>,llvm::cl::opt<bool>,false> {
+
+    /* building Cluster-Cooja Searcher */
+    template <>
+    struct KleeNetSearcherAF<net::GenericClusterSearcher<net::CoojaSearcher> >
+    : AF, CustomSearcherAutoFactory<net::GenericClusterSearcher<net::CoojaSearcher>,llvm::cl::opt<bool>,false> {
       struct Alloc {
         net::Searcher* operator()(net::PacketCacheBase* pcb) {
           return new net::CoojaSearcher(pcb);
         }
       };
       net::util::SharedPtr<net::SearcherStrategy> strat;
-      KleeNetSearcherAF(O& o,net::util::SharedPtr<net::SearcherStrategy> strat) : CustomSearcherAutoFactory<net::GenericClusterSearcher<net::CoojaSearcher>,llvm::cl::opt<bool>,false>(o,kleenet::CustomSearcherFactory::CSFP_OVERRIDE_LEGACY), strat(strat) {}
+      KleeNetSearcherAF(O& o,net::util::SharedPtr<net::SearcherStrategy> strat) :
+        CustomSearcherAutoFactory<net::GenericClusterSearcher<net::CoojaSearcher>,llvm::cl::opt<bool>,false>(o,kleenet::CustomSearcherFactory::CSFP_OVERRIDE_LEGACY), strat(strat) {
+      }
       net::Searcher* newSearcher(net::PacketCacheBase* pcb) {
         return new net::GenericClusterSearcher<net::CoojaSearcher,Alloc>(strat,pcb);
       }
     };
+
     SearcherAutoRun::SearcherAutoRun()
+      // Strategies ...
       : baseStrategy(UseFifoStrategy?static_cast<net::SearcherStrategy*>(new net::FifoStrategy()):(UseRandomStrategy?static_cast<net::SearcherStrategy*>(new RandomStrategy()):static_cast<net::SearcherStrategy*>(new net::NullStrategy())))
       , strategyAdapter((ClusterInstructions <= 1)?baseStrategy:net::util::SharedPtr<net::SearcherStrategy>(new net::RepeatStrategy(baseStrategy,ClusterInstructions)))
+      // Searchers ...
       , lockStep(new KleeNetSearcherAF<net::LockStepSearcher>(UseLockStepSearch))
       , cooja(new KleeNetSearcherAF<net::CoojaSearcher>(UseCoojaSearch))
       , clusterLockStep(new KleeNetSearcherAF<net::GenericClusterSearcher<net::LockStepSearcher> >(UseLockStepClusterSearch,strategyAdapter))

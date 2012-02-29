@@ -10,6 +10,10 @@ PacketCacheBase::StateTrie::StateTrie()
   : depth(0) {
 }
 
+PacketCacheBase::StateTrie::Tree::size_type PacketCacheBase::StateTrie::size() const {
+  return tree.size();
+}
+
 unsigned PacketCacheBase::StateTrie::insert(ExData::const_iterator begin, ExData::const_iterator end, BasicState* s) {
   unsigned d;
   if (begin == end) {
@@ -25,23 +29,28 @@ unsigned PacketCacheBase::StateTrie::insert(ExData::const_iterator begin, ExData
   return depth;
 }
 
-void PacketCacheBase::StateTrie::call(ExData::iterator it, ExData const& exData, Functor const& func) const {
-  if (!content.empty())
+void PacketCacheBase::StateTrie::unfoldWith(ExData::iterator it, unsigned remainingDepth, ExData const& exData, Functor const& func) const {
+  if (!content.empty()) {
+    /* Note: To ensure that we will never invoke the functor with an illformed data-string,
+     * we check that we consumed exactly 'depth' many atoms. This will result in a
+     * recursion tree that has leafs only at one depth. */
+    assert(!remainingDepth && "Ill-formed data-string due to partial tree.");
     func(exData,content);
+  }
   if (!tree.empty()) {
     assert(it != exData.end());
     ExData::iterator next = it;
     ++next;
     for (Tree::const_iterator i = tree.begin(), e = tree.end(); i != e; ++i) {
       *it = i->first;
-      call(next,exData,func);
+      i->second.unfoldWith(next,remainingDepth-1,exData,func);
     }
   }
 }
 
 void PacketCacheBase::StateTrie::call(Functor const& func) const {
   ExData exData(depth, DataAtomHolder(util::SharedPtr<DataAtom>()));
-  call(exData.begin(),exData,func);
+  unfoldWith(exData.begin(),depth,exData,func);
 }
 
 

@@ -16,7 +16,7 @@ namespace net {
       CoojaInformationHandler& cih;
       typedef std::map<Time, TimeEvent> CalQueue;
       CalQueue calQueue;
-      bool removeState(BasicState*,Node const* = NULL);
+      bool removeState(BasicState*);
     public:
       CoojaSearcher(PacketCacheBase*);
       ~CoojaSearcher();
@@ -25,7 +25,7 @@ namespace net {
       bool empty() const;
       void add(ConstIteratable<BasicState*> const&, ConstIteratable<BasicState*> const&);
       void remove(ConstIteratable<BasicState*> const&, ConstIteratable<BasicState*> const&);
-      void scheduleState(BasicState*, Time, EventKind);
+      void scheduleStateAt(BasicState*, Time, EventKind);
       void yieldState(BasicState*);
       Time getStateTime(BasicState*) const;
   };

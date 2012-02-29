@@ -27,5 +27,5 @@ State* State::forceFork() {
 }
 
 void State::mergeConstraints(State& with) {
-  // TODO: implement me!
+  std::cerr << "WARNING: mergeConstraints not yet implemented!" << std::endl; // FIXME
 }

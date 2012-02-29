@@ -23,8 +23,15 @@
 #include "../Core/Context.h"
 #include "../Core/Memory.h"
 
-#include <iostream> // XXX
+#include <iostream>
 
+#include "llvm/Support/CommandLine.h"
+
+namespace {
+  llvm::cl::opt<bool>
+  DumpKleenetSfhCalls("dump-kleenet-sfh-calls",
+      llvm::cl::desc("This is a debug feature for interface code. If you enable this, all invocations of special function handlers will be dumped on standard out, prefixed by 'SFH'."));
+}
 
 namespace kleenet {
   // some aliases
@@ -108,7 +115,7 @@ namespace kleenet {
           unsigned k = 0;
           constArgs.reserve(ha.arguments.size());
           for (std::vector<klee::ref<Expr> >::const_iterator it = ha.arguments.begin(), en = ha.arguments.end(); it != en; ++it,++k) {
-            ConstantExpr* const ce = dyn_cast<ConstantExpr>(ha.arguments[0]);
+            ConstantExpr* const ce = dyn_cast<ConstantExpr>(*it);
             if (ce) {
               constArgs.push_back(ce);
             } else {
@@ -139,18 +146,22 @@ namespace kleenet {
       void callHnd(klee::KInstruction* target,
                    HandleArgs const ha,
                    ConstArgs const& constArgs) {
-        std::cout << "SFH[" << &ha.state << "]" << " calling " << binding << "(";
-        std::string del = "";
-        for (ConstArgs::const_iterator it = constArgs.begin(), en = constArgs.end(); it != en; ++it) {
-          std::cout << del << (*it)->getZExtValue();
-          del = ", ";
+        if (DumpKleenetSfhCalls) {
+          std::cout << "SFH[" << &ha.state << "]" << " calling " << binding << "(";
+          std::string del = "";
+          for (ConstArgs::const_iterator it = constArgs.begin(), en = constArgs.end(); it != en; ++it) {
+            std::cout << del << (*it)->getZExtValue();
+            del = ", ";
+          }
         }
         Returns ret;
         this->executor->bindLocal(target, ha.state,
           klee::ConstantExpr::create(
             ret = this->hnd(ha,constArgs),
             klee::Context::get().getPointerWidth()));
-        std::cout << ")" << " -> " << ret << std::endl;
+        if (DumpKleenetSfhCalls) {
+          std::cout << ")" << " -> " << ret << std::endl;
+        }
       }
     };
     template <typename Self, unsigned args, char const* binding, bool doesNotReturn, bool doNotOverride>
@@ -158,13 +169,15 @@ namespace kleenet {
       void callHnd(klee::KInstruction* target,
                    HandleArgs const ha,
                    ConstArgs const& constArgs) {
-        std::cout << "SFH[" << &ha.state << "]" << " calling " << binding << "(";
-        std::string del = "";
-        for (ConstArgs::const_iterator it = constArgs.begin(), en = constArgs.end(); it != en; ++it) {
-          std::cout << del << (*it)->getZExtValue();
-          del = ", ";
+        if (DumpKleenetSfhCalls) {
+          std::cout << "SFH[" << &ha.state << "]" << " calling " << binding << "(";
+          std::string del = "";
+          for (ConstArgs::const_iterator it = constArgs.begin(), en = constArgs.end(); it != en; ++it) {
+            std::cout << del << (*it)->getZExtValue();
+            del = ", ";
+          }
+          std::cout << ")" << std::endl;
         }
-        std::cout << ")" << std::endl;
         this->hnd(ha,constArgs);
       }
     };
@@ -274,7 +287,6 @@ namespace kleenet {
        ##                                               KInstruction *target,
        ##                                               std::vector<ref<Expr> > &arguments) {
        ##    assert(arguments.size()==0 && "invalid number of arguments to kleenet_get_node_id");
-       ##    // XXX
        ##    Expr::Width WordSize = Context::get().getPointerWidth();
        ##    if (WordSize == Expr::Int32) {
        ##      executor.bindLocal(target, state,
@@ -364,13 +376,13 @@ namespace kleenet {
   HAND(void,kleenet_schedule_boot_state,1) {
     net::EventSearcher* const ev = executor->getNetSearcher()->netSearcher()->toEventSearcher();
     if (ev) { // hey, we do have an event-capable searcher :)
-      ev->scheduleState(&(ha.state),args[0]->getZExtValue(),net::EventSearcher::EK_Boot);
+      ev->scheduleStateIn(&(ha.state),args[0]->getZExtValue(),net::EventSearcher::EK_Boot);
     }
   }
   HAND(void,kleenet_schedule_state,1) {
     net::EventSearcher* const ev = executor->getNetSearcher()->netSearcher()->toEventSearcher();
     if (ev) { // hey, we do have an event-capable searcher :)
-      ev->scheduleState(&(ha.state),args[0]->getZExtValue(),net::EventSearcher::EK_Normal); // EK_Normal is normally implied but wayne
+      ev->scheduleStateIn(&(ha.state),args[0]->getZExtValue(),net::EventSearcher::EK_Normal); // EK_Normal is normally implied but wayne
     }
   }
 
@@ -408,11 +420,15 @@ namespace kleenet {
         net::BasicState *bs = *it;
         // schedule immediate wakeup
         //assert(es->schedulingInformation.isScheduled);
-        ev->scheduleState(bs, ev->getStateTime(&ha.state));
+        ev->scheduleStateAt(bs, ev->getStateTime(&ha.state));
       }
       // invalidate found states
       sm->invalidate();
     }
+  }
+
+  HAND(uintptr_t,kleenet_get_state,0) {
+    return reinterpret_cast<uintptr_t>(&(ha.state));
   }
 
 }

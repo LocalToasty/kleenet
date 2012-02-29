@@ -8,9 +8,7 @@
 #include <iostream>
 #include <deque>
 
-#define ENABLE_DEBUG 0
-
-#define ddebug if (ENABLE_DEBUG)
+#include "debug.h"
 
 using namespace net;
 
@@ -106,23 +104,23 @@ void SdsBfGraph::removedEdge(SdsEdge* e) {
       }
     void mod(SdsNode* n) {
       if (n) {
-        ddebug std::cout << "moving node " << static_cast<BfN*>(n->info)->id << " to cluster " << newCluster->cluster.id << std::endl;
+        DDEBUG std::cerr << "moving node " << static_cast<BfN*>(n->info)->id << " to cluster " << newCluster->cluster.id << std::endl;
         n->moveToCluster(newCluster);
       }
     }
   };
 
-  ddebug std::cout << "removing Edge (" << static_cast<BfE*>(e->info)->id << ")" << std::endl;
+  DDEBUG std::cerr << "removing Edge (" << static_cast<BfE*>(e->info)->id << ")" << std::endl;
 
   ClCount cc;
   if (!find(e->getState(),e->getDState(),&cc)) {
     StateCluster* const cluster = e->getState()->getCluster();
-    ddebug {//debug
+    DDEBUG {//debug
       ClCount cc2;
       bool f = find(e->getDState(),e->getState(),&cc2);
-      std::cout << "\tcould not find dstate (s: " << cc.cnt << ", ds: " << cc2.cnt << ")" << std::endl;
+      DDEBUG std::cerr << "\tcould not find dstate (s: " << cc.cnt << ", ds: " << cc2.cnt << ")" << std::endl;
       if (f)
-        std::cout << "BUT THE REVERSE PATH EXISTS!" << std::endl;
+        DDEBUG std::cerr << "BUT THE REVERSE PATH EXISTS!" << std::endl;
     }
     SdsNode* change = e->getDState();
     SdsNode* keep = e->getState();
@@ -131,32 +129,32 @@ void SdsBfGraph::removedEdge(SdsEdge* e) {
       change = keep;
       keep = t;
     }
-    ddebug std::cout << "initialising splitter ..." << std::endl;
+    DDEBUG std::cerr << "initialising splitter ..." << std::endl;
     ClSplit splitter(new StateCluster(*cluster));
     find(change,NULL,&splitter);
   }
 
-  ddebug std::cout << "DONE removing Edge" << std::endl;
+  DDEBUG std::cerr << "DONE removing Edge" << std::endl;
 }
 
 namespace net {
   void dumpDSC(SdsDStateNode* ds, SdsNode* s) {
-    ddebug std::cout << "mirroring cluster of " << static_cast<BfN*>(s->info)->id << " by dstate " << static_cast<BfN*>(ds->info)->id << std::endl;
+    DDEBUG std::cerr << "mirroring cluster of " << static_cast<BfN*>(s->info)->id << " by dstate " << static_cast<BfN*>(ds->info)->id << std::endl;
   }
 }
 
 void SdsBfGraph::addedEdge(SdsEdge* e) {
-  ddebug std::cout << std::endl
+  DDEBUG std::cerr << std::endl
     << "adding Edge (" << static_cast<BfE*>(e->info)->id << ")" << std::endl;
-  ddebug std::cout << "Edge info: s("
+  DDEBUG std::cerr << "Edge info: s("
     << static_cast<BfN*>(e->getState()->info)->id
     << ") <-> ds("
     << static_cast<BfN*>(e->getDState()->info)->id
     << ")" << std::endl;
   StateCluster* keep = e->getState()->getCluster();
   StateCluster* trash = e->getDState()->getCluster();
-  ddebug std::cout << "state-sc:   " << keep->cluster.id << " with " << keep->members.size() << " members" << std::endl;
-  ddebug std::cout << "dstate-sc:  " << trash->cluster.id << " with " << trash->members.size() << " members" << std::endl;
+  DDEBUG std::cerr << "state-sc:   " << keep->cluster.id << " with " << keep->members.size() << " members" << std::endl;
+  DDEBUG std::cerr << "dstate-sc:  " << trash->cluster.id << " with " << trash->members.size() << " members" << std::endl;
   /* An isolated state is always "convinced" to join our cluster,
      even if the state has already a (different) cluster.
      The rationale for this, is that isolated states are always freshly forked
@@ -169,7 +167,7 @@ void SdsBfGraph::addedEdge(SdsEdge* e) {
   }
   assert(keep && trash);
   if (keep == trash) {
-    ddebug std::cout << "DONE adding Edge (short return)" << std::endl;
+    DDEBUG std::cerr << "DONE adding Edge (short return)" << std::endl;
     return;
   }
   if (keep->members.size() < trash->members.size()) {
@@ -178,11 +176,11 @@ void SdsBfGraph::addedEdge(SdsEdge* e) {
     trash = t;
   }
   StateCluster::ClusterMembers moveStates(trash->members);
-  ddebug std::cout << "trash-sc has " << trash->members.size() << " members" << std::endl;
+  DDEBUG std::cerr << "trash-sc has " << trash->members.size() << " members" << std::endl;
   for (StateCluster::ClusterMembers::iterator i = moveStates.begin(), e = moveStates.end();
        i != e; ++i) {
     (*i)->changeCluster(keep);
-    ddebug std::cout << "-1" << std::endl;
+    DDEBUG std::cerr << "-1" << std::endl;
     SdsStateNode* n = SdsStateNode::getNode(static_cast<SuperInformation*>(*i));
     util::SafeListIterator<SdsEdge*> i;
     n->getNeighbourIterator(i);
@@ -190,11 +188,11 @@ void SdsBfGraph::addedEdge(SdsEdge* e) {
       SdsNode* dsn = i.get()->traverseFrom(n);
       assert(dsn && dsn->isA == SdsNode::SNT_DSTATE_NODE);
       static_cast<SdsDStateNode*>(dsn)->moveToCluster(keep);
-      ddebug std::cout << "((-1))" << std::endl;
+      DDEBUG std::cerr << "((-1))" << std::endl;
     }
   }
-  ddebug std::cout << "trash-sc has " << trash->members.size() << " members (after removal)" << std::endl;
+  DDEBUG std::cerr << "trash-sc has " << trash->members.size() << " members (after removal)" << std::endl;
   assert(trash->members.size() == 0);
   delete trash;
-  ddebug std::cout << "DONE adding Edge" << std::endl;
+  DDEBUG std::cerr << "DONE adding Edge" << std::endl;
 }

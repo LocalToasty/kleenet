@@ -7,32 +7,38 @@
 
 namespace net {
   namespace util {
+    struct SafeListPoolDefault {
+      static const bool value = true;
+    };
     // forward declarations
-    template <class T> class SafeList;
-    template <class T> class SafeListMonad;
-    template <class T> class SafeListIterator;
-    template <class T> class SafeListHeadItem;
-
-    template <class T> class SafeListItem {
+    template <class T, bool pool = SafeListPoolDefault::value> class SafeList;
+    template <class T, bool pool = SafeListPoolDefault::value> class SharedSafeList;
+    template <class T, bool pool = SafeListPoolDefault::value> class SafeListMonad;
+    template <class T, bool pool = SafeListPoolDefault::value> class SafeListIterator;
+    template <class T, bool pool = SafeListPoolDefault::value> class SafeListHeadItem;
+    template <class T, bool pool = SafeListPoolDefault::value> class SafeListItem {
       // SafeList not supported for non-pointer types!
+      static const char error[(sizeof(T))-10000];
     };
 
-    template <class T_> class SafeListItem<T_*> {
+    template <class T_, bool pool> class SafeListItem<T_*,pool> {
       typedef T_* T;
-      friend class SafeList<T>;
-      friend class SafeListIterator<T>;
+      friend class SafeList<T,pool>;
+      friend class SafeListIterator<T,pool>;
       private:
         SafeListItem* left;
         SafeListItem* right;
-        SafeListHeadItem<T>* head;
+        SafeListHeadItem<T,pool>* head;
         struct Arena {
           SafeListItem* list;
           Arena() : list(NULL) {}
           void cleanup() {
+            SafeListItem* const old = list;
             while (list) {
+              list->left = NULL;
               SafeListItem* const i = list->right;
               delete list;
-              list = (list != i)?i:NULL;
+              list = (i == old)?NULL:i;
             }
           }
           ~Arena() {
@@ -49,7 +55,7 @@ namespace net {
           assert(left->head == right->head && "Cannot join two lists.");
         }
       protected:
-        SafeListItem(SafeListHeadItem<T>* head)
+        SafeListItem(SafeListHeadItem<T,pool>* head)
           : left(this), right(this), head(head), content() {} // O(1)
         ~SafeListItem() {}
       public:
@@ -66,51 +72,63 @@ namespace net {
         static SafeListItem* allocate(T c, SafeListItem* l, SafeListItem* r) {
           if (arena.list == 0)
             return new SafeListItem(c,l,r);
-          SafeListItem* result = arena.list;
+          SafeListItem* const result = arena.list;
           if (arena.list == arena.list->right) {
             arena.list = 0;
           } else {
             arena.list->left->right = arena.list->right;
             arena.list->right->left = arena.list->left;
+            arena.list = arena.list->right;
           }
-          result->left = l;
-          result->right = r;
-          result->content = c;
-          return result;
+          return new(result) SafeListItem(c,l,r);
         }
         static void reclaimAll(SafeListItem* i) {
           assert(i && i->left && i->right && "Cannot reclaim nonsense");
-          if (arena.list == 0) {
-            arena.list = i;
+          if (pool) {
+            if (arena.list == 0) {
+              arena.list = i;
+            } else {
+              arena.list->left->right = i;
+              i->left->right = arena.list;
+              SafeListItem* const left = arena.list->left;
+              arena.list->left = i->left;
+              i->left = left;
+            }
+            arena.list->check();
+            arena.list->left->check();
+            arena.list->right->check();
+            // NOTE: calling ~SafeListItem on each item is omitted for efficiency.
+            // This is a pointer specialisation anyway!
           } else {
-            arena.list->left->right = i;
-            i->left->right = arena.list;
-            SafeListItem* const left = arena.list->left;
-            arena.list->left = i->left;
-            i->left = left;
+            i->left->right = NULL;
+            do {
+              SafeListItem* p = i->right;
+              delete i;
+              i = p;
+            } while (i);
           }
         }
     };
-    template <class T_> typename SafeListItem<T_*>::Arena SafeListItem<T_*>::arena;
+    template <class T_,bool pool> typename SafeListItem<T_*,pool>::Arena SafeListItem<T_*,pool>::arena;
 
-    template <class T> class SafeListHeadItem : SafeListItem<T> {
-      friend class SafeList<T>;
-      friend class SafeListMonad<T>;
-      friend class SafeListIterator<T>;
+    template <class T, bool pool> class SafeListHeadItem : public SafeListItem<T,pool> {
+      friend class SafeList<T,pool>;
+      friend class SafeListMonad<T,pool>;
+      friend class SafeListIterator<T,pool>;
       private:
-        SafeList<T> const* const list;
+        SafeList<T,pool> const* const list;
       public:
-        SafeListHeadItem(SafeList<T> const* list) : SafeListItem<T>(this), list(list) {
+        SafeListHeadItem(SafeList<T,pool> const* list) : SafeListItem<T,pool>(this), list(list) {
         }
     };
 
-    template <class T> class SafeList {
-      friend class SafeListIterator<T>;
-      friend class SafeListMonad<T>;
+    template <class T, bool pool> class SafeList {
+      friend class SafeListIterator<T,pool>;
+      friend class SafeListMonad<T,pool>;
       // This is a sentinelled ring-list, to use if you really don't care about
       // the ordering. Also, don't expect set-behaviour.
       private:
-        SafeListHeadItem<T> head; // head is always the sentinel!
+        SafeListHeadItem<T,pool> head; // head is always the sentinel!
         size_t _size;
         // Locks will be optimised because it is private and never set in this class.
         // We expect this not to exceed 1, so a char will suffice.
@@ -129,7 +147,7 @@ namespace net {
           assert(0 && "Calling COPY-CTOR of SafeList is not supported.");
         }
       public:
-        typedef SafeListIterator<T> iterator;
+        typedef SafeListIterator<T,pool> iterator;
         SafeList() : head(this), _size(0), locks(0) { // O(1)
           assert(head.check());
           assert(head.list == this);
@@ -140,23 +158,31 @@ namespace net {
         ~SafeList() { // O(1)
           assert((!locks) && "Attempt to destroy a locked list.");
           // The list is empty iff head is the only element in the list.
+          //if (!(&head == head.left && &head == head.right)) {
+          //  std::cout << "[" << this << "] ~SafeList while not empty!!!" << std::endl;
+          //  for (SafeListIterator<T> it(*this); it.more(); it.next()) {
+          //    std::cout << "[" << this << "]    - " << it.get() << std::endl;
+          //  }
+          //}
           assert(&head == head.left && &head == head.right && "Attempt to destroy a non-empty list.");
         }
         unsigned char isLocked() const { // O(1)
           return locks;
         }
-        SafeListItem<T> *put(T c) { // O(1)
+        SafeListItem<T,pool> *put(T c) { // O(1)
+          //std::cout << "[" << this << "] put(" << c << ")" << std::endl;
           assert((!locks) && "Attempt to modify locked list by insertion.");
           assert(head.right && "Invalid FL: right is NULL");
           _size++;
           // We insert the element between 'head' and 'head.right'.
-          head.right->left = (SafeListItem<T>::allocate(c, &head, head.right));
+          head.right->left = (SafeListItem<T,pool>::allocate(c, &head, head.right));
           head.right = head.right->left;
           assert(head.check() && head.right->check() &&
             "SafeList::put produced an inconsistent result. I cannot recover, sorry.");
           return head.right;
         }
-        void drop(SafeListItem<T> *i) { // O(1)
+        void drop(SafeListItem<T,pool> *i) { // O(1)
+          //std::cout << "[" << this << "] drop(" << i->content << ")" << std::endl;
           assert(i);
           assert(i->head && "Attempt to delete an item without list.");
           assert(i->head == &head && "Attempt to delete foreign item.");
@@ -168,69 +194,71 @@ namespace net {
           i->right->left = i->left;
           i->left = i;
           i->right = i;
-          SafeListItem<T>::reclaimAll(i);
+          SafeListItem<T,pool>::reclaimAll(i);
         }
         void dropAll() { // O(1)
+          //std::cout << "[" << this << "] dropAll()" << std::endl;
           assert((!locks) && "Attempt to clear locked list.");
           if (_size) {
             _size = 0;
             head.left->right = head.right;
             head.right->left = head.left;
-            SafeListItem<T>::reclaimAll(head.right);
+            SafeListItem<T,pool>::reclaimAll(head.right);
             head.left = head.right = &head;
           }
         }
     };
-    template <class T> class SharedSafeList {
-      friend class SafeListIterator<T>;
+    template <class T,bool pool> class SharedSafeList {
+      friend class SafeListIterator<T,pool>;
       private:
-        SharedPtr<SafeList<T> > safeList;
+        SharedPtr<SafeList<T,pool> > safeList;
       public:
-        typedef typename SafeList<T>::iterator iterator;
-        SharedSafeList() : safeList(new SafeList<T>()) {
+        typedef typename SafeList<T,pool>::iterator iterator;
+        SharedSafeList() : safeList(new SafeList<T,pool>()) {
         }
         // DEFAULT COPY CTOR!!! That's what we do that whole mumbo jumbo for, after all!
         // DEFAULT DTOR
-        size_t size() const {
+        size_t size() const { // O(1)
           return safeList->size();
         }
         unsigned char isLocked() const { // O(1)
           return safeList->isLocked();
         }
-        SafeListItem<T>* put(T c) { // O(1)
+        SafeListItem<T,pool>* put(T c) { // O(1)
           return safeList->put(c);
         }
-        void drop(SafeListItem<T>* i) { // O(1)
+        void drop(SafeListItem<T,pool>* i) { // O(1)
           safeList->drop(i);
         }
         void dropAll() { // O(1)
           safeList->dropAll();
         }
     };
-    template <class T> class SafeListIterator {
+    template <class T, bool pool> class SafeListIterator {
       private:
-        SafeListHeadItem<T> const* head;
-        SafeListItem<T>* move;
+        SafeListHeadItem<T,pool> const* head;
+        SafeListItem<T,pool>* move;
+        ssize_t remaining;
       public:
         // use this at your own risk! iterating WILL THROW A SEGFAULT!
         // more() will work, however
         // the reason for this constructor is to delay the assignment (call 'reassign' before using the object)
-        SafeListIterator() : head(NULL), move(NULL) {}
+        SafeListIterator() : head(NULL), move(NULL), remaining(0) {}
         ~SafeListIterator() {
           unassign();
         }
         // for(SafeListIterator it(sl); it.more(); it.next()) {dostuff(it.get());}
         // call 'get' when there are no more elements and get bogus!
-        SafeListIterator(SafeList<T> const* sl) : head(NULL), move(NULL) {
+        SafeListIterator(SafeList<T,pool> const* sl) : head(NULL), move(NULL), remaining(0) {
           reassign(sl);
         }
-        SafeListIterator(SafeList<T> const& sl) : head(NULL), move(NULL) {
+        SafeListIterator(SafeList<T,pool> const& sl) : head(NULL), move(NULL), remaining(0) {
           reassign(sl);
         }
-        SafeListIterator(SharedSafeList<T> const* sl) : head(NULL), move(NULL) {
+        SafeListIterator(SharedSafeList<T,pool> const* sl) : head(NULL), move(NULL), remaining(0) {
           reassign(sl);
         }
-        SafeListIterator(SharedSafeList<T> const& sl) : head(NULL), move(NULL) {
+        SafeListIterator(SharedSafeList<T,pool> const& sl) : head(NULL), move(NULL), remaining(0) {
           reassign(sl);
         }
         void unassign() {
@@ -241,32 +269,36 @@ namespace net {
             move = NULL;
           }
         }
-        void reassign(SafeList<T> const& sl) {
+        void reassign(SafeList<T,pool> const& sl) {
           unassign();
           // we are friends with SafeList<T>
           head = &(sl.head);
           sl.getLock();
           restart();
         }
-        void reassign(SafeList<T> const* sl) {
+        void reassign(SafeList<T,pool> const* sl) {
           reassign(*sl);
         }
-        void reassign(SharedSafeList<T> const& sl) {
+        void reassign(SharedSafeList<T,pool> const& sl) {
           reassign(*(sl.safeList));
         }
-        void reassign(SharedSafeList<T> const* sl) {
+        void reassign(SharedSafeList<T,pool> const* sl) {
           reassign(*sl);
         }
         void restart() {
+          remaining = head->list->size();
           move = head->right;
         }
         bool more() const {
+          assert(remaining >= 0 && "SafeList bounds overrun");
           return move != head;
         }
         void next() {
+          assert(remaining-- > 0 && "SafeList bounds overrun");
           move = move->right;
         }
         T get() const {
+          assert(remaining > 0 && "SafeList bounds overrun");
           return move->content;
         }
         bool empty() const {
@@ -282,7 +314,7 @@ namespace net {
         }
     };
 
-    template <class Adopter, class Adoptable> class SafeListAdopter; // forward decl
+    /*template <class Adopter, class Adoptable> class SafeListAdopter; // forward decl
 
     template <class Adopter, class Adoptable> class SafeListAdoptable {
       // Note: we cannot just put Adopter as a friend class, because we
@@ -331,7 +363,7 @@ namespace net {
           ch->adopter = NULL;
           ch->sli = NULL;
         }
-    };
+    };*/
   }
 }
 

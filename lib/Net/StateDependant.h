@@ -60,7 +60,7 @@ namespace net {
       }
       // this is probably not how you want to create your dependants, as
       // you have to implement that ctor all the way down to the leafs
-      StateDependant(BasicState* state) : cloner(NULL), state(state) {
+      StateDependant(BasicState* state) : state(state), cloner(NULL) {
         registerState(state);
       }
       // this is how you probably want to create the first dep

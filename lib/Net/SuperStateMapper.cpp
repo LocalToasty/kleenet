@@ -6,7 +6,9 @@
 #include <cassert>
 #include <utility>
 
-//#include <iostream>
+#include <iostream>
+
+#include "debug.h"
 
 using namespace net;
 
@@ -42,10 +44,17 @@ SuperInformation::SuperInformation(SuperInformation const& from)
   }
 }
 
+SuperInformation::~SuperInformation() {
+}
+
 VState::VState(SuperInformation *s)
   : sli_si(NULL), si(NULL), sli_ds(NULL), ds(NULL),
     graphEdge(s->graphNode.graph), isTarget(false) {
+  //DDEBUG std::cerr << "Creating VState " << this << " (on SI " << s << ", on BasicState " << s->getState() << ")" << std::endl; // XXX
   moveTo(s);
+}
+VState::~VState() {
+  //DDEBUG std::cerr << "Destroying VState " << this << std::endl; // XXX
 }
 
 void VState::moveTo(SuperInformation *s) {
@@ -89,14 +98,18 @@ DState::DState(DState& ds)
   vstates.lock();
 }
 DState::~DState() {
+  //DDEBUG std::cerr << "DState dying" << std::endl;
   mapper.activeDStates._list.drop(sli_actives);
+  //DDEBUG std::cerr << "DState dead" << std::endl;
 }
 
 DState *DState::adoptVState(VState *vs) {
   assert(vs);
   DState *old = autoAbandonVState(vs);
   // we are friends with VState ...
+  //DDEBUG std::cerr << "[" << this << "] size[n:" << vs->info()->getNode().id << "] before adopting vstate: " << vstates[vs->info()->getNode()].size() << std::endl;
   vs->sli_ds = vstates[vs->info()->getNode()].put(vs);
+  //DDEBUG std::cerr << "[" << this << "] size[n:" << vs->info()->getNode().id << "] after adopting vstate: " << vstates[vs->info()->getNode()].size() << std::endl;
   vs->ds = this;
   vs->graphEdge.setDState(&(this->graphNode));
   return old;
@@ -111,7 +124,9 @@ DState *DState::adoptVState(VState *vs) {
 void DState::abandonVState(VState *vs) {
   assert(vs && vs->sli_ds && vs->ds == this);
   assert(!vstates[vs->info()->getNode()].isLocked());
+  //DDEBUG std::cerr << "size[n:" << vs->info()->getNode().id << "] before abandoning vstate: " << vstates[vs->info()->getNode()].size() << std::endl;
   vstates[vs->info()->getNode()].drop(vs->sli_ds);
+  //DDEBUG std::cerr << "size[n:" << vs->info()->getNode().id << "] after abandoning vstate: " << vstates[vs->info()->getNode()].size() << std::endl;
   vs->ds = NULL;
   vs->sli_ds = NULL;
   vs->graphEdge.setDState(NULL);
@@ -208,10 +223,15 @@ Node const& SuperInformation::setNode(Node const& n) {
 }
 
 void SuperStateMapper::_remove(const std::set<BasicState*> &remstates) {
+  DDEBUG std::cerr << "Removing " << remstates.size() << " states from Super Mapper" << std::endl;
+  //for (std::set<BasicState*>::iterator i = remstates.begin(),
+  //        e = remstates.end(); i != e; ++i) {
+  //  DDEBUG std::cerr << "  - " << *i << std::endl;
+  //}
   if (!remstates.size())
     return;
   std::set<DState*> ds;
-  for (std::set<BasicState*>::iterator i = remstates.begin(),
+  for (std::set<BasicState*>::const_iterator i = remstates.begin(),
           e = remstates.end(); i != e; ++i) {
     SuperInformation *si = stateInfo(*i);
     assert(si);
@@ -294,6 +314,7 @@ namespace {
 }
 
 void SuperStateMapper::_map(BasicState &es, Node dest) {
+  //DDEBUG std::cerr << std::endl << std::endl << "############################################# START MAP" << std::endl;
   // How to read this function:
   //   There are several places where we will (logically) need a map, but
   //   instead of using map<class1*,class2*> you will often see an attribute of
@@ -415,7 +436,7 @@ void SuperStateMapper::_map(BasicState &es, Node dest) {
     }
   }
   // Now we finished the branching and have the target-node and source-node
-  // sorted out all that's left is to put other nodes "states" into the new
+  // sorted out. All that's left is to put other nodes "states" into the new
   // dstates (if any).
   {
     util::SafeListIterator<DState*> ds;
@@ -445,7 +466,7 @@ void SuperStateMapper::_map(BasicState &es, Node dest) {
 }
 
 void SuperStateMapper::_phonyMap(std::set<BasicState*> const &states, Node dest) {
-  //std::cout << "phonyMap" << std::endl;
+  //DDEBUG std::cerr << "phonyMap" << std::endl;
   assert(states.size() && "Empty mapping request?");
   Node const origin = stateInfo(*states.begin())->getNode();
   resetMarks();
@@ -477,7 +498,7 @@ void SuperStateMapper::_phonyMap(std::set<BasicState*> const &states, Node dest)
     }
   }
 
-  //std::cout << "found a total of " << vpackets.size() << " vpackets" << std::endl;
+  //DDEBUG std::cerr << "found a total of " << vpackets.size() << " vpackets" << std::endl;
 
   std::vector<VState*> allvt;
   allvt.reserve(vpackets.size());
@@ -490,7 +511,7 @@ void SuperStateMapper::_phonyMap(std::set<BasicState*> const &states, Node dest)
     size_t const sending = i->second.size();
     assert(sending);
     assert(sending <= total);
-    //std::cout << "total states: " << total << "; sending: " << sending << std::endl;
+    //DDEBUG std::cerr << "total states: " << total << "; sending: " << sending << std::endl;
     if (sending < total) {
       if (!ds->isMarked()) {
         new DState(*ds); // is automatically stored in ds->heir
@@ -499,7 +520,7 @@ void SuperStateMapper::_phonyMap(std::set<BasicState*> const &states, Node dest)
       target = new VState(target->info());
       ds->heir->adoptVState(target);
     } else {
-      //std::cout << "IGNORING PHONY PACKET!" << std::endl;
+      //DDEBUG std::cerr << "IGNORING PHONY PACKET!" << std::endl;
     }
     // Note that it is not possible to add any vstate
     // twice as the vstate is the key of the data structure
@@ -560,7 +581,7 @@ void SuperStateMapper::_phonyMap(std::set<BasicState*> const &states, Node dest)
       }
     }
     for (Joblist::const_iterator i = jobs.begin(), e = jobs.end(); i != e; ++i) {
-      //std::cout << i->first << " (" << i->first->info() << "[" << i->first->info()->multiplicity << "]" << " ~> " << i->second << "[" << i->second->multiplicity << "])" << std::endl;
+      //DDEBUG std::cerr << i->first << " (" << i->first->info() << "[" << i->first->info()->multiplicity << "]" << " ~> " << i->second << "[" << i->second->multiplicity << "])" << std::endl;
       assert(i->first->info()->multiplicity > 1);
       i->first->moveTo(i->second);
     }

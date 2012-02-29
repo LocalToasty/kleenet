@@ -49,7 +49,6 @@ KleeNet::KleeNet(Executor* executor)
   : phonyPackets(UsePhonyPackets)
   , env(NULL)
   , executor(executor) {
-  Searcher::globalKleenet = this;
 }
 
 KleeNet::PacketCache* KleeNet::getPacketCache() const {
@@ -82,11 +81,10 @@ void KleeNet::setStateNode(klee::ExecutionState const& state, net::Node const& n
 }
 
 KleeNet::~KleeNet() {
-  Searcher::globalKleenet = NULL;
 }
 
-void KleeNet::newSearcher(Searcher* s) {
-  phonyPackets = phonyPackets && s->ns->supportsPhonyPackets();
+void KleeNet::registerSearcher(Searcher* s) {
+  phonyPackets = phonyPackets && s->netSearcher()->supportsPhonyPackets();
 }
 
 KleeNet::RunEnv::RunEnv(KleeNet& kleenet, klee::ExecutionState* rootState)
@@ -100,6 +98,9 @@ KleeNet::RunEnv::RunEnv(KleeNet& kleenet, klee::ExecutionState* rootState)
 
 KleeNet::RunEnv::~RunEnv() {
   kleenet.env = NULL;
+}
+
+KleeNet::TerminateStateHandler::~TerminateStateHandler() {
 }
 
 
@@ -131,8 +132,7 @@ void KleeNet::terminateCluster(klee::ExecutionState& state, KleeNet::TerminateSt
     public:
       BasicTerminate(KleeNet::TerminateStateHandler const& terminate) : terminate(terminate) {}
       void operator()(net::BasicState& state, std::vector<net::BasicState*> const& appendix) const {
-        cache.resize(0);
-        cache.reserve(appendix.size());
+        cache.resize(appendix.size());
         std::transform(appendix.begin(),appendix.end(),cache.begin(),net::basic_terminate::cast());
         terminate(*(net::basic_terminate::cast()(&state)),cache);
       }

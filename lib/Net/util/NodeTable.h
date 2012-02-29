@@ -13,6 +13,7 @@ namespace net {
       private:
         typedef typename std::vector<T> N;
         N nodes;
+        NodeTable(NodeTable const& nt);// : nodes(nt.nodes) {}
       protected:
         virtual void onResize() {}
         virtual void onExplicitResize(NodeCount newCount) {
@@ -21,16 +22,28 @@ namespace net {
         virtual void onAutoResize(Node intrude) {
           onResize();
         }
+        void changeSize(NodeCount nc) {
+          if (nc > nodes.size()) {
+            nodes.reserve(nc);
+            // This is necessary because our nested types might have specific copy semantics.
+            // We have to get a fresh instance for each slot to avoid soft-copies.
+            // Warning: Do not change this, unless you know exactly why it is here!
+            for (NodeCount i = nodes.size(); i < nc; i++) {
+              nodes.push_back(T());
+            }
+          }
+        }
       public:
         typedef typename N::iterator iterator;
         NodeTable() : nodes(0) {}
-        NodeTable(NodeCount nc) : nodes(nc) {}
-        NodeTable(NodeTable const& nt) : nodes(nt.nodes) {}
+        NodeTable(NodeCount nc) : nodes(0) {
+          changeSize(nc);
+        }
         virtual ~NodeTable() {}
-        void resize (NodeCount nc) {
+        void resize(NodeCount nc) {
           assert(nc >= nodes.size() && "Removing nodes not supported.");
           onExplicitResize(nc);
-          nodes.resize(nc);
+          changeSize(nc);
         }
         NodeCount size() const {
           return nodes.size();
@@ -47,13 +60,15 @@ namespace net {
           if (id >= nodes.size()) {
             // autoresize nodes
             onAutoResize(n);
-            nodes.resize(id + 1);
+            resize(id + 1);
           }
           return nodes[id];
         }
     };
 
     template <class T> class LockableNodeTable : public NodeTable<T> {
+      private:
+        LockableNodeTable(LockableNodeTable const& nt);// : NodeTable<T>(nt), allowResize(nt.allowResize) {}
       public:
         bool& allowResize;
       protected:
@@ -69,7 +84,6 @@ namespace net {
           return !allowResize;
         }
         LockableNodeTable(NodeCount nc, bool& allowResize) : NodeTable<T>(nc), allowResize(allowResize) {}
-        LockableNodeTable(LockableNodeTable const& nt) : NodeTable<T>(nt), allowResize(nt.allowResize) {}
     };
 
     template <typename A, typename B, typename Result>

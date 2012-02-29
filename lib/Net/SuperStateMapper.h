@@ -42,6 +42,7 @@ namespace net {
 
       SuperInformation(SuperStateMapper&,SdsGraph&);
       SuperInformation(SuperInformation const&);
+      ~SuperInformation();
       Node const& setNode(Node const& n);
   };
 
@@ -61,6 +62,7 @@ namespace net {
       bool isTarget;
 
       VState(SuperInformation *s);
+      ~VState();
       void moveTo(SuperInformation *s);
       SuperInformation *info();
       DState *dstate();

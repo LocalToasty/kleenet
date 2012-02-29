@@ -21,7 +21,6 @@ namespace net {
       void popState();
       void pushBack(BasicState*);
       void removeState(BasicState*);
-      void removeStateOnNode(BasicState*, Node const);
       bool empty() const;
       bool isNodeScheduled(Node node);
   };

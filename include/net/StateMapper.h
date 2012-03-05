@@ -5,6 +5,7 @@
 #include <set>
 #include <deque>
 #include <vector>
+#include <cstddef>
 #include <memory>
 
 // Due to the excessive polymorphism used here you can loose track very easily

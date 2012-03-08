@@ -12,8 +12,8 @@
 
 #include <algorithm>
 
-#include "../Net/StateDependant.h"
-#include "../Net/MappingInformation.h"
+//#include "../Net/StateDependant.h"
+//#include "../Net/MappingInformation.h"
 
 namespace klee {
   class ObjectState;
@@ -57,11 +57,14 @@ namespace kleenet {
       Executor* getExecutor() const {
         return e;
       }
+      virtual bool silent() const {
+        return false;
+      }
     public:
-      virtual void operator()(klee::ExecutionState* state) const {
+      inline void operator()(klee::ExecutionState* state) const {
         term(*state);
       }
-      virtual void operator()(klee::ExecutionState& state) const {
+      inline void operator()(klee::ExecutionState& state) const {
         term(state);
       }
       void operator()(klee::ExecutionState& state, std::vector<klee::ExecutionState*> const& appendix) const {
@@ -75,19 +78,21 @@ namespace kleenet {
           e->netInterpreterHandler->incDScenariosExplored();
         (*this)(state);
         bool generateTestCases = true;
-        switch (distributedTerminateBehaviour) {
-          case DTB_uniformTestCase:
-            std::for_each<std::vector<klee::ExecutionState*>::const_iterator,NetExTHnd const&>(appendix.begin(),appendix.end(),*this);
-            break;
-          case DTB_singleTestCase:
-            generateTestCases = false;
-            // Intentional fall through!
-          case DTB_forceAllTestCase:
-            for (std::vector<klee::ExecutionState*>::const_iterator it(appendix.begin()), end(appendix.end()); it != end; ++it) {
-              if (generateTestCases)
-                e->netInterpreterHandler->processTestCase(**it,NULL,NULL);
-              e->klee::Executor::terminateState(**it);
-            }
+        if (!silent()) {
+          switch (distributedTerminateBehaviour) {
+            case DTB_uniformTestCase:
+              std::for_each<std::vector<klee::ExecutionState*>::const_iterator,NetExTHnd const&>(appendix.begin(),appendix.end(),*this);
+              break;
+            case DTB_singleTestCase:
+              generateTestCases = false;
+              // Intentional fall through!
+            case DTB_forceAllTestCase:
+              for (std::vector<klee::ExecutionState*>::const_iterator it(appendix.begin()), end(appendix.end()); it != end; ++it) {
+                if (generateTestCases)
+                  e->netInterpreterHandler->processTestCase(**it,NULL,NULL);
+                e->klee::Executor::terminateState(**it);
+              }
+          }
         }
       }
   };
@@ -201,4 +206,22 @@ void Executor::terminateStateOnError(klee::ExecutionState& state,
   };
   TSoE hnd(this,messaget,suffix,info);
   kleenet.terminateCluster(state,hnd);
+}
+
+void Executor::terminateState_klee(klee::ExecutionState& state) {
+  klee::Executor::terminateState(state);
+}
+
+void Executor::terminateState(klee::ExecutionState& state) {
+  struct TS : NetExTHnd {
+    TS(Executor* e)
+      : NetExTHnd(e) {}
+    bool silent() const {
+      return true;
+    }
+    void term(klee::ExecutionState& state) const {
+      getExecutor()->terminateState_klee(state);
+    }
+  };
+  kleenet.terminateCluster(state,TS(this));
 }

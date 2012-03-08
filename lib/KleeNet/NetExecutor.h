@@ -51,6 +51,8 @@ namespace kleenet {
       KleeNet const& kleeNet;
       Searcher* getNetSearcher() const;
 
+      void terminateState(klee::ExecutionState&);
+      void terminateState_klee(klee::ExecutionState&);
       void terminateStateEarly(klee::ExecutionState&, llvm::Twine const&);
       void terminateStateEarly_klee(klee::ExecutionState&, llvm::Twine const&);
       void terminateStateOnExit(klee::ExecutionState&);

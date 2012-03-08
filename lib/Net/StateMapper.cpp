@@ -316,10 +316,11 @@ void StateMapper::remove(BasicState *state) {
   bool excessiveTests = false;
   (void)excessiveTests;
   assert((excessiveTests = true) && state && "Unknown state");
-  if (!stateInfo(state))
+  if (!MappingInformation::retrieveDependant(state))
     return;
   if (stateInfo(state)->getNode() == Node::INVALID_NODE) {
     delete stateInfo(state);
+    assert(!MappingInformation::retrieveDependant(state) && "StateDependant didn't clean up correctly.");
     return;
   }
   std::set<BasicState*> states;
@@ -357,6 +358,7 @@ void StateMapper::remove(BasicState *state) {
   for (std::set<BasicState*>::iterator si = states.begin(), se = states.end();
           si != se; ++si) {
     delete stateInfo(*si);
+    assert(!MappingInformation::retrieveDependant(*si) && "StateDependant didn't clean up correctly.");
   }
   ++_truncatedDScenarios;
 }
@@ -372,9 +374,9 @@ size_t StateMapper::findTargets(BasicState const& state, Node const dest) const 
   assert(stateInfo(state) &&
     "Cannot find targets for a state without mapping information.");
   assert(nodes().find(dest) != nodes().end() &&
-    "Cannot findTargets of a non-existant node.");
+    "Cannot findTargets of a non-existant destination node.");
   assert(nodes().find(stateInfo(state)->getNode()) != nodes().end() &&
-    "Cannot findTargets on a non-existant node.");
+    "Cannot findTargets on a non-existant source node.");
   // local delivery
   if (stateInfo(state)->getNode() == dest) {
     foundTarget(&state);
@@ -411,12 +413,12 @@ void StateMapper::setNodeCount(unsigned nodeCount) {
 }
 
 void StateMapper::terminateCluster(BasicState& state, TerminateStateHandler const& terminate) {
-  DDEBUG std::cerr << "Terminating Cluster (SM) on pivot state " << &state << std::endl;
   MappingInformation* const mi = MappingInformation::retrieveDependant(&state);
+  DDEBUG std::cerr << "Terminating Cluster (SM) on pivot state " << &state << " with MI: " << mi << std::endl;
+  std::vector<BasicState*> targets;
+  std::vector<BasicState*> siblings;
 
-  if (mi) {
-    std::vector<BasicState*> targets;
-    std::vector<BasicState*> siblings;
+  if (mi && (mi->getNode() != Node::INVALID_NODE)) {
     explode(&state, &siblings);
     // NOTE: updateStates() is NOT required, because we don't examine any of the engine's data structures
     // anyway (let alone have to inform the searcher)
@@ -436,15 +438,15 @@ void StateMapper::terminateCluster(BasicState& state, TerminateStateHandler cons
       assert((targets.size() == nodes().size()-1) &&
         "incorrect number of targets");
     }
+  }
 
-    // remove dscenario from the mapper
-    remove(&state);
-    // finally, terminate all involved states (state + targets)
-    terminate(state,targets);
-    // terminate siblings' dscenarios recursively if any
-    for (std::vector<BasicState*>::iterator it = siblings.begin(), ie = siblings.end(); it != ie; ++it) {
-      if (*it != &state)
-        terminateCluster(**it, terminate);
-    }
+  // remove dscenario from the mapper
+  remove(&state);
+  // finally, terminate all involved states (state + targets)
+  terminate(state,targets);
+  // terminate siblings' dscenarios recursively if any
+  for (std::vector<BasicState*>::iterator it = siblings.begin(), ie = siblings.end(); it != ie; ++it) {
+    if (*it != &state)
+      terminateCluster(**it, terminate);
   }
 }

@@ -25,6 +25,7 @@ MappingInformation::MappingInformation(MappingInformation const& from)
   DDEBUG std::cerr << "[" << this << "] MappingInformation(MappingInformation const&) // node = " << _node.id << std::endl;
 }
 MappingInformation::~MappingInformation() {
+  DDEBUG std::cerr << "[" << this << "] ~MappingInformation() // node = " << _node.id << ", state = " << getState() << std::endl;
   if (cluster) {
     cluster->depart(this);
     // We do not call change() because we are being deleted.

@@ -86,6 +86,7 @@ namespace net {
       virtual ~StateDependant() {
         assert(state && "State must be set before destruction. Short-cut removal not supported.");
         reg.unRegister(this, state);
+        assert(!reg.retrieve(state) && "unRegister went wrong");
       }
   };
   template <typename Child> RegisterChildDependant StateDependant<Child>::reg;

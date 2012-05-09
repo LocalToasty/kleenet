@@ -81,7 +81,7 @@ namespace net {
       Nodes _nodes;
       unsigned _truncatedDScenarios;
 
-      NodeChangeObserver* nco;
+      std::auto_ptr<NodeChangeObserver> nco;
 
 
     private:

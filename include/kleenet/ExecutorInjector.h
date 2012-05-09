@@ -9,6 +9,7 @@
 #pragma once
 
 // This file only serves the purpose to tweak some members of klee::Executor, such that we can later override them properly.
+// This works as follows: We mark some member functions as pure abstract here, klee::Executor inherits from us, and anything that in turn inherits from klee::Executor can override those functions
 
 namespace llvm {
   class Twine;

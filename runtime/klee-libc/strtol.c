@@ -36,6 +36,13 @@
 #include <errno.h>
 #include <stdlib.h>
 
+// XXX XXX XXX
+#ifndef ERANGE
+#define ERANGE 34
+#endif
+#ifndef EINVAL
+#define EINVAL 22
+#endif
 
 /*
  * Convert a string to a long integer.

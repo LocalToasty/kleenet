@@ -1,10 +1,117 @@
 #include "TransmitHandler.h"
 
 #include "klee/ExecutionState.h"
+#include "klee/util/ExprPPrinter.h"
+#include "klee/util/ExprVisitor.h"
+#include "klee/util/ExprUtil.h"
+
+#include "llvm/ADT/StringExtras.h"
 
 #include "../Core/Memory.h" //yack!
 
 #include "AtomImpl.h"
+
+#include <map>
+#include <algorithm>
+#include <iterator>
+#include <sstream>
+
+namespace kleenet {
+  class NameMangler {
+    public:
+      klee::ExecutionState& scope;
+      std::string const appendToName;
+      NameMangler(klee::ExecutionState& scope, std::string const appendToName)
+        : scope(scope)
+        , appendToName(appendToName) {
+      }
+      klee::Array* operator()(klee::Array const* array) const {
+        std::string const nameMangle = array->name + appendToName;
+        std::string uniqueName = nameMangle;
+        unsigned uniqueId = 1;
+        while (!scope.arrayNames.insert(uniqueName).second)
+          uniqueName = nameMangle + "(" + llvm::utostr(++uniqueId) + ")"; // yes, we start with (2)
+        return new klee::Array(uniqueName,array->size);
+      }
+  };
+
+  class LazySymbolTranslator {
+    private:
+      NameMangler mangle;
+    protected:
+      typedef std::map<klee::Array const*,klee::Array*> TxMap;
+      TxMap txMap;
+    public:
+      LazySymbolTranslator(NameMangler mangle)
+        : mangle(mangle) {
+      }
+      klee::Array* operator()(klee::Array const* array) {
+        klee::Array*& it = txMap[array];
+        if (!it)
+          it = mangle(array);
+        return it;
+      }
+  };
+
+  class ReplaceReadVisitor : public klee::ExprVisitor {
+    private:
+      typedef klee::ExprVisitor::Action Action;
+      LazySymbolTranslator& lst;
+    protected:
+      virtual Action visitRead(klee::ReadExpr const& re) {
+        klee::ref<klee::Expr> const replacement = klee::ReadExpr::alloc(
+            klee::UpdateList(lst(re.updates.root),re.updates.head) // head is cow-shared: magic
+          , re.index /* XXX this could backfire, if we have complicated READ expressions in the index
+                      * but for now we can simply assume not to have such weird stuff*/
+        );
+        return Action::changeTo(replacement);
+      }
+    public:
+      ReplaceReadVisitor(LazySymbolTranslator& lst)
+        : lst(lst) {
+      }
+  };
+
+  class ReadTransformator {
+    public:
+      typedef std::vector<klee::ref<klee::Expr> > Seq;
+    private:
+      template <typename T, typename It, typename Op> static std::vector<T> transform(It begin, It end, unsigned size, Op const& op) { // rvo takes care of us :)
+        std::vector<T> v(size);
+        std::transform(begin,end,v.begin(),op);
+        return v;
+      }
+      LazySymbolTranslator lst;
+      ReplaceReadVisitor rrv;
+      Seq const seq;
+      Seq dynamicLookup;
+      ReadTransformator(ReadTransformator const&); // don't implement
+      ReadTransformator& operator=(ReadTransformator const&); // don't implement
+
+    public:
+      template <typename Container, typename UnaryOperation>
+      ReadTransformator(klee::ExecutionState& scope, std::string const appendToName,
+                        Container const& input, UnaryOperation const& op)
+        : lst(NameMangler(scope, appendToName))
+        , rrv(lst)
+        , seq(transform<klee::ref<klee::Expr>,typename Container::const_iterator,UnaryOperation>(
+                input.begin(),input.end(),input.size(),op))
+        , dynamicLookup(input.size(),klee::ref<klee::Expr>()) {
+        assert(dynamicLookup.size() == seq.size());
+      }
+
+      klee::ref<klee::Expr> const operator[](unsigned const index) {
+        assert(dynamicLookup.size() && "Epsilon cannot be expanded into non-empty sequence.");
+        unsigned const normIndex = index % dynamicLookup.size();
+        if (dynamicLookup[normIndex].isNull())
+          dynamicLookup[normIndex] = rrv.visit(seq[normIndex]);
+        return dynamicLookup[normIndex];
+      }
+      klee::ref<klee::Expr> const operator()(klee::ref<klee::Expr> const expr) {
+        return rrv.visit(expr);
+      }
+  };
+}
 
 using namespace kleenet;
 
@@ -20,13 +127,15 @@ void TransmitHandler::handleTransmission(PacketInfo const& pi, net::BasicState* 
   const klee::ObjectState* ose = receiver.addressSpace.findObject(pi.destMo);
   assert(ose && "Destination ObjectState not found.");
   klee::ObjectState* wos = receiver.addressSpace.getWriteable(pi.destMo, ose);
-  std::vector<net::DataAtomHolder>::const_iterator j = data.begin(), f = data.end();
+  ReadTransformator rt(receiver,"{" + llvm::utostr(pi.src.id) + "->" + llvm::utostr(pi.dest.id) + "}",data,dataAtomToExpr);
   // important remark: data might be longer or shorter than pi.length. Always obey the size dictated by PacketInfo.
   for (unsigned i = 0; i < pi.length; i++) {
-    if (j == f)
-      j = data.begin();
-    wos->write(pi.offset + i, dataAtomToExpr(*j++));
+    wos->write(pi.offset + i, rt[i]);
   }
-  // merge with destination state's constraints
-  receiver.mergeConstraints(sender); // FIXME
+  // copy over the constraints (TODO: only copy "required" constraints subset)
+  klee::ConstraintManager& sc(sender.constraints);
+  klee::ConstraintManager& rc(receiver.constraints);
+  for (klee::ConstraintManager::const_iterator it = sc.begin(), en = sc.end(); it != en; ++it) {
+    rc.addConstraint(rt(*it));
+  }
 }

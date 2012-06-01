@@ -39,6 +39,8 @@ SymbolicAtom::operator klee::ref<klee::Expr>() const {
 
 template <typename Child> class AtomIsA : public net::DataAtomT<Child> {
   private:
+    // TODO: This implementation should be removed, and just left
+    // unimplemented to trigger link-time errors.
     bool operator<(net::DataAtom const& that) const {
       assert(0);
     }

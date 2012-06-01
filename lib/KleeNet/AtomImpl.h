@@ -12,6 +12,9 @@ namespace klee {
 
 namespace kleenet {
 
+  // TODO: There should be a common base for both, with the abstract function
+  // `operator klee::ref<klee::Expr>() const` to make `dataAtomToExpr` nicer.
+
   class ConcreteAtom : public net::DataAtomT<ConcreteAtom> {
     private:
       typedef uint8_t Data;

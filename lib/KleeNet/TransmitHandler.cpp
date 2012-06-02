@@ -25,13 +25,16 @@ namespace kleenet {
         : scope(scope)
         , appendToName(appendToName) {
       }
-      klee::Array* operator()(klee::Array const* array) const {
-        std::string const nameMangle = array->name + appendToName;
+      std::string operator()(std::string const& str) const {
+        std::string const nameMangle = str + appendToName;
         std::string uniqueName = nameMangle;
         unsigned uniqueId = 1;
         while (!scope.arrayNames.insert(uniqueName).second)
           uniqueName = nameMangle + "(" + llvm::utostr(++uniqueId) + ")"; // yes, we start with (2)
-        return new klee::Array(uniqueName,array->size);
+        return uniqueName;
+      }
+      klee::Array* operator()(klee::Array const* array) const {
+        return new klee::Array((*this)(array->name),array->size);
       }
   };
 
@@ -103,9 +106,10 @@ namespace kleenet {
       klee::ref<klee::Expr> const operator[](unsigned const index) {
         assert(dynamicLookup.size() && "Epsilon cannot be expanded into non-empty sequence.");
         unsigned const normIndex = index % dynamicLookup.size();
-        if (dynamicLookup[normIndex].isNull())
-          dynamicLookup[normIndex] = rrv.visit(seq[normIndex]);
-        return dynamicLookup[normIndex];
+        klee::ref<klee::Expr>& slot = dynamicLookup[normIndex];
+        if (slot.isNull())
+          slot = rrv.visit(seq[normIndex]);
+        return slot;
       }
       klee::ref<klee::Expr> const operator()(klee::ref<klee::Expr> const expr) {
         return rrv.visit(expr);

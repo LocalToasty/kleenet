@@ -4,6 +4,7 @@
 
 #include "MappingInformation.h"
 #include "util/SafeList.h"
+#include "util/SharedSafeList.h"
 #include "util/NodeTable.h"
 
 #include "StateMapperIntermediateBase.h"

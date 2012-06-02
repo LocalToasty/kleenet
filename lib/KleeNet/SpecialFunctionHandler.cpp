@@ -366,6 +366,33 @@ namespace kleenet {
     main->memoryTransferWrapper(ha.state, ha.arguments[0], len, values, destNode);
   }
 
+  HAND(void,kleenet_sync,2) {
+    Node const destNode = args[1]->getZExtValue();
+
+    klee::ResolutionList rl;
+    ha.state.addressSpace.resolve(ha.state, executor->solver, ha.arguments[0], rl);
+    assert(rl.size() == 1 && "kleenet_sync symbol must resolve to precisely one object");
+    // ... if it resolves to one object for the sender then it will also be one object on the receiver side
+    klee::MemoryObject const* const srcMo = rl[0].first;
+    klee::ObjectState const* const srcOs = rl[0].second;
+    size_t const len = srcMo->size;
+    unsigned const srcOffset =
+      dyn_cast<ConstantExpr>(srcMo->getOffsetExpr(ha.arguments[0]))->getZExtValue();
+
+    ExDataCarrier values;
+    for (size_t i = 0; i < len; i++) {
+      klee::ref<Expr> const re = srcOs->read8(srcOffset + i);
+      typedef net::util::SharedPtr<net::DataAtom> DA;
+      if (isa<ConstantExpr>(re)) {
+        values.exData.push_back(DA(new ConcreteAtom(dyn_cast<ConstantExpr>(re)->getZExtValue())));
+      } else {
+        values.exData.push_back(DA(new SymbolicAtom(re)));
+      }
+    }
+
+    main->memoryTransferWrapper(ha.state, ha.arguments[0], len, values, destNode);
+  }
+
   HAND(void,kleenet_memset,4) {
     ExDataCarrier value;
     value.exData.push_back(net::util::SharedPtr<net::DataAtom>(new ConcreteAtom(args[1]->getZExtValue())));

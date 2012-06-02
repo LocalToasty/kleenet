@@ -14,19 +14,42 @@ namespace net {
     template <class T, bool pool = SafeListPoolDefault::value> class SafeListMonad;
     template <class T, bool pool = SafeListPoolDefault::value> class SafeListIterator;
     template <class T, bool pool = SafeListPoolDefault::value> class SafeListHeadItem;
-    template <class T, bool pool = SafeListPoolDefault::value> class SafeListItem {
-      // SafeList not supported for non-pointer types!
-      static const char error[(sizeof(T))-10000];
+    template <class T, bool pool = SafeListPoolDefault::value> class SafeListItem;
+
+    template <class T, bool pool> struct DestroySafeListItems {
+      static void dtorContent(SafeListItem<T,pool>* sli);
     };
 
-    template <class T_, bool pool> class SafeListItem<T_*,pool> {
-      typedef T_* T;
+    // no need to free the item, as the destructor is guaranteed trivial
+    template <class T_, bool pool> struct DestroySafeListItems<T_*,pool> {
+      static void dtorContent(SafeListItem<T_*,pool>* sli) {}
+    };
+    template <bool pool> struct DestroySafeListItems<int,pool> {
+      static void dtorContent(SafeListItem<int,pool>* sli) {}
+    };
+    // ... may add additional specialsations
+
+    template <typename T> struct PassContentAs {
+      typedef T const& Type;
+    };
+    template <typename T> struct PassContentAs<T&> {
+      typedef T& Type;
+    };
+    template <typename T> struct PassContentAs<T*> {
+      typedef T* Type;
+    };
+
+    template <class T, bool pool> class SafeListItem {
       friend class SafeList<T,pool>;
       friend class SafeListIterator<T,pool>;
+      friend class DestroySafeListItems<T,pool>;
+      public:
+        typedef typename PassContentAs<T>::Type Tref;
       private:
         SafeListItem* left;
         SafeListItem* right;
         SafeListHeadItem<T,pool>* head;
+        char content_space[sizeof(T)]; // always access via the content member!
         struct Arena {
           SafeListItem* list;
           Arena() : list(NULL) {}
@@ -44,21 +67,25 @@ namespace net {
           }
         };
         static Arena arena;
-        SafeListItem(T c, SafeListItem *l, SafeListItem *r)
-          : left(l), right(r), head(l->head), content(c) { // O(1)
+        SafeListItem(Tref c, SafeListItem *l, SafeListItem *r)
+          : left(l), right(r), head(l->head), content(*(new(content_space) T(c))) { // O(1)
           // We are implementing a ring-list, so there must always be a right
           // and a left neighbour.
           assert(left && "left must not be NULL!");
           assert(right && "right must not be NULL!");
           assert(left->head == right->head && "Cannot join two lists.");
         }
+        SafeListItem(SafeListItem const&); // not implemented
       protected:
+        // we are actually part of a Head, so don't properly initialise content
         SafeListItem(SafeListHeadItem<T,pool>* head)
-          : left(this), right(this), head(head), content() {} // O(1)
-        ~SafeListItem() {}
+          : left(this), right(this), head(head), content(*(static_cast<T*>(0))) {} // O(1)
+        ~SafeListItem() {
+          if (&content)
+            content.~T();
+        }
       public:
-        // Suggest pointer or base type (not tested for non-pod).
-        T content;
+        T& content;
         bool check() const { // O(1)
           return ((right->left == this) && (left->right == this));
         }
@@ -67,7 +94,7 @@ namespace net {
         bool isSingleton() const { // O(1)
           return left == right;
         }
-        static SafeListItem* allocate(T c, SafeListItem* l, SafeListItem* r) {
+        static SafeListItem* allocate(Tref c, SafeListItem* l, SafeListItem* r) {
           if (arena.list == 0)
             return new SafeListItem(c,l,r);
           SafeListItem* const result = arena.list;
@@ -83,6 +110,7 @@ namespace net {
         static void reclaimAll(SafeListItem* i) {
           assert(i && i->left && i->right && "Cannot reclaim nonsense");
           if (pool) {
+            DestroySafeListItems<T,pool>::dtorContent(i);
             if (arena.list == 0) {
               arena.list = i;
             } else {
@@ -107,7 +135,15 @@ namespace net {
           }
         }
     };
-    template <class T_,bool pool> typename SafeListItem<T_*,pool>::Arena SafeListItem<T_*,pool>::arena;
+    template <class T,bool pool> typename SafeListItem<T,pool>::Arena SafeListItem<T,pool>::arena;
+
+    template <class T, bool pool>
+    void DestroySafeListItems<T,pool>::dtorContent(SafeListItem<T,pool>* sli) {
+      for (SafeListItem<T,pool>* it = sli->right; it != sli; it = it->right) {
+        // we never pool heads, and we never delete them, so we know all items are not 0!
+        it->content.T::~T();
+      }
+    }
 
     template <class T, bool pool> class SafeListHeadItem : public SafeListItem<T,pool> {
       friend class SafeList<T,pool>;
@@ -167,7 +203,7 @@ namespace net {
         unsigned char isLocked() const { // O(1)
           return locks;
         }
-        SafeListItem<T,pool> *put(T c) { // O(1)
+        SafeListItem<T,pool> *put(typename SafeListItem<T,pool>::Tref c) { // O(1)
           //std::cout << "[" << this << "] put(" << c << ")" << std::endl;
           assert((!locks) && "Attempt to modify locked list by insertion.");
           assert(head.right && "Invalid FL: right is NULL");

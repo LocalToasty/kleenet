@@ -314,6 +314,34 @@ namespace kleenet {
     net::ExData exData;
   };
 
+  size_t SpecialFunctionHandler::acquireExprRange(ExDataCarrier& out, klee::ExecutionState& sourceState, klee::ref<klee::Expr> const dataSource, size_t len /*mutated!*/) const {
+    // grab the source ObjetState and the offset
+    klee::ResolutionList rl;
+    sourceState.addressSpace.resolve(sourceState, netEx.solver, dataSource, rl);
+    assert(rl.size() == 1 && "data range (memcpy/sync) src must resolve to precisely one object");
+    klee::MemoryObject const* const srcMo = rl[0].first;
+    klee::ObjectState const* const srcOs = rl[0].second;
+    unsigned const srcOffset =
+      dyn_cast<ConstantExpr>(srcMo->getOffsetExpr(dataSource))->getZExtValue();
+    if (!len)
+      len = srcMo->size; //user didn't provide the length so they want everything
+
+    assert(srcOffset + len <= srcMo->size);
+
+    out.exData.reserve(out.exData.size()+len);
+    for (size_t i = 0; i < len; i++) {
+      klee::ref<Expr> const re = srcOs->read8(srcOffset + i);
+      typedef net::util::SharedPtr<net::DataAtom> DA;
+      if (isa<ConstantExpr>(re)) {
+        out.exData.push_back(DA(new ConcreteAtom(dyn_cast<ConstantExpr>(re)->getZExtValue())));
+      } else {
+        out.exData.push_back(DA(new SymbolicAtom(re)));
+      }
+    }
+
+    return len;
+  }
+
   void SpecialFunctionHandler::memoryTransferWrapper(klee::ExecutionState& state,
                                                      klee::ref<Expr> dest, size_t destLen,
                                                      ExDataCarrier const& src,
@@ -339,65 +367,28 @@ namespace kleenet {
   }
 
   HAND(void,kleenet_memcpy,4) {
-    size_t const len = args[2]->getZExtValue();
     Node const destNode = args[3]->getZExtValue();
+    size_t const len = args[2]->getZExtValue();
     assert(len > 0 && "n must be > 0");
 
-    // grab the source ObjetState and the offset
-    klee::ResolutionList rl;
-    ha.state.addressSpace.resolve(ha.state, executor->solver, ha.arguments[1], rl);
-    assert(rl.size() == 1 && "kleenet_memcpy src must resolve to precisely one object");
-    klee::MemoryObject const* const srcMo = rl[0].first;
-    klee::ObjectState const* const srcOs = rl[0].second;
-    unsigned const srcOffset =
-      dyn_cast<ConstantExpr>(srcMo->getOffsetExpr(ha.arguments[1]))->getZExtValue();
-
     ExDataCarrier values;
-    for (size_t i = 0; i < len; i++) {
-      klee::ref<Expr> const re = srcOs->read8(srcOffset + i);
-      typedef net::util::SharedPtr<net::DataAtom> DA;
-      if (isa<ConstantExpr>(re)) {
-        values.exData.push_back(DA(new ConcreteAtom(dyn_cast<ConstantExpr>(re)->getZExtValue())));
-      } else {
-        values.exData.push_back(DA(new SymbolicAtom(re)));
-      }
-    }
-
-    main->memoryTransferWrapper(ha.state, ha.arguments[0], len, values, destNode);
+    main->memoryTransferWrapper(ha.state, ha.arguments[0], main->acquireExprRange(values, ha.state, ha.arguments[1], len), values, destNode);
   }
 
   HAND(void,kleenet_sync,2) {
     Node const destNode = args[1]->getZExtValue();
 
-    klee::ResolutionList rl;
-    ha.state.addressSpace.resolve(ha.state, executor->solver, ha.arguments[0], rl);
-    assert(rl.size() == 1 && "kleenet_sync symbol must resolve to precisely one object");
-    // ... if it resolves to one object for the sender then it will also be one object on the receiver side
-    klee::MemoryObject const* const srcMo = rl[0].first;
-    klee::ObjectState const* const srcOs = rl[0].second;
-    size_t const len = srcMo->size;
-    unsigned const srcOffset =
-      dyn_cast<ConstantExpr>(srcMo->getOffsetExpr(ha.arguments[0]))->getZExtValue();
-
     ExDataCarrier values;
-    for (size_t i = 0; i < len; i++) {
-      klee::ref<Expr> const re = srcOs->read8(srcOffset + i);
-      typedef net::util::SharedPtr<net::DataAtom> DA;
-      if (isa<ConstantExpr>(re)) {
-        values.exData.push_back(DA(new ConcreteAtom(dyn_cast<ConstantExpr>(re)->getZExtValue())));
-      } else {
-        values.exData.push_back(DA(new SymbolicAtom(re)));
-      }
-    }
-
-    main->memoryTransferWrapper(ha.state, ha.arguments[0], len, values, destNode);
+    main->memoryTransferWrapper(ha.state, ha.arguments[0], main->acquireExprRange(values, ha.state, ha.arguments[0], 0/* figure the length out yourself, please*/), values, destNode);
   }
 
   HAND(void,kleenet_memset,4) {
     ExDataCarrier value;
+    size_t const len = args[2]->getZExtValue();
+    assert(len && "asked to kleenet_memset 0 bytes.");
     value.exData.push_back(net::util::SharedPtr<net::DataAtom>(new ConcreteAtom(args[1]->getZExtValue())));
 
-    main->memoryTransferWrapper(ha.state, ha.arguments[0], args[2]->getZExtValue(), value, args[3]->getZExtValue());
+    main->memoryTransferWrapper(ha.state, ha.arguments[0], len, value, args[3]->getZExtValue());
   }
 
   HAND(void,kleenet_schedule_boot_state,1) {

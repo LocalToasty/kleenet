@@ -44,6 +44,8 @@ extern "C" {
   /// Copy the content of object to the corresponding object on the
   /// destination state. The engine will figure out the object's size
   /// on its own.
+  /// NOTE: If you pass anything other than the pointer to beginning of the object
+  ///       the resulting behaviour is **unspecified**.
   ///
   /// \param object - The object to synchronise
   /// \param destId - The node id of the destination node.

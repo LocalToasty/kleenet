@@ -45,11 +45,11 @@ bool ClusterSearcher::empty() const {
   return internalSearchers.empty();
 }
 
-ClusterSearcher::SearcherP ClusterSearcher::of(BasicState* state) {
+ClusterSearcher::SearcherP ClusterSearcher::of(BasicState* state) const {
   if (cih->stateInfo(state) && cih->stateInfo(state)->location) {
-    SearcherP sr = internalSearchers[cih->stateInfo(state)->location];
-    assert(sr);
-    return sr;
+    InternalSearchers::const_iterator it = internalSearchers.find(cih->stateInfo(state)->location);
+    assert(it != internalSearchers.end());
+    return it->second;
   }
   return SearcherP(NULL);
 }

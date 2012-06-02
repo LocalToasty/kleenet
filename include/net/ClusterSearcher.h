@@ -28,7 +28,7 @@ namespace net {
       std::auto_ptr<ClusterInformationHandler> cih;
       InternalSearchers internalSearchers;
       void clear();
-      SearcherP of(BasicState*); // TODO const
+      SearcherP of(BasicState*) const;
     protected:
       util::SharedPtr<SearcherStrategy> strategy;
       void notify(Observable<MappingInformation>*);

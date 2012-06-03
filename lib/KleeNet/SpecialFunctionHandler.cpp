@@ -19,9 +19,8 @@
 #include <set>
 #include <assert.h>
 
-// XXX ugly intrusive stuff ...
-#include "../Core/Context.h"
-#include "../Core/Memory.h"
+#include "klee_headers/Context.h"
+#include "klee_headers/Memory.h"
 
 #include <iostream>
 

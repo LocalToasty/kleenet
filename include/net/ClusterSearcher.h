@@ -45,6 +45,7 @@ namespace net {
       Time getStateTime(BasicState*) const;
       void scheduleStateAt(BasicState*, Time, EventKind);
       void yieldState(BasicState*);
+      void barrier(BasicState*);
   };
 
   template <typename S> struct InternalSearcherAlloc {

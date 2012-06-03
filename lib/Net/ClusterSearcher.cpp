@@ -54,6 +54,10 @@ ClusterSearcher::SearcherP ClusterSearcher::of(BasicState* state) const {
   return SearcherP(NULL);
 }
 
+void ClusterSearcher::barrier(BasicState* state) {
+  of(state)->barrier(state);
+}
+
 void ClusterSearcher::scheduleStateAt(BasicState* state, Time time, EventKind ekind) {
   SearcherP const p = of(state);
   if (p && p->toEventSearcher()) {

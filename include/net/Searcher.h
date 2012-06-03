@@ -17,6 +17,7 @@ namespace net {
       virtual void remove(ConstIteratable<BasicState*> const&, ConstIteratable<BasicState*> const&) = 0;
       virtual Time getStateTime(BasicState*) const = 0;
       virtual EventSearcher* toEventSearcher(); // custom conversion
+      virtual void barrier(BasicState*);
   };
 }
 

@@ -449,4 +449,9 @@ namespace kleenet {
     return reinterpret_cast<uintptr_t>(&(ha.state));
   }
 
+  HAND(void,kleenet_barrier,0) {
+    executor->getNetSearcher()->netSearcher()->barrier(&(ha.state));
+  }
+
+
 }

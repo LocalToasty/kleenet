@@ -124,6 +124,12 @@ extern "C" {
   /// the current state. Note: Future versions may implement this differently or not at all.
   uintptr_t kleenet_get_state(void);
 
+
+  /// Barrier synchronisation construct.
+  /// All nodes in the network (in kleenet lingo: all states in the cluster) must hit
+  /// this barrier before any can proceed. Use for meta-debugging.
+  void kleenet_barrier(void);
+
 #ifdef __cplusplus
 }
 #endif

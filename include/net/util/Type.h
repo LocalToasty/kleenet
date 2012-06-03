@@ -30,7 +30,7 @@ namespace net {
     };
     template <bool condition, typename Disable = void> struct disable_if {
     };
-    template <typename Disable> struct enable_if<false,Disable> {
+    template <typename Disable> struct disable_if<false,Disable> {
       typedef Disable Type;
     };
     template <bool condition, typename TrueType, typename FalseType> struct select_if {};

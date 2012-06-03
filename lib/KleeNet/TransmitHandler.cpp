@@ -17,6 +17,9 @@
 #include <iterator>
 #include <sstream>
 
+#include <iostream> // Debug
+#include "klee/util/ExprPPrinter.h"
+
 #include "net/util/BinaryGraph.h"
 #include "net/util/Containers.h"
 
@@ -65,7 +68,7 @@ namespace kleenet {
       typedef klee::ExprVisitor::Action Action;
       LazySymbolTranslator& lst;
     protected:
-      virtual Action visitRead(klee::ReadExpr const& re) {
+      Action visitRead(klee::ReadExpr const& re) {
         klee::ref<klee::Expr> const replacement = klee::ReadExpr::alloc(
             klee::UpdateList(lst(re.updates.root),re.updates.head) // head is cow-shared: magic
           , re.index /* XXX this could backfire, if we have complicated READ expressions in the index
@@ -119,6 +122,64 @@ namespace kleenet {
         return rrv.visit(expr);
       }
   };
+
+
+  template <typename BGraph, typename Key> class ExtractReadEdgesVisitor : public klee::ExprVisitor {
+    private:
+      BGraph& bg;
+      Key key;
+    protected:
+      Action visitRead(klee::ReadExpr const& re) {
+        //std::cout << "Adding array " << re.updates.root << " to constraint slot " << key << ";" << std::endl;
+        //klee::ExprPPrinter::printSingleExpr(std::cout,klee::ref<klee::Expr>(const_cast<klee::ReadExpr*>(&re))); std::cout << std::endl;
+        bg.addUndirectedEdge(key,re.updates.root);
+        return Action::skipChildren();
+      }
+    public:
+      ExtractReadEdgesVisitor(BGraph& bg, Key key)
+        : bg(bg)
+        , key(key) {
+      }
+  };
+
+  class ConstraintsGraph {
+    private:
+      typedef klee::ConstraintManager::constraints_ty Vec;
+      typedef bg::Graph<bg::Props<Vec::size_type,klee::Array const*,false,false> > BGraph;
+      BGraph bGraph;
+      void parse() {
+      }
+    public:
+      ConstraintsGraph(klee::ConstraintManager& cs) {
+        typedef net::util::ExtractContainerKeys<Vec> Constrs;
+        Constrs constrs(cs.begin(),cs.end(),cs.size());
+        bGraph.addNodes(constrs);
+        dump();
+        for (Vec::const_iterator it = cs.begin(), end = cs.end(), begin = cs.begin(); it != end; ++it) {
+          klee::ExprPPrinter::printSingleExpr(std::cout,*it); std::cout << std::endl;
+          ExtractReadEdgesVisitor<BGraph,Vec::size_type>(bGraph,it - begin).visit(*it);
+        }
+        dump();
+      }
+      void dump() __attribute__ ((deprecated)) {
+        {
+          std::cout << "Constraint slots: ";
+          BGraph::Keys<BGraph::Node1>::Type k = bGraph.keys<BGraph::Node1>();
+          for (BGraph::Keys<BGraph::Node1>::Type::const_iterator it = k.begin(), en = k.end(); it != en; ++it) {
+            std::cout << "#" << *it << ":" << bGraph.getDegree(*it) << "" << " ";
+          }
+          std::cout << std::endl;
+        }
+        {
+          std::cout << "Array slots: " << std::flush;
+          BGraph::Keys<BGraph::Node2>::Type k = bGraph.keys<BGraph::Node2>();
+          for (BGraph::Keys<BGraph::Node2>::Type::const_iterator it = k.begin(), en = k.end(); it != en; ++it) {
+            std::cout << "#" << *it << ":" << bGraph.getDegree(*it) << "" << " " << std::flush;
+          }
+          std::cout << std::endl;
+        }
+      }
+  };
 }
 
 using namespace kleenet;
@@ -136,23 +197,22 @@ void TransmitHandler::handleTransmission(PacketInfo const& pi, net::BasicState* 
   assert(ose && "Destination ObjectState not found.");
   klee::ObjectState* wos = receiver.addressSpace.getWriteable(pi.destMo, ose);
   ReadTransformator rt(receiver,"{" + llvm::utostr(pi.src.id) + "->" + llvm::utostr(pi.dest.id) + "}",data,dataAtomToExpr);
+  bool symbolics = false;
   // important remark: data might be longer or shorter than pi.length. Always obey the size dictated by PacketInfo.
   for (unsigned i = 0; i < pi.length; i++) {
-    wos->write(pi.offset + i, rt[i]);
+    klee::ref<klee::Expr> const w = rt[i];
+    wos->write(pi.offset + i, w);
+    symbolics = symbolics || !llvm::isa<klee::ConstantExpr>(w);
   }
-  // copy over the constraints (TODO: only copy "required" constraints subset)
-  bg::Graph<bg::Props<unsigned,void*> > g;
-  g.addNodes<std::vector<unsigned> >(std::vector<unsigned>());
-  //bg::ExtractContainer<std::map<unsigned,float> >::key_type kt;
-  std::map<unsigned,float> m;
-  std::vector<float> f;
-  net::util::ExtractContainerKeys<std::map<unsigned,float> > eck1(m);
-  net::util::ExtractContainerKeys<std::vector<float> > eck2(f);
-  //bool b = bg::HasKeyType<std::map<int,float> >::value;
+  if (symbolics) {
+    // copy over the constraints (TODO: only copy "required" constraints subset)
+    klee::ExprPPrinter::printConstraints(std::cout,sender.constraints); std::cout << std::endl;
+    ConstraintsGraph cg(sender.constraints);
 
-  klee::ConstraintManager& sc(sender.constraints);
-  klee::ConstraintManager& rc(receiver.constraints);
-  for (klee::ConstraintManager::const_iterator it = sc.begin(), en = sc.end(); it != en; ++it) {
-    rc.addConstraint(rt(*it));
+    klee::ConstraintManager& sc(sender.constraints);
+    klee::ConstraintManager& rc(receiver.constraints);
+    for (klee::ConstraintManager::const_iterator it = sc.begin(), en = sc.end(); it != en; ++it) {
+      rc.addConstraint(rt(*it));
+    }
   }
 }

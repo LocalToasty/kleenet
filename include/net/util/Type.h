@@ -45,5 +45,12 @@ namespace net {
       typedef char Yes;
       typedef long No;
     };
+
+    template <typename Query, typename If, typename Then, typename Otherwise> struct TypeSelection {
+      typedef Otherwise Type;
+    };
+    template <typename If, typename Then, typename Otherwise> struct TypeSelection<If,If,Then,Otherwise> {
+      typedef Then Type;
+    };
   }
 }

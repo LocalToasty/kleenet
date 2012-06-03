@@ -21,8 +21,9 @@
 
 #include "klee_headers/Context.h"
 #include "klee_headers/Memory.h"
+#include "klee_headers/Common.h"
 
-#include <iostream>
+#include <sstream>
 
 #include "llvm/Support/CommandLine.h"
 
@@ -145,13 +146,18 @@ namespace kleenet {
       void callHnd(klee::KInstruction* target,
                    HandleArgs const ha,
                    ConstArgs const& constArgs) {
+        std::ostringstream outbuf1;
+        std::ostringstream outbuf2;
         if (DumpKleenetSfhCalls) {
-          std::cout << "SFH[" << &ha.state << "]" << " calling " << binding << "(";
+          outbuf1 << "SFH[" << &ha.state << "]";
+          outbuf2 << binding << "(";
           std::string del = "";
           for (ConstArgs::const_iterator it = constArgs.begin(), en = constArgs.end(); it != en; ++it) {
-            std::cout << del << (*it)->getZExtValue();
+            outbuf2 << del << (*it)->getZExtValue();
             del = ", ";
           }
+          outbuf2 << ")";
+          klee::klee_message("%s calling %s ...",outbuf1.str().c_str(),outbuf2.str().c_str());
         }
         Returns ret;
         this->executor->bindLocal(target, ha.state,
@@ -159,7 +165,8 @@ namespace kleenet {
             ret = this->hnd(ha,constArgs),
             klee::Context::get().getPointerWidth()));
         if (DumpKleenetSfhCalls) {
-          std::cout << ")" << " -> " << ret << std::endl;
+          outbuf2 << " -> " << ret;
+          klee::klee_message("%s returns %s",outbuf1.str().c_str(),outbuf2.str().c_str());
         }
       }
     };
@@ -169,13 +176,15 @@ namespace kleenet {
                    HandleArgs const ha,
                    ConstArgs const& constArgs) {
         if (DumpKleenetSfhCalls) {
-          std::cout << "SFH[" << &ha.state << "]" << " calling " << binding << "(";
+          std::ostringstream outbuf;
+          outbuf << "SFH[" << &ha.state << "]" << " calling " << binding << "(";
           std::string del = "";
           for (ConstArgs::const_iterator it = constArgs.begin(), en = constArgs.end(); it != en; ++it) {
-            std::cout << del << (*it)->getZExtValue();
+            outbuf << del << (*it)->getZExtValue();
             del = ", ";
           }
-          std::cout << ")" << std::endl;
+          outbuf << ")";
+          klee::klee_message("%s",outbuf.str().c_str());
         }
         this->hnd(ha,constArgs);
       }

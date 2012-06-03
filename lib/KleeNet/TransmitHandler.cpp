@@ -7,7 +7,7 @@
 
 #include "llvm/ADT/StringExtras.h"
 
-#include "../Core/Memory.h" //yack!
+#include "klee_headers/Memory.h"
 
 #include "AtomImpl.h"
 

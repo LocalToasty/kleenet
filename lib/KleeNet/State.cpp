@@ -3,7 +3,7 @@
 #include "NetExecutor.h"
 
 #include "klee/ExecutionState.h"
-#include "../Core/PTree.h"
+#include "klee_headers/PTree.h"
 
 using namespace kleenet;
 

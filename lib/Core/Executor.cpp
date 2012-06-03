@@ -209,7 +209,7 @@ namespace {
 
   cl::opt<double>
   MaxInstructionTime("max-instruction-time",
-                     cl::desc("Only allow a single instruction to take this much time (default=0 (off))"),
+                     cl::desc("Only allow a single instruction to take this much time (default=0s (off)). Enables --use-forked-stp"),
                      cl::init(0));
   
   cl::opt<double>
@@ -219,8 +219,8 @@ namespace {
   
   cl::opt<double>
   MaxSTPTime("max-stp-time",
-             cl::desc("Maximum amount of time for a single query (default=120s)"),
-             cl::init(120.0));
+             cl::desc("Maximum amount of time for a single query (default=0s (off)). Enables --use-forked-stp"),
+             cl::init(0.0));
   
   cl::opt<unsigned int>
   StopAfterNInstructions("stop-after-n-instructions",
@@ -249,7 +249,7 @@ namespace {
 
   cl::opt<bool>
   UseForkedSTP("use-forked-stp", 
-                 cl::desc("Run STP in forked process"));
+                 cl::desc("Run STP in a forked process (default=off)"));
 
   cl::opt<bool>
   STPOptimizeDivides("stp-optimize-divides", 
@@ -257,9 +257,6 @@ namespace {
                  cl::init(true));
 }
 
-
-static void *theMMap = 0;
-static unsigned theMMapSize = 0;
 
 namespace klee {
   RNG theRNG;
@@ -320,6 +317,7 @@ Executor::Executor(const InterpreterOptions &opts,
     stpTimeout(MaxSTPTime != 0 && MaxInstructionTime != 0
       ? std::min(MaxSTPTime,MaxInstructionTime)
       : std::max(MaxSTPTime,MaxInstructionTime)) {
+  if (stpTimeout) UseForkedSTP = true;
   STPSolver *stpSolver = new STPSolver(UseForkedSTP, STPOptimizeDivides);
   Solver *solver = 
     constructSolverChain(stpSolver,
@@ -405,6 +403,15 @@ void Executor::initializeGlobalObject(ExecutionState &state, ObjectState *os,
     for (unsigned i=0, e=cs->getNumOperands(); i != e; ++i)
       initializeGlobalObject(state, os, cs->getOperand(i), 
 			     offset + sl->getElementOffset(i));
+#if LLVM_VERSION_CODE >= LLVM_VERSION(3, 1)
+  } else if (const ConstantDataSequential *cds =
+               dyn_cast<ConstantDataSequential>(c)) {
+    unsigned elementSize =
+      targetData->getTypeStoreSize(cds->getElementType());
+    for (unsigned i=0, e=cds->getNumElements(); i != e; ++i)
+      initializeGlobalObject(state, os, cds->getElementAsConstant(i),
+                             offset + i*elementSize);
+#endif
   } else {
     unsigned StoreBits = targetData->getTypeStoreSizeInBits(c->getType());
     ref<ConstantExpr> C = evalConstant(c);
@@ -430,6 +437,9 @@ MemoryObject * Executor::addExternalObject(ExecutionState &state,
     os->setReadOnly(true);  
   return mo;
 }
+
+
+extern void *__dso_handle __attribute__ ((__weak__));
 
 void Executor::initializeGlobals(ExecutionState &state) {
   Module *m = kmodule->module;
@@ -535,7 +545,6 @@ void Executor::initializeGlobals(ExecutionState &state) {
       if (size) {
         void *addr;
         if (i->getName() == "__dso_handle") {
-          extern void *__dso_handle __attribute__ ((__weak__));
           addr = &__dso_handle; // wtf ?
         } else {
           addr = externalDispatcher->resolveSymbol(i->getName());
@@ -949,6 +958,17 @@ ref<klee::ConstantExpr> Executor::evalConstant(const Constant *c) {
       return Expr::createPointer(0);
     } else if (isa<UndefValue>(c) || isa<ConstantAggregateZero>(c)) {
       return ConstantExpr::create(0, getWidthForLLVMType(c->getType()));
+#if LLVM_VERSION_CODE >= LLVM_VERSION(3, 1)
+    } else if (const ConstantDataSequential *cds =
+                 dyn_cast<ConstantDataSequential>(c)) {
+      std::vector<ref<Expr> > kids;
+      for (unsigned i = 0, e = cds->getNumElements(); i != e; ++i) {
+        ref<Expr> kid = evalConstant(cds->getElementAsConstant(i));
+        kids.push_back(kid);
+      }
+      ref<Expr> res = ConcatExpr::createN(kids.size(), kids.data());
+      return cast<ConstantExpr>(res);
+#endif
     } else if (const ConstantStruct *cs = dyn_cast<ConstantStruct>(c)) {
       const StructLayout *sl = kmodule->targetData->getStructLayout(cs->getType());
       llvm::SmallVector<ref<Expr>, 4> kids;
@@ -1431,6 +1451,7 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
     }      
     break;
   }
+#if LLVM_VERSION_CODE < LLVM_VERSION(3, 1)
   case Instruction::Unwind: {
     for (;;) {
       KInstruction *kcaller = state.stack.back().caller;
@@ -1452,6 +1473,7 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
     }
     break;
   }
+#endif
   case Instruction::Br: {
     BranchInst *bi = cast<BranchInst>(i);
     if (bi->isUnconditional()) {
@@ -1480,7 +1502,6 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
   case Instruction::Switch: {
     SwitchInst *si = cast<SwitchInst>(i);
     ref<Expr> cond = eval(ki, 0, state).value;
-    unsigned cases = si->getNumCases();
     BasicBlock *bb = si->getParent();
 
     cond = toUnique(state, cond);
@@ -1490,13 +1511,23 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
       LLVM_TYPE_Q llvm::IntegerType *Ty = 
         cast<IntegerType>(si->getCondition()->getType());
       ConstantInt *ci = ConstantInt::get(Ty, CE->getZExtValue());
+#if LLVM_VERSION_CODE >= LLVM_VERSION(3, 1)
+      unsigned index = si->findCaseValue(ci).getSuccessorIndex();
+#else
       unsigned index = si->findCaseValue(ci);
+#endif
       transferToBasicBlock(si->getSuccessor(index), si->getParent(), state);
     } else {
       std::map<BasicBlock*, ref<Expr> > targets;
       ref<Expr> isDefault = ConstantExpr::alloc(1, Expr::Bool);
-      for (unsigned i=1; i<cases; ++i) {
+#if LLVM_VERSION_CODE >= LLVM_VERSION(3, 1)      
+      for (SwitchInst::CaseIt i = si->case_begin(), e = si->case_end();
+           i != e; ++i) {
+        ref<Expr> value = evalConstant(i.getCaseValue());
+#else
+      for (unsigned i=1, cases = si->getNumCases(); i<cases; ++i) {
         ref<Expr> value = evalConstant(si->getCaseValue(i));
+#endif
         ref<Expr> match = EqExpr::create(cond, value);
         isDefault = AndExpr::create(isDefault, Expr::createIsZero(match));
         bool result;
@@ -1504,9 +1535,15 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
         assert(success && "FIXME: Unhandled solver failure");
         (void) success;
         if (result) {
+#if LLVM_VERSION_CODE >= LLVM_VERSION(3, 1)
+          BasicBlock *caseSuccessor = i.getCaseSuccessor();
+#else
+          BasicBlock *caseSuccessor = si->getSuccessor(i);
+#endif
           std::map<BasicBlock*, ref<Expr> >::iterator it =
-            targets.insert(std::make_pair(si->getSuccessor(i),
-                                          ConstantExpr::alloc(0, Expr::Bool))).first;
+            targets.insert(std::make_pair(caseSuccessor,
+                           ConstantExpr::alloc(0, Expr::Bool))).first;
+
           it->second = OrExpr::create(match, it->second);
         }
       }
@@ -1515,7 +1552,7 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
       assert(success && "FIXME: Unhandled solver failure");
       (void) success;
       if (res)
-        targets.insert(std::make_pair(si->getSuccessor(0), isDefault));
+        targets.insert(std::make_pair(si->getDefaultDest(), isDefault));
       
       std::vector< ref<Expr> > conditions;
       for (std::map<BasicBlock*, ref<Expr> >::iterator it = 
@@ -1558,6 +1595,10 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
     if (f && isDebugIntrinsic(f, kmodule))
       break;
 
+    if (isa<InlineAsm>(fp)) {
+      terminateStateOnExecError(state, "inline assembly is unsupported");
+      break;
+    }
     // evaluate arguments
     std::vector< ref<Expr> > arguments;
     arguments.reserve(numArgs);
@@ -1599,9 +1640,6 @@ void Executor::executeInstruction(ExecutionState &state, KInstruction *ki) {
             
           i++;
         }
-      } else if (isa<InlineAsm>(fp)) {
-        terminateStateOnExecError(state, "inline assembly is unsupported");
-        break;
       }
 
       executeCall(state, ki, f, arguments);
@@ -3270,11 +3308,6 @@ void Executor::runFunctionAsMain(Function *f,
 
   if (statsTracker)
     statsTracker->done();
-
-  if (theMMap) {
-    munmap(theMMap, theMMapSize);
-    theMMap = 0;
-  }
 }
 
 unsigned Executor::getPathStreamID(const ExecutionState &state) {

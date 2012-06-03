@@ -51,6 +51,7 @@
 #include <fstream>
 #include <cerrno>
 #include <dirent.h>
+#include <unistd.h>
 #include <errno.h>
 #include <sys/stat.h>
 #include <sys/wait.h>
@@ -131,7 +132,7 @@ namespace {
     
   cl::opt<bool>
   WithPOSIXRuntime("posix-runtime", 
-		cl::desc("Link with POSIX runtime"),
+		cl::desc("Link with POSIX runtime.  Options that can be passed as arguments to the programs are: --sym-argv <max-len>  --sym-argvs <min-argvs> <max-argvs> <max-len> + file model options"),
 		cl::init(false));
     
   cl::opt<bool>
@@ -183,10 +184,6 @@ namespace {
   MakeConcreteSymbolic("make-concrete-symbolic",
                        cl::desc("Rate at which to make concrete reads symbolic (0=off)"),
                        cl::init(0));
-
-  cl::opt<bool>
-  InitEnv("init-env",
-	  cl::desc("Create custom environment.  Options that can be passed as arguments to the programs are: --sym-argv <max-len>  --sym-argvs <min-argvs> <max-argvs> <max-len> + file model options"));
  
   cl::opt<unsigned>
   StopAfterNTests("stop-after-n-tests",
@@ -1204,16 +1201,20 @@ int main(int argc, char **argv, char **envp) {
     klee_error("error loading program '%s': %s", InputFile.c_str(),
                ErrorMsg.c_str());
 
-  if (WithPOSIXRuntime)
-    InitEnv = true;
-
-  if (InitEnv) {
+  if (WithPOSIXRuntime) {
     int r = initEnv(mainModule);
     if (r != 0)
       return r;
   }
 
+#if defined(KLEE_LIB_DIR) && defined(USE_KLEE_LIB_DIR)
+  /* KLEE_LIB_DIR is the lib dir of installed files as opposed to 
+   * where libs in the klee source tree are generated.
+   */
+  llvm::sys::Path LibraryDir(KLEE_LIB_DIR);
+#else
   llvm::sys::Path LibraryDir(KLEE_DIR "/" RUNTIME_CONFIGURATION "/lib");
+#endif
   Interpreter::ModuleOptions Opts(LibraryDir.c_str(),
                                   /*Optimize=*/OptimizeModule, 
                                   /*CheckDivZero=*/CheckDivZero);

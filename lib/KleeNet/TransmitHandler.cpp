@@ -12,9 +12,13 @@
 #include "AtomImpl.h"
 
 #include <map>
+#include <vector>
 #include <algorithm>
 #include <iterator>
 #include <sstream>
+
+#include "net/util/BinaryGraph.h"
+#include "net/util/Containers.h"
 
 namespace kleenet {
   class NameMangler {
@@ -137,6 +141,15 @@ void TransmitHandler::handleTransmission(PacketInfo const& pi, net::BasicState* 
     wos->write(pi.offset + i, rt[i]);
   }
   // copy over the constraints (TODO: only copy "required" constraints subset)
+  bg::Graph<bg::Props<unsigned,void*> > g;
+  g.addNodes<std::vector<unsigned> >(std::vector<unsigned>());
+  //bg::ExtractContainer<std::map<unsigned,float> >::key_type kt;
+  std::map<unsigned,float> m;
+  std::vector<float> f;
+  net::util::ExtractContainerKeys<std::map<unsigned,float> > eck1(m);
+  net::util::ExtractContainerKeys<std::vector<float> > eck2(f);
+  //bool b = bg::HasKeyType<std::map<int,float> >::value;
+
   klee::ConstraintManager& sc(sender.constraints);
   klee::ConstraintManager& rc(receiver.constraints);
   for (klee::ConstraintManager::const_iterator it = sc.begin(), en = sc.end(); it != en; ++it) {

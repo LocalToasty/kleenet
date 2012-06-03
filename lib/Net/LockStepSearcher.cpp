@@ -10,21 +10,73 @@
 namespace net {
   struct LockStepInformation : SchedulingInformation<LockStepInformation> {
     std::vector<BasicState*>::size_type slot;
-    LockStepInformation() : slot(-1) {}
+    bool blocked;
+    LockStepInformation() : slot(-1), blocked(false) {}
   };
   struct LockStepInformationHandler : SchedulingInformationHandler<LockStepInformation> {
-    std::vector<BasicState*> states;
-    std::vector<BasicState*>::iterator next;
-    std::vector<BasicState*>::iterator end;
-    std::vector<BasicState*>::size_type nullSlots;
+    typedef std::vector<BasicState*> States;
+    States states;
+    States::iterator next;
+    States::iterator end;
+    States::size_type nullSlots;
+    States::size_type blockedStates;
     Time globalTime;
-    LockStepInformationHandler()
+    Time stepIncrement;
+    LockStepInformationHandler(Time stepIncrement)
       : SchedulingInformationHandler<LockStepInformation>()
       , states()
       , next(states.end())
       , end(states.end())
       , nullSlots(0)
-      , globalTime(0) {
+      , blockedStates(0)
+      , globalTime(0)
+      , stepIncrement(stepIncrement) {
+    }
+    States::size_type getGovernedStates() const {
+      assert(states.size() >= nullSlots);
+      return states.size()-nullSlots;
+    }
+    void fastForwardJunk() {
+      for (;next != end && !(*next); next++); // fast forward junk-entries
+    }
+    void block(LockStepInformation* const lsi) {
+      if (lsi && !lsi->blocked) {
+        blockedStates++;
+        lsi->blocked = true;
+      }
+    }
+    void unblock(LockStepInformation* const lsi) {
+      if (lsi && lsi->blocked) {
+        blockedStates--;
+        lsi->blocked = false;
+      }
+    }
+    void unblockAll() {
+      if (blockedStates)
+        for (States::iterator it = states.begin(), en = states.end(); it != en; ++it) {
+          if (*it)
+            stateInfo(*it)->blocked = false;
+        }
+      blockedStates = 0;
+    }
+    void consolidate() {
+      fastForwardJunk();
+      if (next == end) {
+        if (getGovernedStates() < states.capacity()/4) {
+          std::vector<BasicState*> replace;
+          replace.reserve(states.size()-nullSlots);
+          std::remove_copy_if(states.begin(),states.end(),
+              std::back_inserter(replace),
+              std::bind2nd(std::equal_to<BasicState*>(),static_cast<BasicState*>(NULL)));
+          // Using swap is imperative to force vector to actually SHRINK!
+          // So we do this whole mumbo jumbo even if there are no holes.
+          states.swap(replace);
+          nullSlots = 0;
+        }
+        next = states.begin();
+        end = states.end();
+        globalTime += stepIncrement;
+      }
     }
   };
 }
@@ -34,7 +86,7 @@ using namespace net;
 LockStepSearcher::LockStepSearcher(PacketCacheBase* packetCache, Time stepIncrement)
   : packetCache(packetCache)
   , stepIncrement(stepIncrement)
-  , lsih(*(new LockStepInformationHandler())) {
+  , lsih(*(new LockStepInformationHandler(stepIncrement))) {
 }
 LockStepSearcher::~LockStepSearcher() {
   delete &lsih;
@@ -51,8 +103,12 @@ bool LockStepSearcher::supportsPhonyPackets() const {
   return packetCache;
 }
 
+void LockStepSearcher::barrier(BasicState* state) {
+  lsih.block(lsih.stateInfo(state));
+}
+
 bool LockStepSearcher::empty() const {
-  return lsih.states.empty();
+  return lsih.getGovernedStates();
 }
 void LockStepSearcher::add(ConstIteratable<BasicState*> const& begin, ConstIteratable<BasicState*> const& end) {
   for (ConstIteratorHolder<BasicState*> it = begin; it != end; ++it) {
@@ -65,6 +121,7 @@ void LockStepSearcher::remove(ConstIteratable<BasicState*> const& begin, ConstIt
   for (ConstIteratorHolder<BasicState*> it = begin; it != end; ++it) {
     if (lsih.stateInfo(*it)) {
       assert(lsih.stateInfo(*it)->slot < lsih.states.size());
+      lsih.unblock(lsih.stateInfo(*it));
       BasicState*& sl = lsih.states[lsih.stateInfo(*it)->slot];
       assert(sl);
       assert(lsih.stateInfo(*it) == lsih.stateInfo(sl));
@@ -75,24 +132,14 @@ void LockStepSearcher::remove(ConstIteratable<BasicState*> const& begin, ConstIt
   }
 }
 BasicState* LockStepSearcher::selectState() {
-  for (;lsih.next != lsih.end && !(*lsih.next); lsih.next++); // fast forward junk-entries
-  if (lsih.next == lsih.end) {
-    if (lsih.states.size()-lsih.nullSlots < lsih.states.capacity()/4) {
-      std::vector<BasicState*> replace;
-      replace.reserve(lsih.states.size()-lsih.nullSlots);
-      std::remove_copy_if(lsih.states.begin(),lsih.states.end(),
-                          std::back_inserter(replace),
-                          std::bind2nd(std::equal_to<BasicState*>(),NULL));
-      // Using swap is imperative to force vector to actually SHRINK!
-      // So we do this whole mumbo jumbo even if there are no holes.
-      lsih.states.swap(replace);
-      lsih.nullSlots = 0;
-    }
-    lsih.next = lsih.states.begin();
-    lsih.end = lsih.states.end();
-    lsih.globalTime += stepIncrement;
+  if (lsih.getGovernedStates() == lsih.blockedStates) {
+    lsih.unblockAll();
   }
-  BasicState* const selection = *lsih.next++;
+  BasicState* selection;
+  do {
+    lsih.consolidate();
+    selection = *lsih.next++;
+  } while (lsih.stateInfo(selection)->blocked);
   updateLowerBound((lsih.stateInfo(selection)->virtualTime) = lsih.globalTime);
   return selection;
 }

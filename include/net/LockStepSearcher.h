@@ -20,6 +20,7 @@ namespace net {
       void add(ConstIteratable<BasicState*> const&, ConstIteratable<BasicState*> const&);
       void remove(ConstIteratable<BasicState*> const&, ConstIteratable<BasicState*> const&);
       Time getStateTime(BasicState*) const;
+      void barrier(BasicState*);
   };
 }
 

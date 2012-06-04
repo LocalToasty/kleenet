@@ -39,7 +39,7 @@ extern "C" {
   /// \param src - The pointer to the source memory area.
   /// \param n - The number of bytes to copy.
   /// \param destId - The node id of the destination node.
-  void kleenet_memcpy(void *dest, const void *src, size_t n, int destId);
+  void kleenet_memcpy(void volatile *dest, void volatile const *src, size_t n, int destId);
 
   /// Copy the content of object to the corresponding object on the
   /// destination state. The engine will figure out the object's size
@@ -49,7 +49,7 @@ extern "C" {
   ///
   /// \param object - The object to synchronise
   /// \param destId - The node id of the destination node.
-  void kleenet_sync(void *object, int destId);
+  void kleenet_sync(void volatile *object, int destId);
 
   /// Write n bytes of value c (converted to an unsigned char) to the byte
   /// string dest. The state mapping is performed transparently
@@ -58,7 +58,7 @@ extern "C" {
   /// \param dest - The pointer to the destination memory area.
   /// \param c - The value to be written.
   /// \param destId - The node id of the destination node.
-  void kleenet_memset(void *dest, int c, size_t n, int destId);
+  void kleenet_memset(void volatile *dest, int c, size_t n, int destId);
 
   /// Terminate the active state, generate a test case,
   /// and write a string to the testXXXXXX.early file.

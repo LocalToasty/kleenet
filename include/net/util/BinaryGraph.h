@@ -25,8 +25,9 @@ namespace kleenet {
     using net::util::extractContainerKeys;
     using net::util::LoopConstIterator;
     using net::util::Functor;
+    using net::util::DictionaryType;
 
-    template <typename N1, typename N2, DictionaryType N1_is = UncontinuousDictionary, DictionaryType N2_is = UncontinuousDictionary> struct Props {
+    template <typename N1, typename N2, DictionaryType N1_is = net::util::UncontinuousDictionary, DictionaryType N2_is = net::util::UncontinuousDictionary> struct Props {
       typedef N1 Node1;
       typedef N2 Node2;
       typedef net::util::Dictionary<N1,std::set<size_t>,N1_is> Dictionary1;
@@ -135,6 +136,7 @@ namespace kleenet {
 
         template <typename Dictionary, typename Func>
         struct SearchContext {
+          // TODO: it is probably for the best if we replace this Queue with our SafeList (just for speed)
           typedef std::deque<typename Dictionary::size_type> Queue;
           // we're using this as a temporary to a function, so we have to pass it as const&
           mutable Dictionary const& dictionary;
@@ -148,8 +150,21 @@ namespace kleenet {
             , onVisit(onVisit) {
           }
           template <typename InputIterator>
-          SearchContext const& setQueue(InputIterator begin, InputIterator end) const {
+          SearchContext const& setQueueWithIndices(InputIterator begin, InputIterator end) const {
             queue.swap(Queue(begin,end));
+          }
+          struct ExtractKey {
+            Dictionary const& dictionary;
+            ExtractKey(Dictionary const& dictionary) : dictionary(dictionary) {}
+            typename Dictionary::key_type operator()(typename Dictionary::index_type i) {
+              return dictionary.getKey(i);
+            }
+          };
+          template <typename InputIterator>
+          SearchContext const& setQueueWithKeys(InputIterator begin, InputIterator end) const {
+            typedef net::util::AdHocIteratorTransformation<InputIterator,ExtractKey,typename Dictionary::key_type> Tx;
+            setQueueWithIndices(Tx(begin,ExtractKey(dictionary)),
+                                Tx(end,ExtractKey(dictionary)));
           }
         };
 
@@ -198,7 +213,7 @@ namespace kleenet {
           typedef typename OutputContainer::value_type OtherNode;
           CollectVisits<typename SelectDictionary<OtherNode,P>::Type> cv;
           search(
-            searchContext(containerOf(Node())).setQueue(start.begin(),start.end())
+            searchContext(containerOf(Node())).setQueueWithKeys(start.begin(),start.end())
           , searchContext(containerOf(OtherNode()),cv)
           );
           result.swap(OutputContainer(cv.visited.begin(),cv.visited.end()));

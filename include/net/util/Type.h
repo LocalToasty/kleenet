@@ -7,7 +7,9 @@ namespace net {
       // assuming T is NOT a reference!
       typedef T Rigid;
       typedef T& Ref;
+      typedef T* Ptr;
       typedef T const& ConstRef;
+      typedef T const* ConstPtr;
     };
     // C++11 template aliases would be the thing to do here ...
     template <typename T> struct Type : Type__impl<T> {

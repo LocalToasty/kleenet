@@ -44,6 +44,46 @@ namespace net {
       typedef typename Container::size_type Type;
     };
 
+    template <typename InputIterator, typename Func, typename Return> // Return only needed for C++03
+    class AdHocIteratorTransformation {
+      private:
+        InputIterator it;
+        Func func;
+      public:
+        AdHocIteratorTransformation(InputIterator it, Func func)
+          : it(it), func(func) {
+        }
+        typename Type<Return>::Rigid operator*() const {
+          return func(*it);
+        }
+        size_t operator-(AdHocIteratorTransformation const& other) {
+          return it - other.it;
+        }
+        bool operator==(AdHocIteratorTransformation const& other) {
+          return it == other.it;
+        }
+        bool operator!=(AdHocIteratorTransformation const& other) {
+          return it != other.it;
+        }
+        AdHocIteratorTransformation operator+(size_t offset) {
+          return AdHocIteratorTransformation(it + offset,func);
+        }
+        AdHocIteratorTransformation& operator++() {
+          ++it;
+          return *this;
+        }
+        AdHocIteratorTransformation operator++(int) {
+          return AdHocIteratorTransformation(it++,func);
+        }
+        AdHocIteratorTransformation& operator--() {
+          --it;
+          return *this;
+        }
+        AdHocIteratorTransformation operator--(int) {
+          return AdHocIteratorTransformation(it--,func);
+        }
+    };
+
     namespace extract_container_keys {
       template <typename Container, typename Enable = void> struct const_iterator {
         typedef typename Container::const_iterator parent_iterator;

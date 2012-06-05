@@ -185,5 +185,93 @@ namespace net {
     };
 
 
+    enum DictionaryType {
+      UncontinuousDictionary,
+      ContinuousDictionary
+    };
+
+    template <typename Key, typename Value, DictionaryType dictionaryType> class Dictionary;
+    template <typename Key, typename Value> class Dictionary<Key,Value,ContinuousDictionary> {// i.e. vector
+      private:
+        typedef std::vector<Value> Values;
+        Values values;
+      public:
+        typedef typename Values::size_type size_type;
+        typedef typename Values::size_type index_type;
+        typedef Key key_type;
+        typedef typename Values::value_type value_type; // coincides with Value
+        void reserve(size_type const sz) {
+          values.reserve(sz);
+        }
+        size_type size() const {
+          return values.size();
+        }
+        value_type& operator[](key_type k) {
+          if (k >= values.size())
+            values.resize(k+1);
+          return values[k];
+        }
+        index_type getIndex(key_type k) {
+          if (static_cast<key_type>(k) >= values.size())
+            values.resize(k+1);
+          return k;
+        }
+        Key getKey(index_type i) const {
+          assert(i < values.size());
+          return i;
+        }
+        value_type const& find(key_type k) const {
+          assert(k < values.size());
+          return values[k];
+        }
+        value_type& find(key_type k) {
+          assert(k < values.size());
+          return values[k];
+        }
+        Value const& findByIndex(size_type i) const {
+          assert(i < values.size());
+          return values[i];
+        }
+        Value& findByIndex(size_type i) {
+          assert(i < values.size());
+          return values[i];
+        }
+    };
+    template <typename Key, typename Value> class Dictionary<Key,Value,UncontinuousDictionary> : public Dictionary<size_t,typename std::pair<Key,Value>,ContinuousDictionary> {
+      private:
+        typedef Dictionary<size_t, std::pair<Key,Value>, ContinuousDictionary> Parent;
+      public:
+        typedef typename Parent::size_type size_type;
+        typedef typename Parent::index_type index_type;
+        typedef Key key_type;
+        typedef typename Parent::value_type::second_type value_type;
+      private:
+        typedef std::map<key_type,size_type> Keys;
+        Keys keys;
+        size_type findValueKey(key_type k) const {
+          typename Keys::const_iterator const it = keys.find(k);
+          assert(it != keys.end());
+          return it->second;
+        }
+      public:
+        Value& operator[](key_type k) {
+          std::pair<typename Keys::iterator,bool> found = keys.insert(std::make_pair(k,Parent::size()));
+          return Parent::operator[](found.first->second).second;
+        }
+        index_type getIndex(key_type k) {
+          std::pair<typename Keys::iterator,bool> found = keys.insert(std::make_pair(k,Parent::size()));
+          return Parent::getIndex(found.first->second);
+        }
+        Key getKey(index_type i) const {
+          return Parent::find(i).first;
+        }
+        Value const& find(key_type k) const {
+          return Parent::find(findValueKey(k)).second;
+        }
+        Value& find(key_type k) {
+          return Parent::find(findValueKey(k)).second;
+        }
+    };
+
   }
 }

@@ -52,5 +52,18 @@ namespace net {
     template <typename If, typename Then, typename Otherwise> struct TypeSelection<If,If,Then,Otherwise> {
       typedef Then Type;
     };
+
+    template <typename T = void, typename F = void> struct Functor {
+      F f;
+      Functor(F f) : f(f) {}
+      Functor() : f() {}
+      void operator()(T arg) {
+        f(arg);
+      }
+    };
+    template <> struct Functor<void,void> {
+      template <typename U>
+      void operator()(U) {}
+    };
   }
 }

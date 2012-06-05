@@ -145,40 +145,40 @@ namespace kleenet {
   class ConstraintsGraph {
     private:
       typedef klee::ConstraintManager::constraints_ty Vec;
-      typedef bg::Graph<bg::Props<Vec::size_type,klee::Array const*,false,false> > BGraph;
+      typedef bg::Graph<bg::Props<Vec::size_type,klee::Array const*,net::util::ContinuousDictionary,net::util::UncontinuousDictionary> > BGraph;
       BGraph bGraph;
-      void parse() {
+      void parse() { // TODO?
       }
     public:
       ConstraintsGraph(klee::ConstraintManager& cs) {
         typedef net::util::ExtractContainerKeys<Vec> Constrs;
         Constrs constrs(cs.begin(),cs.end(),cs.size());
         bGraph.addNodes(constrs);
-        dump();
+        //dump();
         for (Vec::const_iterator it = cs.begin(), end = cs.end(), begin = cs.begin(); it != end; ++it) {
           klee::ExprPPrinter::printSingleExpr(std::cout,*it); std::cout << std::endl;
           ExtractReadEdgesVisitor<BGraph,Vec::size_type>(bGraph,it - begin).visit(*it);
         }
-        dump();
+        //dump();
       }
-      void dump() __attribute__ ((deprecated)) {
-        {
-          std::cout << "Constraint slots: ";
-          BGraph::Keys<BGraph::Node1>::Type k = bGraph.keys<BGraph::Node1>();
-          for (BGraph::Keys<BGraph::Node1>::Type::const_iterator it = k.begin(), en = k.end(); it != en; ++it) {
-            std::cout << "#" << *it << ":" << bGraph.getDegree(*it) << "" << " ";
-          }
-          std::cout << std::endl;
-        }
-        {
-          std::cout << "Array slots: " << std::flush;
-          BGraph::Keys<BGraph::Node2>::Type k = bGraph.keys<BGraph::Node2>();
-          for (BGraph::Keys<BGraph::Node2>::Type::const_iterator it = k.begin(), en = k.end(); it != en; ++it) {
-            std::cout << "#" << *it << ":" << bGraph.getDegree(*it) << "" << " " << std::flush;
-          }
-          std::cout << std::endl;
-        }
-      }
+      //void dump() __attribute__ ((deprecated)) {
+      //  {
+      //    std::cout << "Constraint slots: ";
+      //    BGraph::Keys<BGraph::Node1>::Type k = bGraph.keys<BGraph::Node1>();
+      //    for (BGraph::Keys<BGraph::Node1>::Type::const_iterator it = k.begin(), en = k.end(); it != en; ++it) {
+      //      std::cout << "#" << *it << ":" << bGraph.getDegree(*it) << "" << " ";
+      //    }
+      //    std::cout << std::endl;
+      //  }
+      //  {
+      //    std::cout << "Array slots: " << std::flush;
+      //    BGraph::Keys<BGraph::Node2>::Type k = bGraph.keys<BGraph::Node2>();
+      //    for (BGraph::Keys<BGraph::Node2>::Type::const_iterator it = k.begin(), en = k.end(); it != en; ++it) {
+      //      std::cout << "#" << *it << ":" << bGraph.getDegree(*it) << "" << " " << std::flush;
+      //    }
+      //    std::cout << std::endl;
+      //  }
+      //}
   };
 }
 
@@ -208,6 +208,7 @@ void TransmitHandler::handleTransmission(PacketInfo const& pi, net::BasicState* 
     // copy over the constraints (TODO: only copy "required" constraints subset)
     klee::ExprPPrinter::printConstraints(std::cout,sender.constraints); std::cout << std::endl;
     ConstraintsGraph cg(sender.constraints);
+    // TODO: start the search with the ReadExpressions that are used in the transmission
 
     klee::ConstraintManager& sc(sender.constraints);
     klee::ConstraintManager& rc(receiver.constraints);

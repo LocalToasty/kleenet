@@ -12,6 +12,7 @@
 #include <map>
 #include <set>
 #include <vector>
+#include <deque>
 
 #include "net/util/Type.h"
 #include "net/util/Containers.h"
@@ -19,49 +20,32 @@
 namespace kleenet {
   namespace bg {
 
-    template <typename Key, typename Value, bool continuous> struct Container;
-    template <typename Key, typename Value> struct Container<Key,Value,false> {
-      typedef std::map<Key,Value> Type;
-      static void reserve(Type&,size_t const) {}
-      static Value& insert(Type& c,Key const& k) {
-        return c[k];
-      }
-      static Value const& find(Type const& c,Key const& k) {
-        typename Type::const_iterator it = c.find(k);
-        assert(it != c.end());
-        return it->second;
-      }
-    };
-    template <typename Key, typename Value> struct Container<Key,Value,true> {
-      typedef std::vector<Value> Type;
-      static void reserve(Type& c, size_t const sz) {
-        c.reserve(sz);
-      }
-      static Value& insert(Type& c,Key const& k) {
-        if (static_cast<typename Type::size_type>(k) >= c.size()) {
-          c.resize(k+1);
-        }
-        return c[k];
-      }
-      static Value const& find(Type const& c,Key const& k) {
-        assert(static_cast<typename Type::size_type>(k) < c.size());
-        return c[k];
-      }
-    };
+    using net::util::TypeSelection;
+    using net::util::ExtractContainerKeys;
+    using net::util::extractContainerKeys;
+    using net::util::LoopConstIterator;
+    using net::util::Functor;
 
-    template <typename N1, typename N2, bool N1_continuous = false, bool N2_continuous = false> struct Props {
+    template <typename N1, typename N2, DictionaryType N1_is = UncontinuousDictionary, DictionaryType N2_is = UncontinuousDictionary> struct Props {
       typedef N1 Node1;
       typedef N2 Node2;
-      typedef Container<N1,std::set<N2>,N1_continuous> MetaContainer1;
-      typedef Container<N2,std::set<N1>,N2_continuous> MetaContainer2;
-      typedef typename MetaContainer1::Type Container1;
-      typedef typename MetaContainer2::Type Container2;
+      typedef net::util::Dictionary<N1,std::set<size_t>,N1_is> Dictionary1;
+      typedef net::util::Dictionary<N2,std::set<size_t>,N2_is> Dictionary2;
     };
 
-    template <typename Node, typename P> struct SelectContainer {
-      typedef typename net::util::TypeSelection<
-        Node,typename P::Node1,typename P::Container1,
-        typename net::util::TypeSelection<Node,typename P::Node2,typename P::Container2,void>::Type
+    template <typename Node, typename P> struct SelectDictionary {
+      typedef typename TypeSelection<
+        Node,typename P::Node1,typename P::Dictionary1,
+        typename TypeSelection<Node,typename P::Node2,typename P::Dictionary2,void>::Type
+      >::Type Type;
+      typedef typename TypeSelection<
+        Node,typename P::Node1,typename P::Dictionary2,
+        typename TypeSelection<Node,typename P::Node2,typename P::Dictionary1,void>::Type
+      >::Type Reverse;
+    };
+    template <typename Node, typename P> struct SwapNode {
+      typedef typename TypeSelection<
+        /*if*/Node, /*equals*/typename P::Node1, /*then*/typename P::Node2, /*else*/typename P::Node1
       >::Type Type;
     };
 
@@ -69,52 +53,38 @@ namespace kleenet {
       public:
         typedef typename P::Node1 Node1;
         typedef typename P::Node2 Node2;
-        //typedef typename ConstRefUnlessPtr<Node1>::Type Node1Pass;
-        //typedef typename ConstRefUnlessPtr<Node2>::Type Node2Pass;
-        typedef typename P::MetaContainer1 MetaContainer1;
-        typedef typename P::MetaContainer2 MetaContainer2;
-        typedef typename P::Container1 Container1;
-        typedef typename P::Container2 Container2;
+        typedef typename P::Dictionary1 Dictionary1;
+        typedef typename P::Dictionary2 Dictionary2;
       private:
-        Container1 nodes1;
-        Container2 nodes2;
-        static MetaContainer1 const MetaContainer(Node1 const&) {
-          return MetaContainer1();
-        }
-        static MetaContainer2 const MetaContainer(Node2 const&) {
-          return MetaContainer2();
-        }
-        Container1& container(Node1 const&) {
+        Dictionary1 nodes1;
+        Dictionary2 nodes2;
+        Dictionary1& dictionaryOf(Node1 const&) {
           return nodes1;
         }
-        Container2& container(Node2 const&) {
+        Dictionary2& dictionaryOf(Node2 const&) {
           return nodes2;
         }
-        Container1 const& container(Node1 const&) const {
+        Dictionary1 const& dictionaryOf(Node1 const&) const {
           return nodes1;
         }
-        Container2 const& container(Node2 const&) const {
+        Dictionary2 const& dictionaryOf(Node2 const&) const {
           return nodes2;
         }
-        template <typename MetaContainer, typename OutputContainer, typename InputContainer>
-        void addNodes(MetaContainer mc, OutputContainer& output, InputContainer const& input) {
-          mc.reserve(output,output.size() + input.size());
+        template <typename OutputDictionary, typename InputContainer>
+        void addNodes(OutputDictionary& output, InputContainer const& input) {
+          output.reserve(output.size() + input.size());
           for (typename InputContainer::const_iterator it = input.begin(), en = input.end(); it != en; ++it) {
-            mc.insert(output,*it);
+            output[*it]; // merely bumping it
           }
         }
       public:
         template <typename InputContainer>
         void addNodes(InputContainer const& c) {
-          addNodes(
-              MetaContainer(typename InputContainer::value_type())
-            , container(typename InputContainer::value_type())
-            , c
-          );
+          addNodes(dictionaryOf(typename InputContainer::value_type()), c);
         }
         template <typename From, typename To>
         void addDirectedEdge(From fromNode, To toNode) {
-          MetaContainer(fromNode).insert(container(fromNode),fromNode).insert(toNode);
+          dictionaryOf(fromNode)[fromNode].insert(dictionaryOf(toNode).getIndex(toNode));
         }
         template <typename NodeA, typename NodeB>
         void addUndirectedEdge(NodeA a, NodeB b) {
@@ -123,23 +93,115 @@ namespace kleenet {
         }
         template <typename Node>
         size_t getDegree(Node node) const {
-          return MetaContainer(node).find(container(node),node).size();
+          return dictionaryOf(node).find(node).size();
         }
         template <typename Node>
         size_t countNodes() const {
-          return container(Node()).size();
+          return dictionaryOf(Node()).size();
         }
-        template <typename Node> struct Keys {
-          typedef typename SelectContainer<Node,P>::Type NodeContainer;
-          typedef typename net::util::ExtractContainerKeys<NodeContainer> Type;
+
+        /* debug
+        template <typename Node> struct NodeCollection {
+          typedef typename SelectDictionary<Node,P>::Type NodeDictionary;
+          typedef typename net::util::ExtractContainerKeys<NodeDictionary> Type;
         };
+        typedef typename NodeCollection<Node1>::Type NodeCollection1;
+        typedef typename NodeCollection<Node2>::Type NodeCollection2;
         template <typename Node>
-        typename Keys<Node>::Type keys() const {
-          return typename Keys<Node>::Type(container(Node()));
+        typename NodeCollection<Node>::Type nodeCollection() const {
+          return extractContainerKeys(dictionaryOf(Node()));
         }
-        template <typename Node>
-        typename Keys<Node>::NodeContainer __container__() const {
-          return typename Keys<Node>::NodeContainer(container(Node()));
+        eof debug */
+
+        //template <typename Node>
+        //std::set<typename SwapNode<Node,P>::Type> traverse(Node root) const { // rvo (we have to copy anyhow)
+        //  return dictionaryOf(root).find(root);
+        //}
+        //template <typename InputContainer>
+        //std::set<typename SwapNode<typename InputContainer::value_type,P>::Type> traverse(InputContainer const& input) const { // rvo (we have to copy anyway)
+        //  std::set<typename SwapNode<typename InputContainer::value_type,P>::Type> result;
+        //  for (LoopConstIterator<std::set<typename SwapNode<typename InputContainer::value_type,P>::Type> > it(input); it.more(); it.next()) {
+        //    result.insert(
+        //      dictionaryOf(*it).find(*it).begin()
+        //    , dictionaryOf(*it).find(*it).end()
+        //    );
+        //  }
+        //  return result;
+        //}
+        //template <typename InputContainer>
+        //std::set<typename InputContainer::value_type> traverse2(InputContainer const& input) const { // rvo (we have to copy anyhow)
+        //  return traverse(traverse(input));
+        //}
+
+        template <typename Dictionary, typename Func>
+        struct SearchContext {
+          typedef std::deque<typename Dictionary::size_type> Queue;
+          // we're using this as a temporary to a function, so we have to pass it as const&
+          mutable Dictionary const& dictionary;
+          mutable std::vector<bool> visited;
+          mutable Queue queue;
+          mutable Func onVisit;
+          SearchContext(Dictionary const& dictionary, Func onVisit)
+            : dictionary(dictionary)
+            , visited(dictionary.size(),false)
+            , queue()
+            , onVisit(onVisit) {
+          }
+          template <typename InputIterator>
+          SearchContext const& setQueue(InputIterator begin, InputIterator end) const {
+            queue.swap(Queue(begin,end));
+          }
+        };
+
+        template <typename Dictionary, typename Func>
+        SearchContext<Dictionary,Func> searchContext(Dictionary const& dictionary, Func onVisit) {
+          return SearchContext<Dictionary,Func>(dictionary,onVisit);
+        }
+        template <typename Dictionary>
+        SearchContext<Dictionary,Functor<> > searchContext(Dictionary const& dictionary) {
+          return SearchContext<Dictionary,Functor<> >(dictionary,Functor<>());
+        }
+
+        template <typename SC1, typename SC2>
+        void search(SC1 const& sc1, SC2 const& sc2) const {
+          bool newNodes = false;
+          for (LoopConstIterator<typename SC1::Queue> it(sc1.queue); it.more(); it.next())
+            if (!sc1.visited[*it]) {
+              sc1.visited[*it] = true;
+              sc1.onVisit(*it);
+              for (LoopConstIterator<typename SC1::Dictionary::value_type> edges(sc1.dictionary[*it]); edges.more(); edges.next())
+                if (!sc2.visited[*edges])// redundant test, but may save us from spamming the queue
+                  sc2.queue.push_back(*edges);
+            }
+          sc1.queue.clear();
+          search(sc2,sc1);
+        }
+        template <typename Dictionary>
+        struct CollectVisits {
+          Dictionary const& dictionary;
+          std::vector<typename Dictionary::key_type> visited;
+          void operator()(typename Dictionary::index_type index) {
+            visited.push_back(dictionary.getKey(index));
+          }
+          CollectVisits(Dictionary& dictionary)
+            : dictionary(dictionary)
+            , visited() {
+            visited.reserve(dictionary.size());
+          }
+        };
+      public:
+        template <typename InputContainer, typename OutputContainer>
+        void search(InputContainer const& start, OutputContainer& result) const { // rvo (we have to copy anyhow)
+          if (start.empty())
+            return start;
+          typedef typename InputContainer::value_type Node;
+          typedef typename OutputContainer::value_type OtherNode;
+          CollectVisits<typename SelectDictionary<OtherNode,P>::Type> cv;
+          search(
+            searchContext(containerOf(Node())).setQueue(start.begin(),start.end())
+          , searchContext(containerOf(OtherNode()),cv)
+          );
+          result.swap(OutputContainer(cv.visited.begin(),cv.visited.end()));
         }
     };
   }

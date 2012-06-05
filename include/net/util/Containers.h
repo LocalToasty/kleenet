@@ -95,6 +95,12 @@ namespace net {
       };
     }
 
+    // This is a very thin object. It is perfectly valid to use it as temporary,
+    // for instance wrapping an action Container when instantiating LoopConstIterator!
+    // LoopConstIterator<...>(ExtractContainerKeys<...>(myContainer)) is valid.
+    // This is a special case, because the actual ECK object will die when the expression
+    // is over, BUT ITS ITERATORS REMAIN VALID!
+    // You may want to use the extractContainerKeys free function instead of the ctor.
     template <typename Container> struct ExtractContainerKeys {
       public:
         typedef typename KeyType<Container>::Type value_type;
@@ -125,6 +131,11 @@ namespace net {
           return const_iterator(s,e);
         }
     };
+    template <typename Container>
+    ExtractContainerKeys<Container> extractContainerKeys(Container const& container) {
+      return ExtractContainerKeys<Container>(container);
+    }
+
 
   }
 }

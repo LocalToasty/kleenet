@@ -136,6 +136,54 @@ namespace net {
       return ExtractContainerKeys<Container>(container);
     }
 
+    template <typename Container>
+    class LoopConstIterator {
+      public:
+        typedef typename Container::const_iterator const_iterator;
+        typedef typename const_iterator::reference reference;
+        typedef typename const_iterator::pointer pointer;
+      private:
+        // beginIt and endIt are logically const, but we want to be default assignable
+        const_iterator beginIt;
+        const_iterator endIt;
+        const_iterator now;
+        size_t distance;
+      public:
+        void reset() {
+          now = beginIt;
+          distance = 0;
+        }
+        LoopConstIterator(Container const& c)
+          : beginIt(c.begin())
+          , endIt(c.end()) {
+          reset();
+        }
+        const_iterator begin() const {
+          return beginIt;
+        }
+        const_iterator end() const {
+          return endIt;
+        }
+        bool more() const {
+          return now != endIt;
+        }
+        void next() {
+          ++now;
+          ++distance;
+        }
+        size_t index() const {
+          return distance;
+        }
+        reference operator*() const {
+          assert(more());
+          return *now;
+        }
+        pointer operator->() const {
+          assert(more());
+          return now.operator->();
+        }
+    };
+
 
   }
 }

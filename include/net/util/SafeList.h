@@ -27,6 +27,9 @@ namespace net {
     template <bool pool> struct DestroySafeListItems<int,pool> {
       static void dtorContent(SafeListItem<int,pool>* sli) {}
     };
+    template <bool pool> struct DestroySafeListItems<size_t,pool> {
+      static void dtorContent(SafeListItem<size_t,pool>* sli) {}
+    };
     // ... may add additional specialsations
 
     template <typename T> struct PassContentAs {

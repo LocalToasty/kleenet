@@ -245,56 +245,6 @@ namespace net {
         }
     };
 
-    /*template <class Adopter, class Adoptable> class SafeListAdopter; // forward decl
-
-    template <class Adopter, class Adoptable> class SafeListAdoptable {
-      // Note: we cannot just put Adopter as a friend class, because we
-      // do not want derived classes of SafeListAdoptable to be friends with us
-      // (friendship is not inherited!).
-      friend class SafeListAdopter<Adopter, Adoptable>;
-      private:
-        SafeListItem<Adoptable*> *sli;
-        Adopter *adopter;
-      protected:
-        SafeListAdoptable() : sli(NULL), adopter(NULL) {} // create as orphan
-        Adopter *getAdopter() const {
-          return adopter;
-        }
-    };
-    template <class Adopter, class Adoptable> class SafeListAdopter {
-      private:
-        SafeList<Adoptable*> children;
-        Adopter* const self;
-      protected:
-        void iterateChildren(SafeListIterator<Adoptable*> &iterator) const {
-          iterator.reassign(children);
-        }
-        // Note: due to multiple inheritance, 'self' may not equal 'this'
-        SafeListAdopter(Adopter *_self) : self(_self) {}
-      public:
-        void adoptOrphan(Adoptable *orphan) {
-          assert(orphan && "Invalid child.");
-          SafeListAdoptable<Adopter, Adoptable> *orph =
-            dynamic_cast<SafeListAdoptable<Adopter, Adoptable>*>(orphan);
-          assert(orph && "Child of wrong type.");
-          assert(!(orph->adopter) && "Child is not an orphan. Cannot adopt.");
-          assert(!(orph->fli) && "Orphan is part of a family. Inconsistent.");
-          orph->sli = children.put(orphan);
-          orph->adopter = self;
-          assert(orph->adopter);
-        }
-        void abandonChild(Adoptable *child) {
-          assert(child && "Invalid child.");
-          SafeListAdoptable<Adopter, Adoptable> *ch =
-            dynamic_cast<SafeListAdoptable<Adopter, Adoptable>*>(child);
-          assert(ch && "Child of wrong type.");
-          assert(ch->adopter == self && "Cannot abandon foreign child.");
-          assert(ch->sli && "Orphan is not part of a family. Inconsistent.");
-          children.drop(ch->sli);
-          ch->adopter = NULL;
-          ch->sli = NULL;
-        }
-    };*/
   }
 }
 

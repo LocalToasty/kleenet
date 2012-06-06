@@ -4,7 +4,7 @@
 #include "SdsGraph.h"
 
 #include "MappingInformation.h"
-#include "util/SafeList.h"
+#include "net/util/SafeList.h"
 #include "util/SharedSafeList.h"
 #include "util/NodeTable.h"
 

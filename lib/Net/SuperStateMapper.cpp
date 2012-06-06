@@ -1,6 +1,6 @@
 #include "SuperStateMapper.h"
 
-#include "util/SafeList.h"
+#include "net/util/SafeList.h"
 #include "util/SharedSafeList.h"
 #include "StateCluster.h"
 

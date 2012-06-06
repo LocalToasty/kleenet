@@ -167,16 +167,15 @@ namespace net {
       private:
         SafeListHeadItem<T,pool> head; // head is always the sentinel!
         size_t _size;
+        typedef unsigned Lock;
         // Locks will be optimised because it is private and never set in this class.
-        // We expect this not to exceed 1, so a char will suffice.
-        mutable unsigned char locks;
-        unsigned char getLock() const { // O(1)
+        mutable Lock locks;
+        Lock getLock() const { // O(1)
           locks++;
-          // Nobody would willingly get 256 locks ... right?
-          assert(locks && "Lock limit reached (overflow detected).");
+          assert(locks && "Lock limit reached (overflow detected). What on earth did you do?");
           return locks;
         }
-        unsigned char releaseLock() const { // O(1)
+        Lock releaseLock() const { // O(1)
           assert(locks && "Attempt to unlock a non-locked list.");
           return --locks;
         }
@@ -206,7 +205,7 @@ namespace net {
         unsigned char isLocked() const { // O(1)
           return locks;
         }
-        SafeListItem<T,pool> *put(typename SafeListItem<T,pool>::Tref c) { // O(1)
+        SafeListItem<T,pool>* put(typename SafeListItem<T,pool>::Tref c) { // O(1)
           //std::cout << "[" << this << "] put(" << c << ")" << std::endl;
           assert((!locks) && "Attempt to modify locked list by insertion.");
           assert(head.right && "Invalid FL: right is NULL");

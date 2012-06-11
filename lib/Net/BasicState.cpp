@@ -6,8 +6,6 @@
 
 #include <assert.h>
 
-//#include <iostream> // XXX
-
 using namespace net;
 
 size_t& BasicState::tableSize() {
@@ -16,16 +14,23 @@ size_t& BasicState::tableSize() {
   return _tableSize;
 }
 
-BasicState::BasicState() : dependants(tableSize(),NULL), fake(util::isOnStack(this)) {
-  //std::cout << "Creating BasicState " << this << std::endl; // XXX
+BasicState::BasicState()
+  : dependants(tableSize(),NULL), fake(util::isOnStack(this)), completedTransmissions(0) {
 }
 
 bool BasicState::isFake() const {
   return fake;
 }
 
-BasicState::BasicState(BasicState const& from) : dependants(tableSize(), NULL), fake(util::isOnStack(this)) {
-  //std::cout << "Creating BasicState " << this << " (from " << &from << ")" << std::endl; // XXX
+size_t BasicState::getCompletedTransmissions() const {
+  return completedTransmissions;
+}
+void BasicState::incCompletedTransmissions() {
+  completedTransmissions++;
+}
+
+BasicState::BasicState(BasicState const& from)
+  : dependants(tableSize(), NULL), fake(util::isOnStack(this)), completedTransmissions(from.completedTransmissions) {
 
   assert((fake || !from.fake) && "Attempt to create a non-fake state from a fake state.");
   assert(from.dependants.size() == tableSize() && "Table size was changed after initialisation");

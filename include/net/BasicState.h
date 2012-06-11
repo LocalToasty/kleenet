@@ -24,12 +24,15 @@ namespace net {
       static size_t& tableSize();
       std::vector<Dependant> dependants;
       bool const fake;
+      size_t completedTransmissions;
     public:
       BasicState();
       BasicState(BasicState const&);
+      virtual ~BasicState();
       virtual BasicState* forceFork() = 0;
       bool isFake() const;
-      virtual ~BasicState();
+      size_t getCompletedTransmissions() const;
+      void incCompletedTransmissions();
   };
 }
 

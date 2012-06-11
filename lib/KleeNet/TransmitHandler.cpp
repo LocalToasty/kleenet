@@ -148,19 +148,6 @@ namespace kleenet {
         , key(key) {
       }
   };
-  class ExtractArraysVisitor : public klee::ExprVisitor { // XXX remove this stupid code duplication!
-    private:
-      std::set<klee::Array const*>& collection;
-    protected:
-      Action visitRead(klee::ReadExpr const& re) {
-        collection.insert(re.updates.root);
-        return Action::skipChildren();
-      }
-    public:
-      ExtractArraysVisitor(std::set<klee::Array const*>& collection)
-        : collection(collection) {
-      }
-  };
 
   class ConstraintsGraph {
     private:
@@ -220,8 +207,6 @@ namespace kleenet {
           size_t const currentTx;
           std::set<klee::Array const*> senderSymbols;
           ReadTransformator rt;
-          //ExtractArraysVisitor senderArrayCollector;
-          //std::vector<bool> visited;
         public:
           TxData(size_t currentTx, net::Node src, net::Node dest, std::vector<net::DataAtomHolder> const& data)
             : currentTx(currentTx)

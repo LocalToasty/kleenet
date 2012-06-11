@@ -88,6 +88,18 @@ namespace net {
           return AdHocIteratorTransformation(it--,func);
         }
     };
+    template <typename InputIterator, typename Func, typename Return> // Return only needed for C++03
+    AdHocIteratorTransformation<InputIterator,Func,Return>
+    adHocIteratorTransformation(InputIterator it, Func func, Return const& = Return() /*just give me ANYTHING to infer the type*/) {
+      return AdHocIteratorTransformation<InputIterator,Func,Return>(it,func);
+    }
+    template <typename InputContainer, typename OutputContainer, typename Func, typename Return>
+    OutputContainer adHocContainerTransformation(InputContainer input, Func func, Return const& r = Return(), OutputContainer const& = OutputContainer()) {
+      return OutputContainer(
+        adHocIteratorTransformation(input.begin(), func, r)
+      , adHocIteratorTransformation(input.end(), func, r)
+      );
+    }
 
     namespace extract_container_keys {
       template <typename Container, typename Enable = void> struct const_iterator {

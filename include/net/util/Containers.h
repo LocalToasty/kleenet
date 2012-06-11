@@ -50,6 +50,11 @@ namespace net {
         InputIterator it;
         Func func;
       public:
+        typedef typename InputIterator::iterator_category iterator_category;
+        typedef typename InputIterator::value_type value_type;
+        typedef typename InputIterator::difference_type difference_type;
+        typedef typename InputIterator::pointer pointer;
+        typedef typename InputIterator::reference reference;
         AdHocIteratorTransformation(InputIterator it, Func func)
           : it(it), func(func) {
         }

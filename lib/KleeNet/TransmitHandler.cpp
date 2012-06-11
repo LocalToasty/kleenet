@@ -26,7 +26,7 @@
 #include <tr1/type_traits>
 
 namespace kleenet {
-  class NameMangler {
+  class NameMangler { // cheap construction
     public:
       std::string const appendToName;
       NameMangler(std::string const appendToName)
@@ -45,7 +45,7 @@ namespace kleenet {
       }
   };
 
-  class LazySymbolTranslator {
+  class LazySymbolTranslator { // cheap construction
     public:
       typedef std::set<klee::Array const*> Symbols;
     private:
@@ -69,7 +69,7 @@ namespace kleenet {
       }
   };
 
-  class ReplaceReadVisitor : public klee::ExprVisitor {
+  class ReplaceReadVisitor : public klee::ExprVisitor { // cheap construction
     private:
       typedef klee::ExprVisitor::Action Action;
       LazySymbolTranslator& lst;
@@ -88,7 +88,7 @@ namespace kleenet {
       }
   };
 
-  class ReadTransformator {
+  class ReadTransformator { // linear-time construction (linear in packet length)
     public:
       typedef std::vector<klee::ref<klee::Expr> > Seq;
     private:
@@ -131,7 +131,7 @@ namespace kleenet {
   };
 
 
-  template <typename BGraph, typename Key> class ExtractReadEdgesVisitor : public klee::ExprVisitor {
+  template <typename BGraph, typename Key> class ExtractReadEdgesVisitor : public klee::ExprVisitor { // cheap construction (depends on Key copy-construction)
     private:
       BGraph& bg;
       Key key;
@@ -149,7 +149,7 @@ namespace kleenet {
       }
   };
 
-  class ConstraintsGraph {
+  class ConstraintsGraph { // constant-time construction (but sizeable number of mallocs)
     private:
       typedef klee::ConstraintManager::constraints_ty Vec;
       typedef bg::Graph<bg::Props<Vec::size_type,klee::Array const*,net::util::ContinuousDictionary,net::util::UncontinuousDictionary> > BGraph;
@@ -168,7 +168,7 @@ namespace kleenet {
         }
         knownConstraints = cm.size();
       }
-      struct ConstraintLookup {
+      struct ConstraintLookup { // cheap construction
         klee::ConstraintManager const& cm;
         ConstraintLookup(klee::ConstraintManager const& cm) : cm(cm) {}
         klee::ConstraintManager::constraints_ty::value_type operator()(klee::ConstraintManager::constraints_ty::size_type index) const {
@@ -197,11 +197,11 @@ namespace kleenet {
       }
   };
 
-  class ConfigurationData : public ConfigurationDataBase {
+  class ConfigurationData : public ConfigurationDataBase { // constant-time construction (but sizeable number of mallocs)
     public:
       klee::ExecutionState& forState;
       ConstraintsGraph cg;
-      class TxData {
+      class TxData { // linear-time construction (linear in packet length)
         friend class ConfigurationData;
         private:
           size_t const currentTx;

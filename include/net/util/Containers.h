@@ -106,7 +106,9 @@ namespace net {
         typedef typename Container::const_iterator parent_iterator;
         typedef typename SizeType<Container>::Type size_type;
         size_type pi;
-        const_iterator(size_type const pi, parent_iterator const) : pi(pi) {}
+        const_iterator(parent_iterator const begin, parent_iterator const it)
+          : pi(it - begin) {
+        }
         size_type const& operator*() const {
           return pi;
         }
@@ -129,7 +131,9 @@ namespace net {
         typedef typename Container::key_type value_type;
         typedef typename SizeType<Container>::Type size_type;
         parent_iterator pi;
-        const_iterator(size_type const, parent_iterator const pi) : pi(pi) {}
+        const_iterator(parent_iterator const begin, parent_iterator const it)
+          : pi(it) {
+        }
         value_type const& operator*() const {
           return pi->first;
         }
@@ -165,16 +169,25 @@ namespace net {
         typedef extract_container_keys::const_iterator<Container> const_iterator;
       private:
         typename Container::const_iterator b;
+        typename Container::const_iterator i; // i may be in [b,e)
         typename Container::const_iterator e;
         size_type const s;
       public:
         explicit ExtractContainerKeys(Container const& extractFrom)
           : b(extractFrom.begin())
+          , i(extractFrom.begin())
           , e(extractFrom.end())
           , s(extractFrom.size()) {
         }
         ExtractContainerKeys(typename Container::const_iterator b, typename Container::const_iterator e, size_type s)
           : b(b)
+          , i(b)
+          , e(e)
+          , s(s) {
+        }
+        ExtractContainerKeys(typename Container::const_iterator b, typename Container::const_iterator i, typename Container::const_iterator e, size_type s)
+          : b(b)
+          , i(i)
           , e(e)
           , s(s) {
         }
@@ -182,10 +195,10 @@ namespace net {
           return s;
         }
         const_iterator begin() const {
-          return const_iterator(0,b);
+          return const_iterator(b,i);
         }
         const_iterator end() const {
-          return const_iterator(s,e);
+          return const_iterator(b,e);
         }
     };
     template <typename Container>

@@ -286,6 +286,10 @@ namespace net {
             values.resize(k+1);
           return k;
         }
+        index_type getIndex(key_type k) const {
+          assert(static_cast<key_type>(k) < values.size());
+          return k;
+        }
         Key getKey(index_type i) const {
           assert(i < values.size());
           return i;
@@ -298,13 +302,19 @@ namespace net {
           assert(k < values.size());
           return values[k];
         }
-        Value const& findByIndex(size_type i) const {
+        Value const& findByIndex(index_type i) const {
           assert(i < values.size());
           return values[i];
         }
-        Value& findByIndex(size_type i) {
+        Value& findByIndex(index_type i) {
           assert(i < values.size());
           return values[i];
+        }
+        bool hasIndex(index_type i) const {
+          return i < values.size();
+        }
+        bool hasKey(key_type k) const {
+          return k < values.size();
         }
     };
     template <typename Key, typename Value> class Dictionary<Key,Value,UncontinuousDictionary> : public Dictionary<size_t,typename std::pair<Key,Value>,ContinuousDictionary> {
@@ -332,6 +342,9 @@ namespace net {
           std::pair<typename Keys::iterator,bool> found = keys.insert(std::make_pair(k,Parent::size()));
           return Parent::getIndex(found.first->second);
         }
+        index_type getIndex(key_type k) const {
+          return Parent::getIndex(findValueKey(k));
+        }
         Key getKey(index_type i) const {
           return Parent::find(i).first;
         }
@@ -340,6 +353,16 @@ namespace net {
         }
         Value& find(key_type k) {
           return Parent::find(findValueKey(k)).second;
+        }
+        Value const& findByIndex(size_type i) const {
+          return Parent::find(i).second;
+        }
+        Value& findByIndex(size_type i) {
+          return Parent::find(i).second;
+        }
+        bool hasKey(key_type k) const {
+          typename Keys::const_iterator const it = keys.find(k);
+          return it != keys.end() && Parent::hasKey(it->second);
         }
     };
 

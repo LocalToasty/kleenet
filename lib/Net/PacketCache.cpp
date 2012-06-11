@@ -1,6 +1,7 @@
 #include "net/PacketCache.h"
 
 #include "net/StateMapper.h"
+#include "net/BasicState.h"
 #include "MappingInformation.h"
 
 using namespace net;
@@ -86,6 +87,7 @@ void PacketCacheBase::commitMappings(Node dest, StateTrie const& st, Transmitter
             //transmitHandler.handleTransmission(pi, *sender, *recv, exData);
           }
           stateMapper.invalidate();
+          (*sender)->incCompletedTransmissions();
         }
       }
   };

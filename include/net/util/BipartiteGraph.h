@@ -1,4 +1,4 @@
-//===-- TransmitHandler.h ---------------------------------------*- C++ -*-===//
+//===-- BipartiteGraph.h ----------------------------------------*- C++ -*-===//
 //
 //                     The KLEE Symbolic Virtual Machine
 //
@@ -16,6 +16,7 @@
 
 #include "net/util/Type.h"
 #include "net/util/Containers.h"
+#include "net/util/SafeList.h"
 
 namespace kleenet {
   namespace bg {
@@ -134,89 +135,114 @@ namespace kleenet {
         //  return traverse(traverse(input));
         //}
 
-        template <typename Dictionary, typename Func>
+        typedef net::util::SafeList<size_t> SC_Queue;
+
+        template <typename D, typename Func>
         struct SearchContext {
+          typedef D Dictionary;
+          typedef SC_Queue Queue;
           // TODO: it is probably for the best if we replace this Queue with our SafeList (just for speed)
-          typedef std::deque<typename Dictionary::size_type> Queue;
+          //typedef std::deque<typename Dictionary::size_type> Queue;
           // we're using this as a temporary to a function, so we have to pass it as const&
           mutable Dictionary const& dictionary;
           mutable std::vector<bool> visited;
-          mutable Queue queue;
+          mutable Queue& queue;
           mutable Func onVisit;
-          SearchContext(Dictionary const& dictionary, Func onVisit)
+          SearchContext(Dictionary const& dictionary, Queue& queue, Func onVisit)
             : dictionary(dictionary)
             , visited(dictionary.size(),false)
-            , queue()
+            , queue(queue)
             , onVisit(onVisit) {
           }
           template <typename InputIterator>
           SearchContext const& setQueueWithIndices(InputIterator begin, InputIterator end) const {
-            queue.swap(Queue(begin,end));
+            queue.dropAll(); // thanks to pooling this is O(1)
+            for (InputIterator it = begin; it != end; ++it) // this aint :(
+              if (dictionary.hasIndex(*it))
+                queue.put(*it); // we never remove single elements, so we can afford to disregard the SFItem*
+            return *this;
           }
-          struct ExtractKey {
+          struct ExtractIndex {
             Dictionary const& dictionary;
-            ExtractKey(Dictionary const& dictionary) : dictionary(dictionary) {}
-            typename Dictionary::key_type operator()(typename Dictionary::index_type i) {
-              return dictionary.getKey(i);
+            ExtractIndex(Dictionary const& dictionary) : dictionary(dictionary) {}
+            typename Dictionary::index_type operator()(typename Dictionary::key_type k) const {
+              if (dictionary.hasKey(k))
+                return dictionary.getIndex(k);
+              return dictionary.size();
             }
           };
           template <typename InputIterator>
           SearchContext const& setQueueWithKeys(InputIterator begin, InputIterator end) const {
-            typedef net::util::AdHocIteratorTransformation<InputIterator,ExtractKey,typename Dictionary::key_type> Tx;
-            setQueueWithIndices(Tx(begin,ExtractKey(dictionary)),
-                                Tx(end,ExtractKey(dictionary)));
+            typedef net::util::AdHocIteratorTransformation<InputIterator,ExtractIndex,typename Dictionary::index_type> Tx;
+            return setQueueWithIndices(Tx(begin,ExtractIndex(dictionary))
+                                      ,Tx(end,ExtractIndex(dictionary)));
           }
         };
 
         template <typename Dictionary, typename Func>
-        SearchContext<Dictionary,Func> searchContext(Dictionary const& dictionary, Func onVisit) {
-          return SearchContext<Dictionary,Func>(dictionary,onVisit);
+        static SearchContext<Dictionary,Func> searchContext(Dictionary const& dictionary, SC_Queue& queue, Func onVisit) {
+          return SearchContext<Dictionary,Func>(dictionary,queue,onVisit);
         }
         template <typename Dictionary>
-        SearchContext<Dictionary,Functor<> > searchContext(Dictionary const& dictionary) {
-          return SearchContext<Dictionary,Functor<> >(dictionary,Functor<>());
+        static SearchContext<Dictionary,Functor<> > searchContext(Dictionary const& dictionary, SC_Queue& queue) {
+          return SearchContext<Dictionary,Functor<> >(dictionary,queue,Functor<>());
         }
 
+        // this is the core graph-search method (it would qualify as bfs)
         template <typename SC1, typename SC2>
         void search(SC1 const& sc1, SC2 const& sc2) const {
-          bool newNodes = false;
-          for (LoopConstIterator<typename SC1::Queue> it(sc1.queue); it.more(); it.next())
-            if (!sc1.visited[*it]) {
-              sc1.visited[*it] = true;
-              sc1.onVisit(*it);
-              for (LoopConstIterator<typename SC1::Dictionary::value_type> edges(sc1.dictionary[*it]); edges.more(); edges.next())
+          for (typename SC1::Queue::iterator it(sc1.queue); it.more(); it.next())
+            if (!sc1.visited[it.get()]) {
+              sc1.visited[it.get()] = true;
+              sc1.onVisit(it.get());
+              for (LoopConstIterator<typename SC1::Dictionary::value_type> edges(sc1.dictionary.findByIndex(it.get())); edges.more(); edges.next())
                 if (!sc2.visited[*edges])// redundant test, but may save us from spamming the queue
-                  sc2.queue.push_back(*edges);
+                  sc2.queue.put(*edges);
             }
-          sc1.queue.clear();
-          search(sc2,sc1);
+          sc1.queue.dropAll();
+          if (sc2.queue.size())
+            search(sc2,sc1);
+          // {sc1.queue.empty} {sc2.queue.empty}
         }
-        template <typename Dictionary>
+        template <typename Dictionary, typename OutputContainer>
         struct CollectVisits {
+        };
+        template <typename Dictionary>
+        struct CollectVisits<Dictionary,bool> {
+          void operator()(typename Dictionary::index_type index) {}
+          CollectVisits(Dictionary&, bool*) {}
+        };
+        template <typename Dictionary>
+        struct CollectVisits<Dictionary,std::vector<typename Dictionary::key_type> > {
           Dictionary const& dictionary;
-          std::vector<typename Dictionary::key_type> visited;
+          typedef std::vector<typename Dictionary::key_type> Visited;
+          Visited& visited;
           void operator()(typename Dictionary::index_type index) {
             visited.push_back(dictionary.getKey(index));
           }
-          CollectVisits(Dictionary& dictionary)
+          CollectVisits(Dictionary& dictionary, Visited* visited)
             : dictionary(dictionary)
-            , visited() {
-            visited.reserve(dictionary.size());
+            , visited(*visited) {
+            this->visited.reserve(this->visited.size() + dictionary.size());
           }
         };
+        template <typename Dictionary, typename VisitedContainer>
+        static CollectVisits<Dictionary,VisitedContainer> collectVisits(Dictionary& dictionary, VisitedContainer* visited) {
+          return CollectVisits<Dictionary,VisitedContainer>(dictionary,visited);
+        }
       public:
-        template <typename InputContainer, typename OutputContainer>
-        void search(InputContainer const& start, OutputContainer& result) const { // rvo (we have to copy anyhow)
-          if (start.empty())
-            return start;
+        static const void* IGNORE; // pass to search, to ignore reaing values
+        template <typename InputContainer, typename OutputContainerSame, typename OutputContainerOther>
+        void search(InputContainer const start, OutputContainerSame* outSame, OutputContainerOther* outOther) const { // rvo (we have to copy anyhow)
           typedef typename InputContainer::value_type Node;
-          typedef typename OutputContainer::value_type OtherNode;
-          CollectVisits<typename SelectDictionary<OtherNode,P>::Type> cv;
+          typedef typename SwapNode<typename InputContainer::value_type,P>::Type OtherNode;
+          if (start.empty())
+            return;
+          SC_Queue nodeQ, otherQ;
           search(
-            searchContext(containerOf(Node())).setQueueWithKeys(start.begin(),start.end())
-          , searchContext(containerOf(OtherNode()),cv)
+            searchContext(dictionaryOf(Node()),nodeQ,collectVisits(dictionaryOf(Node()),outSame)).setQueueWithKeys(start.begin(),start.end())
+          , searchContext(dictionaryOf(OtherNode()),otherQ,collectVisits(dictionaryOf(OtherNode()),outOther))
           );
-          result.swap(OutputContainer(cv.visited.begin(),cv.visited.end()));
         }
     };
   }

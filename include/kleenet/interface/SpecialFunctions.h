@@ -1,4 +1,4 @@
-//===-- kleenet.h -----------------------------------------------*- C++ -*-===//
+//===-- SpecialFunctions.h --------------------------------------*- C++ -*-===//
 //
 //                     The KLEE Symbolic Virtual Machine
 //
@@ -10,8 +10,7 @@
 // This file does not live in include/kleenet because it is the user includable
 // special function header.
 
-#ifndef __KLEENET_H__
-#define __KLEENET_H__
+#pragma once
 
 #include <stddef.h>
 #include <stdint.h>
@@ -133,5 +132,3 @@ extern "C" {
 #ifdef __cplusplus
 }
 #endif
-
-#endif /* __KLEENET_H__ */

@@ -333,14 +333,18 @@ namespace net {
           assert(it != keys.end());
           return it->second;
         }
+        typename Keys::iterator insertKey(key_type k) {
+          std::pair<typename Keys::iterator,bool> found = keys.insert(std::make_pair(k,Parent::size()));
+          typename Parent::value_type& pv = Parent::operator[](found.first->second);
+          pv.first = k;
+          return found.first;
+        }
       public:
         Value& operator[](key_type k) {
-          std::pair<typename Keys::iterator,bool> found = keys.insert(std::make_pair(k,Parent::size()));
-          return Parent::operator[](found.first->second).second;
+          return Parent::operator[](insertKey(k)->second).second;
         }
         index_type getIndex(key_type k) {
-          std::pair<typename Keys::iterator,bool> found = keys.insert(std::make_pair(k,Parent::size()));
-          return Parent::getIndex(found.first->second);
+          return Parent::getIndex(insertKey(k)->second);
         }
         index_type getIndex(key_type k) const {
           return Parent::getIndex(findValueKey(k));

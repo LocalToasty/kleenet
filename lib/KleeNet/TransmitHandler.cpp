@@ -281,6 +281,7 @@ void TransmitHandler::handleTransmission(PacketInfo const& pi, net::BasicState* 
             << std::endl;
   klee::ExecutionState& sender = static_cast<klee::ExecutionState&>(*basicSender);
   klee::ExecutionState& receiver = static_cast<klee::ExecutionState&>(*basicReceiver);
+  std::cout << "Involved states: " << &sender << " ---> " << &receiver << std::endl;
   if ((!sender.configurationData) || (&(static_cast<ConfigurationData&>(*sender.configurationData).forState) != &sender)) {
     if (!sender.configurationData)
       delete sender.configurationData;
@@ -317,7 +318,7 @@ void TransmitHandler::handleTransmission(PacketInfo const& pi, net::BasicState* 
     std::cout << "Listing OFFENDING symbols:" << std::endl;
     for (LazySymbolTranslator::TxMap::const_iterator it = txData.symbols().begin(), end = txData.symbols().end(); it != end; ++it) {
       std::cout << " + " << it->first->name << "  |--->  " << it->second->name << std::endl;
-      bool const didntExist = sender.arrayNames.insert(it->second->name).second;
+      bool const didntExist = receiver.arrayNames.insert(it->second->name).second;
       if (!didntExist) {
         klee::klee_error("%s",(std::string("In transmission of symbol '") + it->first->name + "' from node " + llvm::utostr(pi.src.id) + " to node " + llvm::utostr(pi.dest.id) + "; Symbol '" + it->second->name + "' already exists on the target state. This is either a bug in KleeNet or you used the symbol '{' when specifying the name of a symbolic object.").c_str());
       }

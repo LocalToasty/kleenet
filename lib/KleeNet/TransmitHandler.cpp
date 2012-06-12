@@ -4,10 +4,13 @@
 #include "klee/util/ExprPPrinter.h"
 #include "klee/util/ExprVisitor.h"
 #include "klee/util/ExprUtil.h"
+#include "NetExecutor.h"
 
 #include "llvm/ADT/StringExtras.h"
 
 #include "klee_headers/Memory.h"
+#include "klee_headers/Common.h"
+#include "klee_headers/MemoryManager.h"
 
 #include "AtomImpl.h"
 
@@ -48,10 +51,10 @@ namespace kleenet {
   class LazySymbolTranslator { // cheap construction
     public:
       typedef std::set<klee::Array const*> Symbols;
+      typedef std::map<klee::Array const*,klee::Array*> TxMap;
     private:
       NameMangler mangle;
     protected:
-      typedef std::map<klee::Array const*,klee::Array*> TxMap;
       TxMap txMap;
       Symbols* const preImageSymbols;
     public:
@@ -66,6 +69,9 @@ namespace kleenet {
         if (!it)
           it = mangle(array);
         return it;
+      }
+      TxMap const& symbols() const {
+        return txMap;
       }
   };
 
@@ -127,6 +133,9 @@ namespace kleenet {
       }
       klee::ref<klee::Expr> const operator()(klee::ref<klee::Expr> const expr) {
         return rrv.visit(expr);
+      }
+      LazySymbolTranslator::TxMap const& symbols() const {
+        return lst.symbols();
       }
   };
 
@@ -213,11 +222,15 @@ namespace kleenet {
           std::set<klee::Array const*> const& peekSymbols() const { // debug
             return senderSymbols;
           }
+          LazySymbolTranslator::TxMap const& symbols() const {
+            return rt.symbols();
+          }
           std::vector<klee::ref<klee::Expr> > const& computeNewReceiverConstraints() { // result already translated!
             if (allowMorePacketSymbols) {
               allowMorePacketSymbols = false;
               assert(receiverConstraints.empty() && "Garbate data in our constraints buffer.");
-              receiverConstraints = cg.eval(senderSymbols); // XXX TODO TRANSLATE!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+              receiverConstraints = cg.eval(senderSymbols);
+              std::transform<std::vector<klee::ref<klee::Expr> >::const_iterator, std::vector<klee::ref<klee::Expr> >::iterator, ReadTransformator&>(receiverConstraints.begin(),receiverConstraints.end(),receiverConstraints.begin(),rt);
             }
             return receiverConstraints;
           }
@@ -279,6 +292,7 @@ void TransmitHandler::handleTransmission(PacketInfo const& pi, net::BasicState* 
   klee::ObjectState const* ose = receiver.addressSpace.findObject(pi.destMo);
   assert(ose && "Destination ObjectState not found.");
   klee::ObjectState* wos = receiver.addressSpace.getWriteable(pi.destMo, ose);
+  std::cout << "Packet data: " << std::endl;
   //std::set<klee::Array const*> symbols;
   // important remark: data might be longer or shorter than pi.length. Always obey the size dictated by PacketInfo.
   for (unsigned i = 0; i < pi.length; i++) {
@@ -295,19 +309,22 @@ void TransmitHandler::handleTransmission(PacketInfo const& pi, net::BasicState* 
     std::cout << "Receiver Constraints:" << std::endl;
     klee::ExprPPrinter::printConstraints(std::cout,receiver.constraints); std::cout << std::endl;
     std::cout << "EOF Constraints." << std::endl;
-    std::cout << "Listing OFFENDING sender constraints:" << std::endl;
+    std::cout << "Listing OFFENDING constraints:" << std::endl;
     for (net::util::LoopConstIterator<std::vector<klee::ref<klee::Expr> > > it(txData.computeNewReceiverConstraints()); it.more(); it.next()) {
       std::cout << " ! "; klee::ExprPPrinter::printSingleExpr(std::cout,*it); std::cout << std::endl;
-      //std::cout << " ! constr-id: `" << *it << "'" << std::endl;
+      receiver.constraints.addConstraint(*it);
     }
-  //  cg.eval(symbols);
-  //  // TODO: start the search with the ReadExpressions that are used in the transmission
-
-  //  klee::ConstraintManager& sc(sender.constraints);
-  //  klee::ConstraintManager& rc(receiver.constraints);
-  //  for (klee::ConstraintManager::const_iterator it = sc.begin(), en = sc.end(); it != en; ++it) {
-  //    rc.addConstraint(rt(*it));
-  //  }
+    std::cout << "Listing OFFENDING symbols:" << std::endl;
+    for (LazySymbolTranslator::TxMap::const_iterator it = txData.symbols().begin(), end = txData.symbols().end(); it != end; ++it) {
+      std::cout << " + " << it->first->name << "  |--->  " << it->second->name << std::endl;
+      bool const didntExist = sender.arrayNames.insert(it->second->name).second;
+      if (!didntExist) {
+        klee::klee_error("%s",(std::string("In transmission of symbol '") + it->first->name + "' from node " + llvm::utostr(pi.src.id) + " to node " + llvm::utostr(pi.dest.id) + "; Symbol '" + it->second->name + "' already exists on the target state. This is either a bug in KleeNet or you used the symbol '{' when specifying the name of a symbolic object.").c_str());
+      }
+      klee::MemoryObject* const mo = receiver.getExecutor()->memory->allocate(it->second->size,false,true,NULL);
+      mo->setName(it->second->name);
+      /* TODO */ receiver.addSymbolic(mo,it->second); /**/ // XXX I think this is wrong! CHECK! XXX
+    }
   } else {
     std::cout << "All data in tx is constant. Bypassing Graph construction." << std::endl;
   }

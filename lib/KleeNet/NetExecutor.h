@@ -47,6 +47,7 @@ namespace kleenet {
       using klee::Executor::bindLocal;
       using klee::Executor::solver;
       using klee::Executor::globalObjects;
+      using klee::Executor::memory;
 
       KleeNet const& kleeNet;
       Searcher* getNetSearcher() const;

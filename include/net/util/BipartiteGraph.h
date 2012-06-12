@@ -208,9 +208,14 @@ namespace kleenet {
         struct CollectVisits {
         };
         template <typename Dictionary>
-        struct CollectVisits<Dictionary,bool> {
+        struct CollectVisits<Dictionary,void const> {
           void operator()(typename Dictionary::index_type index) {}
-          CollectVisits(Dictionary&, bool*) {}
+          CollectVisits(Dictionary&, void const*) {}
+        };
+        template <typename Dictionary>
+        struct CollectVisits<Dictionary,void> {
+          void operator()(typename Dictionary::index_type index) {}
+          CollectVisits(Dictionary&, void*) {}
         };
         template <typename Dictionary>
         struct CollectVisits<Dictionary,std::vector<typename Dictionary::key_type> > {

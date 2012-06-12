@@ -72,17 +72,21 @@ namespace kleenet {
         Dictionary2 const& dictionaryOf(Node2 const&) const {
           return nodes2;
         }
-        template <typename OutputDictionary, typename InputContainer>
-        void addNodes(OutputDictionary& output, InputContainer const& input) {
-          output.reserve(output.size() + input.size());
-          for (typename InputContainer::const_iterator it = input.begin(), en = input.end(); it != en; ++it) {
+        template <typename OutputDictionary, typename Iterator>
+        void addNodes(OutputDictionary& output, Iterator begin, Iterator end, size_t size) {
+          output.reserve(output.size() + size);
+          for (Iterator it = begin; it != end; ++it) {
             output[*it]; // merely bumping it
           }
         }
       public:
         template <typename InputContainer>
         void addNodes(InputContainer const& c) {
-          addNodes(dictionaryOf(typename InputContainer::value_type()), c);
+          addNodes(dictionaryOf(typename InputContainer::value_type()), c.begin(), c.end(), c.size());
+        }
+        template <typename InputIterator>
+        void addNodes(InputIterator begin, InputIterator end, size_t size) {
+          addNodes(dictionaryOf(*begin), begin, end, size);
         }
         template <typename From, typename To>
         void addDirectedEdge(From fromNode, To toNode) {

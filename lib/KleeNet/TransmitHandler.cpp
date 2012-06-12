@@ -152,30 +152,17 @@ namespace kleenet {
   class ConstraintsGraph { // constant-time construction (but sizeable number of mallocs)
     private:
       typedef klee::ConstraintManager::constraints_ty Vec;
-      typedef bg::Graph<bg::Props<Vec::size_type,klee::Array const*,net::util::ContinuousDictionary,net::util::UncontinuousDictionary> > BGraph;
+      typedef bg::Graph<bg::Props<klee::ref<klee::Expr>,klee::Array const*,net::util::UncontinuousDictionary,net::util::UncontinuousDictionary> > BGraph;
       BGraph bGraph;
       klee::ConstraintManager& cm;
       Vec::size_type knownConstraints;
       void updateGraph() {
-        typedef net::util::ExtractContainerKeys<Vec> Constrs;
-        // we need the differentiation between the container "begin" (first argument)
-        // and the position to actually stary (second argument), in order to get the indices right
-        Constrs constrs(cm.begin(),cm.begin()+knownConstraints,cm.end(),cm.size());
-        bGraph.addNodes(constrs);
+        bGraph.addNodes(cm.begin()+knownConstraints,cm.end(),cm.size()-knownConstraints);
         for (Vec::const_iterator begin = cm.begin(), it = cm.begin()+knownConstraints, end = cm.end(); it != end; ++it) {
-          std::cout << "[updateGraph] adding constraint: "; klee::ExprPPrinter::printSingleExpr(std::cout,*it); std::cout << std::endl;
-          ExtractReadEdgesVisitor<BGraph,Vec::size_type>(bGraph,it - begin).visit(*it);
+          ExtractReadEdgesVisitor<BGraph,Vec::value_type>(bGraph,*it).visit(*it);
         }
         knownConstraints = cm.size();
       }
-      struct ConstraintLookup { // cheap construction
-        klee::ConstraintManager const& cm;
-        ConstraintLookup(klee::ConstraintManager const& cm) : cm(cm) {}
-        klee::ConstraintManager::constraints_ty::value_type operator()(klee::ConstraintManager::constraints_ty::size_type index) const {
-          assert(index < cm.size() && "Got a garbage constraint index from the linear graph searcher.");
-          return cm.begin()[index]; // vector iterators are pointers ;)
-        }
-      };
     public:
       ConstraintsGraph(klee::ConstraintManager& cm)
         : bGraph()
@@ -186,19 +173,10 @@ namespace kleenet {
       std::vector<klee::ref<klee::Expr> > eval(ArrayContainer const request) {
         updateGraph();
         std::vector<klee::ref<klee::Expr> > needConstrs;
-        std::vector<Vec::size_type> needConstrIndices;
         //std::vector<klee::Array const*> needSymbols;
-        bGraph.search(request,BGraph::IGNORE,&needConstrIndices);
-        std::cout << needConstrIndices.size() << " constraint ids following ..." << std::endl;
-        for (std::vector<Vec::size_type>::const_iterator it = needConstrIndices.begin(), en = needConstrIndices.end(); it != en; ++it)
-          std::cout << " + " << *it << "." << std::endl;
-        //return needConstrIndices;
-        return net::util::adHocContainerTransformation( // you can see my Haskell roots, can't you?
-          needConstrIndices
-        , ConstraintLookup(cm)
-        , klee::ref<klee::Expr>()//just for type inference
-        , std::vector<klee::ref<klee::Expr> >()//just for type inference
-        );
+        bGraph.search(request,BGraph::IGNORE,&needConstrs);
+        std::cout << needConstrs.size() << " constraint following ..." << std::endl;
+        return needConstrs;
       }
   };
 

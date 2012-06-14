@@ -9,6 +9,7 @@
 #include "net/PacketCache.h"
 #include "net/Searcher.h"
 
+#include "NetExecutor.h"
 #include "TransmitHandler.h"
 #include "PacketInfo.h"
 
@@ -137,5 +138,7 @@ void KleeNet::terminateCluster(klee::ExecutionState& state, KleeNet::TerminateSt
         terminate(*(net::basic_terminate::cast()(&state)),cache);
       }
   };
-  env->stateMapper->terminateCluster(state,BasicTerminate(terminate));
+  if (env->stateMapper->terminateCluster(state,BasicTerminate(terminate))) {
+    executor->netInterpreterHandler->incClustersExplored();
+  }
 }

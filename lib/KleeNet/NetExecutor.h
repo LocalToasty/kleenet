@@ -31,6 +31,7 @@ namespace kleenet {
     friend class NetExecutorBuilder;
     friend class NetExTHnd;
     friend class State;
+    friend class KleeNet;
     private:
       void addedState(klee::ExecutionState*);
       klee::PTree* getPTree() const;

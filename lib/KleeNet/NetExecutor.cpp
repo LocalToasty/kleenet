@@ -51,7 +51,6 @@ namespace kleenet {
       Executor* e;
     protected:
       NetExTHnd(Executor* e) : e(e) {
-        e->netInterpreterHandler->incClustersExplored();
       }
       virtual void term(klee::ExecutionState&) const = 0;
       Executor* getExecutor() const {

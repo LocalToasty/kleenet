@@ -12,6 +12,7 @@
 #include "net/EventSearcher.h"
 
 #include "klee/util/Ref.h"
+#include "klee/util/ExprPPrinter.h"
 
 #include "llvm/Module.h"
 #include "llvm/ADT/Twine.h"
@@ -459,6 +460,11 @@ namespace kleenet {
 
   HAND(void,kleenet_barrier,0) {
     executor->getNetSearcher()->netSearcher()->barrier(&(ha.state));
+  }
+
+  // strong debug stuff .......
+  HAND(void,kleenet_dump_constraints,0) {
+    klee::ExprPPrinter::printConstraints(std::cout,ha.state.constraints);
   }
 
 

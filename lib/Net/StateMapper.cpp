@@ -352,6 +352,9 @@ void StateMapper::remove(BasicState *state) {
       invalidate();
     }
   }
+  DDEBUG for (std::set<BasicState*>::const_iterator it = states.begin(), en = states.end(); it != en; ++it) {
+    std::cout << "! This state: " << *it << " is now removed from the mapper!" << std::endl;
+  }
   // Tell the mapping algorithm to throw out this dscenario.
   _remove(states);
   // Do the general cleanup, removing MappingInformation objects.
@@ -412,14 +415,17 @@ void StateMapper::invalidate() {
 void StateMapper::setNodeCount(unsigned nodeCount) {
 }
 
-void StateMapper::terminateCluster(BasicState& state, TerminateStateHandler const& terminate) {
+bool StateMapper::terminateCluster(BasicState& state, TerminateStateHandler const& terminate) {
   MappingInformation* const mi = MappingInformation::retrieveDependant(&state);
-  DDEBUG std::cerr << "Terminating Cluster (SM) on pivot state " << &state << " with MI: " << mi << std::endl;
+  DDEBUG std::cerr << "[StateMapper::terminateCluster] Terminating Cluster (SM) on pivot state " << &state << " with MI: " << mi << std::endl;
   std::vector<BasicState*> targets;
   std::vector<BasicState*> siblings;
 
-  if (mi && (mi->getNode() != Node::INVALID_NODE)) {
+  bool const knownState = mi && (mi->getNode() != Node::INVALID_NODE);
+
+  if (knownState) {
     explode(&state, &siblings);
+    DDEBUG std::cerr << "[StateMapper::terminateCluster]   explosion yielded " << siblings.size() << " siblings" << std::endl;
     // NOTE: updateStates() is NOT required, because we don't examine any of the engine's data structures
     // anyway (let alone have to inform the searcher)
     // also, everything is faster if the states can be immediately dispatched!
@@ -443,10 +449,15 @@ void StateMapper::terminateCluster(BasicState& state, TerminateStateHandler cons
   // remove dscenario from the mapper
   remove(&state);
   // finally, terminate all involved states (state + targets)
+  DDEBUG std::cerr << "[StateMapper::terminateCluster]     now invoking the callers functor to indicate that we're done with BasicState " << (&state) << " and its " << targets.size() << " targets" << std::endl;
   terminate(state,targets);
   // terminate siblings' dscenarios recursively if any
   for (std::vector<BasicState*>::iterator it = siblings.begin(), ie = siblings.end(); it != ie; ++it) {
     if (*it != &state)
-      terminateCluster(**it, terminate);
+      if (terminateCluster(**it, terminate))
+        DDEBUG std::cerr << "[StateMapper::terminateCluster]     ... nope, we're not. We're ignoring it as it was nested." << std::endl;
   }
+  if (knownState)
+    DDEBUG std::cerr << "[StateMapper::terminateCluster]     counting this state" << std::endl;
+  return knownState;
 }

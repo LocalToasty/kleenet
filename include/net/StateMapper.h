@@ -188,7 +188,11 @@ namespace net {
       struct TerminateStateHandler {
         virtual void operator()(BasicState&,std::vector<BasicState*> const&) const = 0;
       };
-      /*final*/ void terminateCluster(BasicState& state, TerminateStateHandler const&); // <3 λ
+      /// Transitively remove everything that belongs to the same cluster as the passed state.
+      /// \param state The pivotal state to figure out which cluster to finish.
+      /// \param TerminateStateHandler Functor that will allow implementation specific termination of states.
+      /// \returns true iff it knew that state (and by extension its cluster). In any case afterwards the state will be unknown.
+      /*final*/ bool terminateCluster(BasicState& state, TerminateStateHandler const&); // <3 λ
 
       /// Call to find all states that are currently reachable from a given
       /// state.

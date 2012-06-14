@@ -20,13 +20,47 @@
 #include <iterator>
 #include <sstream>
 
-#include <iostream> // Debug
+#include "net/util/debug.h"
 #include "klee/util/ExprPPrinter.h"
+#include <iostream>
 
 #include "net/util/BipartiteGraph.h"
 #include "net/util/Containers.h"
 
 #include <tr1/type_traits>
+
+#define DD net::DEBUG<net::debug::external1>
+
+namespace {
+  template <typename T>
+  struct pp {
+  };
+
+  template <>
+  struct pp<klee::ConstraintManager> {
+    typedef klee::ConstraintManager const& Ref;
+    static void pprint(Ref cm) {
+      if (DD::enable) {
+        klee::ExprPPrinter::printConstraints(std::cout,cm);
+        std::cout << std::endl;
+      }
+    }
+  };
+  template <>
+  struct pp<klee::ref<klee::Expr> > {
+    typedef klee::ref<klee::Expr> Ref;
+    static void pprint(Ref expr) {
+      if (DD::enable) {
+        klee::ExprPPrinter::printSingleExpr(std::cout,expr);
+        std::cout << std::endl;
+      }
+    }
+  };
+  template <typename T>
+  void pprint(T const& t) {
+    pp<T>::pprint(t);
+  }
+}
 
 namespace kleenet {
   class NameMangler { // cheap construction
@@ -146,8 +180,8 @@ namespace kleenet {
       Key key;
     protected:
       Action visitRead(klee::ReadExpr const& re) {
-        //std::cout << "Adding array " << re.updates.root << " to constraint slot " << key << ";" << std::endl;
-        //klee::ExprPPrinter::printSingleExpr(std::cout,klee::ref<klee::Expr>(const_cast<klee::ReadExpr*>(&re))); std::cout << std::endl;
+        //DD::cout << "Adding array " << re.updates.root << " to constraint slot " << key << ";" << DD::endl;
+        //pprint(klee::ref<klee::Expr>(const_cast<klee::ReadExpr*>(&re)));
         bg.addUndirectedEdge(key,re.updates.root);
         return Action::skipChildren();
       }
@@ -184,7 +218,7 @@ namespace kleenet {
         std::vector<klee::ref<klee::Expr> > needConstrs;
         //std::vector<klee::Array const*> needSymbols;
         bGraph.search(request,BGraph::IGNORE,&needConstrs);
-        std::cout << needConstrs.size() << " constraint following ..." << std::endl;
+        DD::cout << needConstrs.size() << " constraint following ..." << DD::endl;
         return needConstrs;
       }
   };
@@ -216,7 +250,7 @@ namespace kleenet {
             klee::ref<klee::Expr> expr = rt[index];
             assert((allowMorePacketSymbols || (existingPacketSymbols == senderSymbols.size()))
               && "When translating an atom, we found completely new symbols, but we already assumed we were done with that.");
-            std::cout << "Packet[" << index << "] = "; klee::ExprPPrinter::printSingleExpr(std::cout,expr); std::cout << std::endl;
+            DD::cout << "Packet[" << index << "] = "; pprint(expr);
             return expr;
           }
           std::set<klee::Array const*> const& peekSymbols() const { // debug
@@ -274,14 +308,14 @@ namespace klee {
 
 void TransmitHandler::handleTransmission(PacketInfo const& pi, net::BasicState* basicSender, net::BasicState* basicReceiver, std::vector<net::DataAtomHolder> const& data) const {
   size_t const currentTx = basicSender->getCompletedTransmissions() + 1;
-  std::cout << std::endl
-            << "+------------------------------------------------------------------------------+" << std::endl
-            << "| STARTING TRANSMISSION #" << currentTx << " from node `" << pi.src.id << "' to `" << pi.dest.id << "'.                               |" << std::endl
-            //<< "+------------------------------------------------------------------------------+" << std::endl
-            << std::endl;
+  DD::cout << DD::endl
+            << "+------------------------------------------------------------------------------+" << DD::endl
+            << "| STARTING TRANSMISSION #" << currentTx << " from node `" << pi.src.id << "' to `" << pi.dest.id << "'.                               |" << DD::endl
+            //<< "+------------------------------------------------------------------------------+" << DD::endl
+            << DD::endl;
   klee::ExecutionState& sender = static_cast<klee::ExecutionState&>(*basicSender);
   klee::ExecutionState& receiver = static_cast<klee::ExecutionState&>(*basicReceiver);
-  std::cout << "Involved states: " << &sender << " ---> " << &receiver << std::endl;
+  DD::cout << "Involved states: " << &sender << " ---> " << &receiver << DD::endl;
   if ((!sender.configurationData) || (&(static_cast<ConfigurationData&>(*sender.configurationData).forState) != &sender)) {
     if (!sender.configurationData)
       delete sender.configurationData;
@@ -293,31 +327,31 @@ void TransmitHandler::handleTransmission(PacketInfo const& pi, net::BasicState* 
   klee::ObjectState const* ose = receiver.addressSpace.findObject(pi.destMo);
   assert(ose && "Destination ObjectState not found.");
   klee::ObjectState* wos = receiver.addressSpace.getWriteable(pi.destMo, ose);
-  std::cout << "Packet data: " << std::endl;
+  DD::cout << "Packet data: " << DD::endl;
   //std::set<klee::Array const*> symbols;
   // important remark: data might be longer or shorter than pi.length. Always obey the size dictated by PacketInfo.
   for (unsigned i = 0; i < pi.length; i++) {
     wos->write(pi.offset + i, txData[i]);
   }
-  std::cout << "! Using the following transmission context: " << &txData << std::endl;
+  DD::cout << "! Using the following transmission context: " << &txData << DD::endl;
   if (!txData.peekSymbols().empty()) {
-    std::cout << "Symbols in transmission:" << std::endl;
+    DD::cout << "Symbols in transmission:" << DD::endl;
     for (std::set<klee::Array const*>::const_iterator it = txData.peekSymbols().begin(), end = txData.peekSymbols().end(); it != end; ++it) {
-      std::cout << " + " << (*it)->name << std::endl;
+      DD::cout << " + " << (*it)->name << DD::endl;
     }
-    std::cout << "Sender Constraints:" << std::endl;
-    klee::ExprPPrinter::printConstraints(std::cout,sender.constraints); std::cout << std::endl;
-    std::cout << "Receiver Constraints:" << std::endl;
-    klee::ExprPPrinter::printConstraints(std::cout,receiver.constraints); std::cout << std::endl;
-    std::cout << "EOF Constraints." << std::endl;
-    std::cout << "Listing OFFENDING constraints:" << std::endl;
+    DD::cout << "Sender Constraints:" << DD::endl;
+    pprint(sender.constraints);
+    DD::cout << "Receiver Constraints:" << DD::endl;
+    pprint(receiver.constraints);
+    DD::cout << "Listing OFFENDING constraints:" << DD::endl;
     for (net::util::LoopConstIterator<std::vector<klee::ref<klee::Expr> > > it(txData.computeNewReceiverConstraints()); it.more(); it.next()) {
-      std::cout << " ! "; klee::ExprPPrinter::printSingleExpr(std::cout,*it); std::cout << std::endl;
+      DD::cout << " ! adding constraint ... "; pprint(*it);
       receiver.constraints.addConstraint(*it);
     }
-    std::cout << "Listing OFFENDING symbols:" << std::endl;
+    DD::cout << "EOF Constraints." << DD::endl;
+    DD::cout << "Listing OFFENDING symbols:" << DD::endl;
     for (LazySymbolTranslator::TxMap::const_iterator it = txData.symbols().begin(), end = txData.symbols().end(); it != end; ++it) {
-      std::cout << " + " << it->first->name << "  |--->  " << it->second->name << std::endl;
+      DD::cout << " + " << it->first->name << "  |--->  " << it->second->name << DD::endl;
       bool const didntExist = receiver.arrayNames.insert(it->second->name).second;
       if (!didntExist) {
         klee::klee_error("%s",(std::string("In transmission of symbol '") + it->first->name + "' from node " + llvm::utostr(pi.src.id) + " to node " + llvm::utostr(pi.dest.id) + "; Symbol '" + it->second->name + "' already exists on the target state. This is either a bug in KleeNet or you used the symbol '{' when specifying the name of a symbolic object.").c_str());
@@ -327,11 +361,11 @@ void TransmitHandler::handleTransmission(PacketInfo const& pi, net::BasicState* 
       /* TODO */ receiver.addSymbolic(mo,it->second); /**/ // XXX I think this is wrong! CHECK! XXX
     }
   } else {
-    std::cout << "All data in tx is constant. Bypassing Graph construction." << std::endl;
+    DD::cout << "All data in tx is constant. Bypassing Graph construction." << DD::endl;
   }
-  std::cout << std::endl
-            //<< "+------------------------------------------------------------------------------+" << std::endl
-            << "| EOF TRANSMISSION #" << currentTx << "                                                          |" << std::endl
-            << "+------------------------------------------------------------------------------+" << std::endl
-            << std::endl;
+  DD::cout << DD::endl
+            //<< "+------------------------------------------------------------------------------+" << DD::endl
+            << "| EOF TRANSMISSION #" << currentTx << "                                                          |" << DD::endl
+            << "+------------------------------------------------------------------------------+" << DD::endl
+            << DD::endl;
 }

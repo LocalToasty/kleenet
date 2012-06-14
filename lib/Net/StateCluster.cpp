@@ -3,6 +3,10 @@
 #include "net/StateMapper.h"
 #include "MappingInformation.h"
 
+#include "net/util/debug.h"
+
+#define DD DEBUG<debug::clusters>
+
 using namespace net;
 
 Cluster const Cluster::FIRST_CLUSTER = 0;
@@ -63,6 +67,7 @@ StateCluster::StateCluster()
   , members(_members)
   , _cluster(next())
   , cluster(_cluster) {
+  DD::cout << "+StateCluster: " << _cluster.id << DD::endl;
 }
 
 StateCluster::StateCluster(StateCluster const& branchOf)
@@ -72,10 +77,12 @@ StateCluster::StateCluster(StateCluster const& branchOf)
   , _cluster(next())
   , cluster(_cluster) {
   branchOf.assimilate(this);
+  DD::cout << "+StateCluster: " << _cluster.id << DD::endl;
 }
 
 StateCluster::~StateCluster() {
   admin->clusterIdGaps.push_back(cluster.id);
+  DD::cout << "~StateCluster: " << _cluster.id << DD::endl;
 }
 
 StateCluster* StateCluster::of(BasicState* state) {

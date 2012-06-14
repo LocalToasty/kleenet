@@ -11,9 +11,11 @@
 #include "NetUserSearcher.h"
 
 #include <algorithm>
+#include <iostream>
 
-//#include "../Net/StateDependant.h"
-//#include "../Net/MappingInformation.h"
+#include <net/util/debug.h>
+
+#define DD net::DEBUG<net::debug::external2>
 
 namespace klee {
   class ObjectState;
@@ -158,11 +160,15 @@ void Executor::terminateStateEarly(klee::ExecutionState& state,
     llvm::Twine const& message;
     TSE(Executor* e, llvm::Twine const& message) : NetExTHnd(e), message(message) {}
     void term(klee::ExecutionState& state) const {
+      DD::cout << "[TSE] term(" << &state << ") {" << DD::endl;
       getExecutor()->terminateStateEarly_klee(state,message);
+      DD::cout << "[TSE] } term(" << &state << ")" << DD::endl;
     }
   };
   TSE hnd(this,message);
+  DD::cout << "[NetExecutor::terminateStateEarly] asking KleeNet to terminateCluster of " << (&state) << " /*" << message.str() << "*/" << DD::endl;
   kleenet.terminateCluster(state,hnd);
+  DD::cout << "[NetExecutor::terminateStateEarly] EOF" << DD::endl;
 }
 
 void Executor::terminateStateOnExit_klee(klee::ExecutionState& state) {
@@ -174,11 +180,15 @@ void Executor::terminateStateOnExit(klee::ExecutionState& state) {
     TSoE(Executor* e) : NetExTHnd(e) {
     }
     void term(klee::ExecutionState& state) const {
+      DD::cout << "[TSoExit] term(" << &state << ") {" << DD::endl;
       getExecutor()->terminateStateOnExit_klee(state);
+      DD::cout << "[TSoExit] } term(" << &state << ")" << DD::endl;
     }
   };
   TSoE hnd(this);
+  DD::cout << "[NetExecutor::terminateStateOnExit] asking KleeNet to terminateCluster of " << (&state) << " " << DD::endl;
   kleenet.terminateCluster(state,hnd);
+  DD::cout << "[NetExecutor::terminateStateOnExit] EOF" << DD::endl;
 }
 
 
@@ -200,11 +210,15 @@ void Executor::terminateStateOnError(klee::ExecutionState& state,
     TSoE(Executor* e, llvm::Twine const& messaget, char const* suffix, llvm::Twine const& info)
       : NetExTHnd(e), messaget(messaget), suffix(suffix), info(info) {}
     void term(klee::ExecutionState& state) const {
+      DD::cout << "[TSoError] term(" << &state << ") {" << DD::endl;
       getExecutor()->terminateStateOnError_klee(state,messaget,suffix,info);
+      DD::cout << "[TSoError] } term(" << &state << ")" << DD::endl;
     }
   };
   TSoE hnd(this,messaget,suffix,info);
+  DD::cout << "[NetExecutor::terminateStateOnError] asking KleeNet to terminateCluster of " << (&state) << " " << DD::endl;
   kleenet.terminateCluster(state,hnd);
+  DD::cout << "[NetExecutor::terminateStateOnError] EOF" << DD::endl;
 }
 
 void Executor::terminateState_klee(klee::ExecutionState& state) {
@@ -219,8 +233,12 @@ void Executor::terminateState(klee::ExecutionState& state) {
       return true;
     }
     void term(klee::ExecutionState& state) const {
+      DD::cout << "[TS] term(" << &state << ") {" << DD::endl;
       getExecutor()->terminateState_klee(state);
+      DD::cout << "[TS] } term(" << &state << ")" << DD::endl;
     }
   };
+  DD::cout << "[NetExecutor::terminateState] asking KleeNet to terminateCluster of " << (&state) << " " << DD::endl;
   kleenet.terminateCluster(state,TS(this));
+  DD::cout << "[NetExecutor::terminateState] EOF" << DD::endl;
 }

@@ -11,7 +11,9 @@
 #include <vector>
 #include <stdint.h>
 
-#include "debug.h"
+#include "net/util/debug.h"
+
+#define DD DEBUG<debug::mapping>
 
 namespace net {
 
@@ -164,10 +166,10 @@ bool StateMapper::checkMappingAdmissible(BasicState const* es, Node n) const {
     && "State to map has no valid mapping information.");
   assert(nodes().find(stateInfo(es)->getNode()) != nodes().end()
     && "Cannot map from a non-existant node.");
-  DDEBUG if (nodes().find(n) == nodes().end()) {
-    DDEBUG std::cerr << " ! WARNING ! Trying to map to node " << n.id << " while the valid nodes are:" << std::endl;
+  if (DD::enable && nodes().find(n) == nodes().end()) {
+    DD::cout << " ! WARNING ! Trying to map to node " << n.id << " while the valid nodes are:" << DD::endl;
     for (Nodes::const_iterator it = nodes().begin(), en = nodes().end(); it != en; ++it) {
-      DDEBUG std::cerr << "  * " << it->id << std::endl;
+      DD::cout << "  * " << it->id << DD::endl;
     }
   }
   assert(nodes().find(n) != nodes().end()
@@ -352,8 +354,8 @@ void StateMapper::remove(BasicState *state) {
       invalidate();
     }
   }
-  DDEBUG for (std::set<BasicState*>::const_iterator it = states.begin(), en = states.end(); it != en; ++it) {
-    std::cout << "! This state: " << *it << " is now removed from the mapper!" << std::endl;
+  if (DD::enable) for (std::set<BasicState*>::const_iterator it = states.begin(), en = states.end(); it != en; ++it) {
+    DD::cout << "! This state: " << *it << " is now removed from the mapper!" << DD::endl;
   }
   // Tell the mapping algorithm to throw out this dscenario.
   _remove(states);
@@ -417,7 +419,7 @@ void StateMapper::setNodeCount(unsigned nodeCount) {
 
 bool StateMapper::terminateCluster(BasicState& state, TerminateStateHandler const& terminate) {
   MappingInformation* const mi = MappingInformation::retrieveDependant(&state);
-  DDEBUG std::cerr << "[StateMapper::terminateCluster] Terminating Cluster (SM) on pivot state " << &state << " with MI: " << mi << std::endl;
+  DD::cout << "[StateMapper::terminateCluster] Terminating Cluster (SM) on pivot state " << &state << " with MI: " << mi << DD::endl;
   std::vector<BasicState*> targets;
   std::vector<BasicState*> siblings;
 
@@ -425,7 +427,7 @@ bool StateMapper::terminateCluster(BasicState& state, TerminateStateHandler cons
 
   if (knownState) {
     explode(&state, &siblings);
-    DDEBUG std::cerr << "[StateMapper::terminateCluster]   explosion yielded " << siblings.size() << " siblings" << std::endl;
+    DD::cout << "[StateMapper::terminateCluster]   explosion yielded " << siblings.size() << " siblings" << DD::endl;
     // NOTE: updateStates() is NOT required, because we don't examine any of the engine's data structures
     // anyway (let alone have to inform the searcher)
     // also, everything is faster if the states can be immediately dispatched!
@@ -449,15 +451,15 @@ bool StateMapper::terminateCluster(BasicState& state, TerminateStateHandler cons
   // remove dscenario from the mapper
   remove(&state);
   // finally, terminate all involved states (state + targets)
-  DDEBUG std::cerr << "[StateMapper::terminateCluster]     now invoking the callers functor to indicate that we're done with BasicState " << (&state) << " and its " << targets.size() << " targets" << std::endl;
+  DD::cout << "[StateMapper::terminateCluster]     now invoking the callers functor to indicate that we're done with BasicState " << (&state) << " and its " << targets.size() << " targets" << DD::endl;
   terminate(state,targets);
   // terminate siblings' dscenarios recursively if any
   for (std::vector<BasicState*>::iterator it = siblings.begin(), ie = siblings.end(); it != ie; ++it) {
     if (*it != &state)
       if (terminateCluster(**it, terminate))
-        DDEBUG std::cerr << "[StateMapper::terminateCluster]     ... nope, we're not. We're ignoring it as it was nested." << std::endl;
+        DD::cout << "[StateMapper::terminateCluster]     ... nope, we're not. We're ignoring it as it was nested." << DD::endl;
   }
   if (knownState)
-    DDEBUG std::cerr << "[StateMapper::terminateCluster]     counting this state" << std::endl;
+    DD::cout << "[StateMapper::terminateCluster]     counting this state" << DD::endl;
   return knownState;
 }

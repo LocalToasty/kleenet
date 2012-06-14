@@ -5,7 +5,9 @@
 #include "MappingInformation.h"
 #include "StateCluster.h"
 
-#include "debug.h"
+#include "net/util/debug.h"
+
+#define DD DEBUG<(debug::mapping | debug::clusters)>
 
 using namespace net;
 
@@ -14,7 +16,7 @@ MappingInformation::MappingInformation()
   , StateDependant<MappingInformation>()
   , cluster(NULL)
   , _node(Node::INVALID_NODE) {
-  DDEBUG std::cerr << "[" << this << "] MappingInformation()" << std::endl;
+  DD::cout << "[" << this << "] MappingInformation()" << DD::endl;
 }
 MappingInformation::MappingInformation(MappingInformation const& from)
   : Observable<MappingInformation>(this)
@@ -22,10 +24,10 @@ MappingInformation::MappingInformation(MappingInformation const& from)
   , cluster(from.cluster)
   , _node(from._node) {
   from.assimilate(this);
-  DDEBUG std::cerr << "[" << this << "] MappingInformation(MappingInformation const&) // node = " << _node.id << std::endl;
+  DD::cout << "[" << this << "] MappingInformation(MappingInformation const&) // node = " << _node.id << DD::endl;
 }
 MappingInformation::~MappingInformation() {
-  DDEBUG std::cerr << "[" << this << "] ~MappingInformation() // node = " << _node.id << ", state = " << getState() << std::endl;
+  DD::cout << "[" << this << "] ~MappingInformation() // node = " << _node.id << ", state = " << getState() << DD::endl;
   if (cluster) {
     cluster->depart(this);
     // We do not call change() because we are being deleted.
@@ -51,7 +53,7 @@ void MappingInformation::changeCluster(StateCluster* newCluster) {
 
 Node const& MappingInformation::setNode(Node const& n) {
   assert(n >= Node::FIRST_NODE);
-  DDEBUG std::cerr << "[" << this << "] changing node " << _node.id << " -> " << n.id << std::endl;
+  DD::cout << "[" << this << "] changing node " << _node.id << " -> " << n.id << DD::endl;
   _node = n;
   this->change();
   return _node;

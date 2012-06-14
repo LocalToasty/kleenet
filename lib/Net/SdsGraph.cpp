@@ -114,8 +114,6 @@ SdsEdge::~SdsEdge() {
   }
 }
 
-#include <iostream>
-
 void SdsEdge::setState(SdsStateNode* newState) {
   if (state != newState) {
     //SuperInformation* a = NULL;

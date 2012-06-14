@@ -149,7 +149,7 @@ namespace kleenet {
         std::ostringstream outbuf1;
         std::ostringstream outbuf2;
         if (DumpKleenetSfhCalls) {
-          outbuf1 << "SFH[" << &ha.state << "]";
+          outbuf1 << "SFH[" << &ha.state << " @" << this->executor->kleeNet.getStateNode(ha.state).id << "]";
           outbuf2 << binding << "(";
           std::string del = "";
           for (ConstArgs::const_iterator it = constArgs.begin(), en = constArgs.end(); it != en; ++it) {
@@ -177,7 +177,7 @@ namespace kleenet {
                    ConstArgs const& constArgs) {
         if (DumpKleenetSfhCalls) {
           std::ostringstream outbuf;
-          outbuf << "SFH[" << &ha.state << "]" << " calling " << binding << "(";
+          outbuf << "SFH[" << &ha.state << " @" << this->executor->kleeNet.getStateNode(ha.state).id << "]" << " calling " << binding << "(";
           std::string del = "";
           for (ConstArgs::const_iterator it = constArgs.begin(), en = constArgs.end(); it != en; ++it) {
             outbuf << del << (*it)->getZExtValue();

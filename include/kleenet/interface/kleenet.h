@@ -13,3 +13,4 @@
 #pragma once
 
 #include "kleenet/interface/SpecialFunctions.h"
+#include "kleenet/interface/debug.h"

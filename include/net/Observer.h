@@ -20,9 +20,9 @@ namespace net {
       typedef typename std::set<Observer<T>*> Subscribers;
       Subscribers subscribers;
       // hide default-ctor and copy-ctor
-      Observable() : observed(NULL) {
+      Observable() : observed(0) {
       }
-      Observable(Observable<T> const& from) : observed(NULL) {
+      Observable(Observable<T> const& from) : observed(0) {
       }
     protected:
       virtual void change() {

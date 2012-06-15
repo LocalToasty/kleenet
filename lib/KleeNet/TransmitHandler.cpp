@@ -201,7 +201,7 @@ namespace kleenet {
       Vec::size_type knownConstraints;
       void updateGraph() {
         bGraph.addNodes(cm.begin()+knownConstraints,cm.end(),cm.size()-knownConstraints);
-        for (Vec::const_iterator begin = cm.begin(), it = cm.begin()+knownConstraints, end = cm.end(); it != end; ++it) {
+        for (Vec::const_iterator it = cm.begin()+knownConstraints, end = cm.end(); it != end; ++it) {
           ExtractReadEdgesVisitor<BGraph,Vec::value_type>(bGraph,*it).visit(*it);
         }
         knownConstraints = cm.size();

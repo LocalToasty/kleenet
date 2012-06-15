@@ -67,6 +67,6 @@ namespace prefix_symbols {
     return false;
   }
 
-  char PrefixSymbols::ID = 0;
+  PrefixSymbols::ID_t PrefixSymbols::ID = 0;
   RegisterPass<PrefixSymbols> X("llvm-prefix-symbols", "LLVM prefix symbols");
 }

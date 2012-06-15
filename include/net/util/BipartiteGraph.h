@@ -148,9 +148,9 @@ namespace kleenet {
           // TODO: it is probably for the best if we replace this Queue with our SafeList (just for speed)
           //typedef std::deque<typename Dictionary::size_type> Queue;
           // we're using this as a temporary to a function, so we have to pass it as const&
-          mutable Dictionary const& dictionary;
+          Dictionary const& dictionary;
           mutable std::vector<bool> visited;
-          mutable Queue& queue;
+          Queue& queue;
           mutable Func onVisit;
           SearchContext(Dictionary const& dictionary, Queue& queue, Func onVisit)
             : dictionary(dictionary)
@@ -240,7 +240,7 @@ namespace kleenet {
           return CollectVisits<Dictionary,VisitedContainer>(dictionary,visited);
         }
       public:
-        static const void* IGNORE; // pass to search, to ignore reaing values
+        static const void* const IGNORE; // pass to search, to ignore reaing values
         template <typename InputContainer, typename OutputContainerSame, typename OutputContainerOther>
         void search(InputContainer const start, OutputContainerSame* outSame, OutputContainerOther* outOther) const { // rvo (we have to copy anyhow)
           typedef typename InputContainer::value_type Node;
@@ -254,5 +254,7 @@ namespace kleenet {
           );
         }
     };
+    template <typename P>
+    const void* const Graph<P>::IGNORE = 0;
   }
 }

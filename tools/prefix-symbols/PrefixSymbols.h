@@ -1,4 +1,6 @@
+#pragma once
 
+#include "klee/Config/Version.h"
 #include "llvm/Pass.h"
 
 #include <set>
@@ -9,8 +11,13 @@ namespace prefix_symbols {
   class PrefixSymbols : public llvm::FunctionPass {
   public:
     std::set<std::string> ignoreList;
-    static char ID;
-    PrefixSymbols() : llvm::FunctionPass((intptr_t)&ID) {};
+#if LLVM_VERSION_CODE <= LLVM_VERSION(2,7)
+    typedef intptr_t ID_t;
+#else
+    typedef char ID_t;
+#endif
+    static ID_t ID;
+    PrefixSymbols() : llvm::FunctionPass(ID) {};
     virtual bool doInitialization(llvm::Module &M);
     virtual bool runOnFunction(llvm::Function &F);
     virtual bool doFinalization(llvm::Module &M);

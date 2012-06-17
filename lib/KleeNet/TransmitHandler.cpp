@@ -272,7 +272,7 @@ namespace kleenet {
     private:
       net::Node const src;
       net::Node const dest;
-      typename std::tr1::aligned_storage<sizeof(TxData),std::tr1::alignment_of<TxData>::value>::type txData_;
+      std::tr1::aligned_storage<sizeof(TxData),std::tr1::alignment_of<TxData>::value>::type txData_;
       TxData* txData;
       void updateTxData(std::vector<net::DataAtomHolder> const& data) {
         size_t const ctx = forState.getCompletedTransmissions() + 1;

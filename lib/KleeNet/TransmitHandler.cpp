@@ -235,22 +235,20 @@ namespace kleenet {
       };
     private:
       net::Node const src;
-      net::Node const dest;
       StateDistSymbols symbols;
       std::tr1::aligned_storage<sizeof(TxData),std::tr1::alignment_of<TxData>::value>::type txData_;
       TxData* txData;
-      void updateTxData(std::vector<net::DataAtomHolder> const& data) {
+      void updateTxData(std::vector<net::DataAtomHolder> const& data, net::Node dest) {
         size_t const ctx = forState.getCompletedTransmissions() + 1;
         if (txData && (txData->currentTx != ctx))
           txData->~TxData();
         txData = new(&txData_) TxData(ctx,src,dest,data,cg);
       }
     public:
-      ConfigurationData(klee::ExecutionState& state, net::Node src, net::Node dest)
+      ConfigurationData(klee::ExecutionState& state, net::Node src)
         : forState(state)
         , cg(state.constraints)
         , src(src)
-        , dest(dest)
         , symbols(src)
         , txData(0) {
       }
@@ -258,8 +256,8 @@ namespace kleenet {
         if (txData)
           txData->~TxData();
       }
-      TxData& transmissionProperties(std::vector<net::DataAtomHolder> const& data) {
-        updateTxData(data);
+      TxData& transmissionProperties(std::vector<net::DataAtomHolder> const& data, net::Node dest) {
+        updateTxData(data,dest);
         return *txData;
       }
   };
@@ -285,10 +283,10 @@ void TransmitHandler::handleTransmission(PacketInfo const& pi, net::BasicState* 
   if ((!sender.configurationData) || (&(static_cast<ConfigurationData&>(*sender.configurationData).forState) != &sender)) {
     if (!sender.configurationData)
       delete sender.configurationData;
-    sender.configurationData = new ConfigurationData(sender,pi.src,pi.dest); //shared pointer takes care or deletion
+    sender.configurationData = new ConfigurationData(sender,pi.src); //shared pointer takes care or deletion
   }
   ConfigurationData& cd = static_cast<ConfigurationData&>(*sender.configurationData); // it's a ConfigurationDataBase
-  ConfigurationData::TxData& txData = cd.transmissionProperties(data);
+  ConfigurationData::TxData& txData = cd.transmissionProperties(data,pi.dest);
   // memcpy
   klee::ObjectState const* ose = receiver.addressSpace.findObject(pi.destMo);
   assert(ose && "Destination ObjectState not found.");

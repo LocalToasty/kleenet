@@ -1,9 +1,7 @@
 #include "TransmitHandler.h"
 
 #include "klee/ExecutionState.h"
-#include "klee/util/ExprPPrinter.h"
 #include "klee/util/ExprVisitor.h"
-#include "klee/util/ExprUtil.h"
 #include "NetExecutor.h"
 
 #include "llvm/ADT/StringExtras.h"
@@ -17,10 +15,8 @@
 #include "NameMangling.h"
 
 #include <string>
-#include <map>
 #include <vector>
 #include <algorithm>
-#include <iterator>
 #include <sstream>
 
 #include "net/util/debug.h"

@@ -115,6 +115,14 @@ namespace kleenet {
       LazySymbolTranslator& lst;
     protected:
       Action visitRead(klee::ReadExpr const& re) {
+        if (!llvm::isa<klee::ConstantExpr>(re.index)) {
+          std::ostringstream errorBuf;
+          errorBuf << "While parsing of read expression to '"
+                   << re.updates.root->name;
+          //klee::ExprPPrinter::printSingleExpr(errorBuf,re);
+          errorBuf << "'; Encountered symbolic index which is currently not supported for packet data. Please file this as a feature request.";
+          klee::klee_error("%s",errorBuf.str().c_str());
+        }
         klee::ref<klee::Expr> const replacement = klee::ReadExpr::alloc(
             klee::UpdateList(lst(re.updates.root),re.updates.head) // head is cow-shared: magic
           , re.index /* XXX this could backfire, if we have complicated READ expressions in the index
@@ -248,7 +256,7 @@ namespace kleenet {
           klee::ref<klee::Expr> operator[](size_t index) {
             size_t const existingPacketSymbols = senderSymbols.size();
             klee::ref<klee::Expr> expr = rt[index];
-            assert((allowMorePacketSymbols || (existingPacketSymbols == senderSymbols.size()))
+            assert((allowMorePacketSymbols || (existingPacketSymbols == senderSymbols.size())) \
               && "When translating an atom, we found completely new symbols, but we already assumed we were done with that.");
             DD::cout << "Packet[" << index << "] = "; pprint(expr);
             return expr;
@@ -328,7 +336,6 @@ void TransmitHandler::handleTransmission(PacketInfo const& pi, net::BasicState* 
   assert(ose && "Destination ObjectState not found.");
   klee::ObjectState* wos = receiver.addressSpace.getWriteable(pi.destMo, ose);
   DD::cout << "Packet data: " << DD::endl;
-  //std::set<klee::Array const*> symbols;
   // important remark: data might be longer or shorter than pi.length. Always obey the size dictated by PacketInfo.
   for (unsigned i = 0; i < pi.length; i++) {
     wos->write(pi.offset + i, txData[i]);

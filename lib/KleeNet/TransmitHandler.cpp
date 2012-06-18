@@ -14,7 +14,9 @@
 
 #include "AtomImpl.h"
 #include "DistributedConstraints.h"
+#include "NameMangling.h"
 
+#include <string>
 #include <map>
 #include <vector>
 #include <algorithm>
@@ -64,51 +66,6 @@ namespace {
 }
 
 namespace kleenet {
-  class NameMangler { // cheap construction
-    public:
-      std::string const appendToName;
-      NameMangler(std::string const appendToName)
-        : appendToName(appendToName) {
-      }
-      std::string operator()(std::string const& str) const {
-        //std::string const nameMangle = str + appendToName;
-        //std::string uniqueName = nameMangle;
-        //unsigned uniqueId = 1;
-        //while (!scope.arrayNames.insert(uniqueName).second)
-        //  uniqueName = nameMangle + "(" + llvm::utostr(++uniqueId) + ")"; // yes, we start with (2)
-        return str + appendToName;
-      }
-      klee::Array* operator()(klee::Array const* array) const {
-        return new klee::Array((*this)(array->name),array->size);
-      }
-  };
-
-  class LazySymbolTranslator { // cheap construction
-    public:
-      typedef std::set<klee::Array const*> Symbols;
-      typedef std::map<klee::Array const*,klee::Array*> TxMap;
-    private:
-      NameMangler mangle;
-    protected:
-      TxMap txMap;
-      Symbols* const preImageSymbols;
-    public:
-      LazySymbolTranslator(NameMangler mangle, Symbols* const preImageSymbols = NULL)
-        : mangle(mangle)
-        , preImageSymbols(preImageSymbols) {
-      }
-      klee::Array* operator()(klee::Array const* array) {
-        if (preImageSymbols)
-          preImageSymbols->insert(array);
-        klee::Array*& it = txMap[array];
-        if (!it)
-          it = mangle(array);
-        return it;
-      }
-      TxMap const& symbols() const {
-        return txMap;
-      }
-  };
 
   class ReplaceReadVisitor : public klee::ExprVisitor { // cheap construction
     private:
@@ -155,10 +112,10 @@ namespace kleenet {
 
     public:
       template <typename Container, typename UnaryOperation>
-      ReadTransformator(std::string const appendToName,
+      ReadTransformator(NameMangler& mangler,
                         Container const& input, UnaryOperation const& op,
                         LazySymbolTranslator::Symbols* preImageSymbols = NULL)
-        : lst(NameMangler(appendToName),preImageSymbols)
+        : lst(mangler,preImageSymbols)
         , rrv(lst)
         , seq(transform<klee::ref<klee::Expr>,typename Container::const_iterator,UnaryOperation>(
                 input.begin(),input.end(),input.size(),op))
@@ -241,6 +198,7 @@ namespace kleenet {
         private:
           size_t const currentTx;
           std::set<klee::Array const*> senderSymbols;
+          NameManglerHolder nmh;
           ReadTransformator rt;
           ConstraintsGraph& cg;
           bool allowMorePacketSymbols; // once this flipps to false operator[] will be forbidden to find additional symbols in the packet
@@ -249,7 +207,8 @@ namespace kleenet {
           TxData(size_t currentTx, net::Node src, net::Node dest, std::vector<net::DataAtomHolder> const& data, ConstraintsGraph& cg)
             : currentTx(currentTx)
             , senderSymbols()
-            , rt("{tx" + llvm::utostr(currentTx) + ":" + llvm::utostr(src.id) + "->" + llvm::utostr(dest.id) + "}",data,dataAtomToExpr,&senderSymbols)
+            , nmh(currentTx,src,dest)
+            , rt(nmh.mangler,data,dataAtomToExpr,&senderSymbols)
             , cg(cg)
             , allowMorePacketSymbols(true)
             {

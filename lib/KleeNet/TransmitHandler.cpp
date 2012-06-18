@@ -13,6 +13,7 @@
 #include "klee_headers/MemoryManager.h"
 
 #include "AtomImpl.h"
+#include "DistributedConstraints.h"
 
 #include <map>
 #include <vector>
@@ -280,6 +281,7 @@ namespace kleenet {
     private:
       net::Node const src;
       net::Node const dest;
+      StateDistSymbols symbols;
       std::tr1::aligned_storage<sizeof(TxData),std::tr1::alignment_of<TxData>::value>::type txData_;
       TxData* txData;
       void updateTxData(std::vector<net::DataAtomHolder> const& data) {
@@ -294,6 +296,7 @@ namespace kleenet {
         , cg(state.constraints)
         , src(src)
         , dest(dest)
+        , symbols(src)
         , txData(0) {
       }
       ~ConfigurationData() {

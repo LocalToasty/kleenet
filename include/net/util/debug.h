@@ -26,7 +26,7 @@ namespace net {
   }
 }
 
-#define ENABLE_DEBUG 0
+#define ENABLE_DEBUG ND_FLAGS_external1
 
 #undef ND_MAKEFLAG
 

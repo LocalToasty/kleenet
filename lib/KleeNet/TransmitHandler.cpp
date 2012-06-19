@@ -176,10 +176,13 @@ namespace kleenet {
           std::set<klee::Array const*> senderSymbols;
           ConfigurationData& cd;
           StateDistSymbols& distSymbolsSrc;
-          std::vector<klee::ref<klee::Expr> > const seq;
+          typedef std::vector<klee::ref<klee::Expr> > ConList;
+          ConList const seq;
           bool constraintsComputed;
-          std::vector<klee::ref<klee::Expr> > senderConstraints; // untranslated!
+          ConList senderConstraints; // untranslated!
+          bool senderReflexiveArraysComputed;
           bool allowMorePacketSymbols; // once this flipps to false operator[] will be forbidden to find additional symbols in the packet
+
           template <typename T, typename It, typename Op>
           static std::vector<T> transform(It begin, It end, unsigned size, Op const& op, T /* type inference */) { // rvo takes care of us :)
             std::vector<T> v(size);
@@ -195,10 +198,11 @@ namespace kleenet {
             , seq(transform(data.begin(),data.end(),data.size(),dataAtomToExpr,klee::ref<klee::Expr>()/* type inference */))
             , constraintsComputed(false)
             , senderConstraints()
+            , senderReflexiveArraysComputed(false)
             , allowMorePacketSymbols(true)
             {
           }
-          std::vector<klee::ref<klee::Expr> > const& computeSenderConstraints() {
+          ConList const& computeSenderConstraints() {
             if (!constraintsComputed) {
               allowMorePacketSymbols = false;
               constraintsComputed = true;
@@ -214,7 +218,8 @@ namespace kleenet {
           NameManglerHolder nmh;
           ReadTransformator rt;
           bool constraintsComputed;
-          std::vector<klee::ref<klee::Expr> > receiverConstraints; // already translated!
+          typedef TxData::ConList ConList;
+          ConList receiverConstraints; // already translated!
         public:
           PerReceiverData(TxData& txData, StateDistSymbols& distSymbolsDest)
             : txData(txData)
@@ -229,10 +234,11 @@ namespace kleenet {
             klee::ref<klee::Expr> expr = rt[index];
             assert((txData.allowMorePacketSymbols || (existingPacketSymbols == txData.senderSymbols.size())) \
               && "When translating an atom, we found completely new symbols, but we already assumed we were done with that.");
-            DD::cout << "Packet[" << index << "] = "; pprint(expr);
+            DD::cout << "| sndr[" << index << "] = "; pprint(txData.seq[index]);
+            DD::cout << "| recv[" << index << "] = "; pprint(expr);
             return expr;
           }
-          std::vector<klee::ref<klee::Expr> > const& computeNewReceiverConstraints() { // result already translated!
+          ConList const& computeNewReceiverConstraints() { // result already translated!
             if (!constraintsComputed) {
               constraintsComputed = true;
               assert(receiverConstraints.empty() && "Garbate data in our constraints buffer.");
@@ -246,6 +252,22 @@ namespace kleenet {
               );
             }
             return receiverConstraints;
+          }
+          std::vector<std::pair<klee::Array const*,klee::Array const*> > additionalSenderOnlyConstraints() {
+            std::vector<std::pair<klee::Array const*,klee::Array const*> > senderOnlyConstraints;
+            if (!txData.senderReflexiveArraysComputed) {
+              txData.senderReflexiveArraysComputed = true;
+              txData.allowMorePacketSymbols = false;
+              assert(senderOnlyConstraints.empty() && "Garbate data in our constraints buffer.");
+              for (std::set<klee::Array const*>::const_iterator it = txData.senderSymbols.begin(), end = txData.senderSymbols.end(); it != end; ++it) {
+                klee::Array const* const reflex = nmh.mangler.isReflexive(*it);
+                if (reflex != *it) { // it's NOT reflexive, because it self-mangles to a different object
+                  senderOnlyConstraints.reserve(txData.senderSymbols.size());
+                  senderOnlyConstraints.push_back(std::make_pair(*it,reflex));
+                }
+              }
+            }
+            return senderOnlyConstraints;
           }
           std::set<klee::Array const*> const& peekSymbols() const { // debug
             return txData.senderSymbols;
@@ -336,9 +358,18 @@ void TransmitHandler::handleTransmission(PacketInfo const& pi, net::BasicState* 
     pprint(receiver.constraints);
     DD::cout << "| " << "Listing OFFENDING constraints:" << DD::endl;
     for (net::util::LoopConstIterator<std::vector<klee::ref<klee::Expr> > > it(receiverData.computeNewReceiverConstraints()); it.more(); it.next()) {
-      DD::cout << "| " << " ! adding constraint ... " << std::endl;
+      DD::cout << "| " << "adding constraint ... " << std::endl;
       pprint(*it);
       receiver.constraints.addConstraint(*it);
+    }
+    std::vector<std::pair<klee::Array const*,klee::Array const*> > additionals = receiverData.additionalSenderOnlyConstraints();
+    if (!additionals.empty()) {
+      DD::cout << "| " << "There are additional sender Eq constraints to add!" << DD::endl;
+      for (std::vector<std::pair<klee::Array const*,klee::Array const*> >::const_iterator it = additionals.begin(), end = additionals.end(); it != end; ++it) {
+        DD::cout << "| " << " + " << it->first->name << " == " << it->second->name << " [[WARNING]] this is not yet implemented!" << std::endl;
+        //sender.constraints.addConstraint(klee::EqExpr::alloc(klee::ReadExpr::create));
+        // XXX TODO add Eq expression to Constraints
+      }
     }
     DD::cout << "| " << "EOF Constraints." << DD::endl;
     DD::cout << "| " << "Listing OFFENDING symbols:" << DD::endl;

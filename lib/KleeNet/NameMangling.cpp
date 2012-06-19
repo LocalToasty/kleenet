@@ -2,8 +2,28 @@
 
 #include "klee/Expr.h"
 #include "llvm/ADT/StringExtras.h"
+#include "llvm/Support/CommandLine.h"
 
 #include "DistributedConstraints.h"
+
+namespace {
+  enum NameMangleType {
+      NMT_DUPLICATING
+    , NMT_ALIASING
+  };
+  llvm::cl::opt<NameMangleType>
+  chosenNameMangleType("distributed-symbol-name-mangling"
+    , llvm::cl::desc("The name mangling algorithm to use (Aliasing by default). The Duplicating algorithm is faster but will produce a significant amount of false positives, while Aliasing prevents symbols to separate over time. This is a KleeNet extension.")
+    , llvm::cl::values(clEnumValN(NMT_DUPLICATING
+                                 , "duplicating"
+                                 , "Duplicating NameMangler")
+                     , clEnumValN(NMT_ALIASING
+                                 , "aliasing"
+                                 , "Aliasing NameMangler")
+                     , clEnumValEnd)
+    , llvm::cl::init(NMT_ALIASING)
+  );
+}
 
 namespace kleenet {
 
@@ -16,7 +36,22 @@ namespace kleenet {
       return new klee::Array(array->name + appendToName, array->size);
     }
   };
-  struct AliasingNameMangler {
+  struct AliasingNameMangler : NameMangler {
+    size_t const currentTx;
+    StateDistSymbols& distSymbolsSrc;
+    StateDistSymbols& distSymbolsDest;
+    AliasingNameMangler(size_t const currentTx, StateDistSymbols& distSymbolsSrc, StateDistSymbols& distSymbolsDest)
+      : currentTx(currentTx)
+      , distSymbolsSrc(distSymbolsSrc)
+      , distSymbolsDest(distSymbolsDest)
+      {
+    }
+    klee::Array const* operator()(klee::Array const* array) const {
+      return distSymbolsSrc.locate(array, currentTx, &distSymbolsDest);
+    }
+    klee::Array const* isReflexive(klee::Array const* array) const {
+      return distSymbolsSrc.locate(array, currentTx, &distSymbolsSrc /*!*/);
+    }
   };
 
 }
@@ -24,7 +59,12 @@ namespace kleenet {
 using namespace kleenet;
 
 NameMangler& NameManglerHolder::constructMangler(size_t const currentTx, StateDistSymbols& distSymbolsSrc, StateDistSymbols& distSymbolsDest) {
-  return *(new DuplicatingNameMangler(currentTx,distSymbolsSrc.node,distSymbolsDest.node)); // XXX implemnt decently
+  switch (chosenNameMangleType) {
+    case NMT_DUPLICATING:
+      return *(new DuplicatingNameMangler(currentTx,distSymbolsSrc.node,distSymbolsDest.node));
+    case NMT_ALIASING:
+      return *(new AliasingNameMangler(currentTx,distSymbolsSrc,distSymbolsDest));
+  }
 }
 
 klee::Array const* LazySymbolTranslator::operator()(klee::Array const* array) {

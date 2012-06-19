@@ -23,8 +23,11 @@ namespace kleenet {
   class StateDistSymbols;
 
   struct NameMangler {
-    virtual klee::Array const* operator()(klee::Array const* array) const = 0;
     virtual ~NameMangler() {}
+    virtual klee::Array const* operator()(klee::Array const* array) const = 0;
+    virtual klee::Array const* isReflexive(klee::Array const* array) const {
+      return array; // nope
+    }
   };
 
   struct NameManglerHolder {

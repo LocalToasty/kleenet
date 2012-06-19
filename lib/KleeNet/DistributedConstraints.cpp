@@ -11,7 +11,7 @@ namespace kleenet {
   // A locator for an array object of a particluar distributed symbol for arbitrary states.
   struct DistributedSymbol {
     // TODO: in the future, we should have a more intelligent data structure here. Maps are uncool, as opposed to bowties.
-    std::map<StateDistSymbols const*,DistributedArray*> of;
+    std::map<StateDistSymbols const*,DistributedArray const*> of;
     DistributedSymbol() : of() {}
     DistributedSymbol(DistributedSymbol const&); // not implemented
   };
@@ -28,7 +28,7 @@ namespace kleenet {
       virtual ~DistributedArray() {
       }
       DistributedArray(StateDistSymbols* state, klee::Array const* buildFrom, size_t forTx, net::Node src)
-        : klee::Array(std::string() + buildFrom->name + "{tx" + llvm::utostr(forTx) + ":" + llvm::utostr(src.id) + "}",buildFrom->size)
+        : klee::Array(std::string() + buildFrom->name + "{node" + llvm::utostr(src.id) + ":tx" + llvm::utostr(forTx) + "}",buildFrom->size)
         , metaSymbol(new DistributedSymbol())
         {
         assert(!llvm::isa<DistributedArray>(*buildFrom));
@@ -38,7 +38,7 @@ namespace kleenet {
         : klee::Array(from.name,from.size) // note: this is not the copy-ctor!
         , metaSymbol(from.metaSymbol)
         {
-        DistributedArray*& slot = metaSymbol->of[state];
+        DistributedArray const*& slot = metaSymbol->of[state];
         assert(!slot);
         slot = this;
       }
@@ -47,20 +47,20 @@ namespace kleenet {
 
 using namespace kleenet;
 
-DistributedArray& StateDistSymbols::castOrMake(klee::Array& from, size_t const forTx) {
-  if (!llvm::isa<DistributedArray>(from)) {
-    DistributedArray*& known = knownArrays[forTx][&from];
+DistributedArray const& StateDistSymbols::castOrMake(klee::Array const& from, size_t const forTx) {
+  if (!llvm::isa<DistributedArray const>(from)) {
+    DistributedArray const*& known = knownArrays[forTx][&from];
     assert(!known && "Reinserting object!");
     return *(known = new DistributedArray(this,&from,forTx,node));
   }
-  return static_cast<DistributedArray&>(from);
+  return static_cast<DistributedArray const&>(from);
 }
 
-klee::Array* StateDistSymbols::locate(klee::Array* const array, size_t const forTx, StateDistSymbols* inState) {
+klee::Array const* StateDistSymbols::locate(klee::Array const* const array, size_t const forTx, StateDistSymbols* inState) {
   assert(array);
   assert(inState);
-  DistributedArray& da = castOrMake(*array, forTx);
-  DistributedArray*& entry = da.metaSymbol->of[inState];
+  DistributedArray const& da = castOrMake(*array, forTx);
+  DistributedArray const*& entry = da.metaSymbol->of[inState];
   if (!entry)
     entry = new DistributedArray(inState,da);
   return entry;

@@ -50,8 +50,9 @@ using namespace kleenet;
 DistributedArray const& StateDistSymbols::castOrMake(klee::Array const& from, size_t const forTx) {
   if (!llvm::isa<DistributedArray const>(from)) {
     DistributedArray const*& known = knownArrays[forTx][&from];
-    assert(!known && "Reinserting object!");
-    return *(known = new DistributedArray(this,&from,forTx,node));
+    if (!known)
+      known = new DistributedArray(this,&from,forTx,node);
+    return *known;
   }
   return static_cast<DistributedArray const&>(from);
 }

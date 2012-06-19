@@ -267,6 +267,9 @@ namespace kleenet {
         updateTxData(data,dest);
         return *txData;
       }
+      ConfigurationData& self() {
+        return *this;
+      }
       static void configureState(klee::ExecutionState& state, KleeNet& kleenet) {
         if ((!state.configurationData) || (&(static_cast<ConfigurationData&>(*state.configurationData).forState) != &state)) {
           if (!state.configurationData)

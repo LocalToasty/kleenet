@@ -14,8 +14,10 @@
 namespace kleenet {
   class KleeNet;
   class Executor;
+  class ConfigurationData;
   struct ConfigurationDataBase { // used to figure out how to handle transmissions
     virtual ~ConfigurationDataBase() {}
+    virtual ConfigurationData& self() = 0;
     virtual ConfigurationDataBase* fork() const {
       return 0;
     }

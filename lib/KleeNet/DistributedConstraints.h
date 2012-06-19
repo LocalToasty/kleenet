@@ -23,11 +23,11 @@ namespace kleenet {
   // These are all (distributed) symbols of a given state.
   class StateDistSymbols {
     private:
-      net::Node const src;
       std::map<size_t,std::map<klee::Array*,DistributedArray*> > knownArrays;
       DistributedArray& castOrMake(klee::Array&, size_t);
     public:
-      explicit StateDistSymbols(net::Node const src) : src(src) {}
+      net::Node const node;
+      explicit StateDistSymbols(net::Node const node) : knownArrays(), node(node) {}
       klee::Array* locate(klee::Array* array, size_t forTx, StateDistSymbols* inState);
   };
 }

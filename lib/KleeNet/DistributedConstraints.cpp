@@ -51,7 +51,7 @@ DistributedArray& StateDistSymbols::castOrMake(klee::Array& from, size_t const f
   if (!llvm::isa<DistributedArray>(from)) {
     DistributedArray*& known = knownArrays[forTx][&from];
     assert(!known && "Reinserting object!");
-    return *(known = new DistributedArray(this,&from,forTx,src));
+    return *(known = new DistributedArray(this,&from,forTx,node));
   }
   return static_cast<DistributedArray&>(from);
 }

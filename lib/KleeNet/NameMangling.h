@@ -20,6 +20,7 @@ namespace klee {
 }
 
 namespace kleenet {
+  class StateDistSymbols;
 
   struct NameMangler {
     virtual klee::Array const* operator()(klee::Array const* array) const = 0;
@@ -28,9 +29,9 @@ namespace kleenet {
 
   struct NameManglerHolder {
     NameMangler& mangler; // heap allocated!
-    static NameMangler& constructMangler(size_t const currentTx, net::Node const src, net::Node const dest);
-    NameManglerHolder(size_t const currentTx, net::Node const src, net::Node const dest)
-      : mangler(constructMangler(currentTx,src,dest)) {}
+    static NameMangler& constructMangler(size_t const currentTx, StateDistSymbols& distSymbolsSrc, StateDistSymbols& distSymbolsDest);
+    NameManglerHolder(size_t const currentTx, StateDistSymbols& distSymbolsSrc, StateDistSymbols& distSymbolsDest)
+      : mangler(constructMangler(currentTx,distSymbolsSrc,distSymbolsDest)) {}
     ~NameManglerHolder() {
       delete &mangler;
     }

@@ -3,6 +3,8 @@
 #include "klee/Expr.h"
 #include "llvm/ADT/StringExtras.h"
 
+#include "DistributedConstraints.h"
+
 namespace kleenet {
 
   struct DuplicatingNameMangler : NameMangler{ // cheap construction
@@ -21,8 +23,8 @@ namespace kleenet {
 
 using namespace kleenet;
 
-NameMangler& NameManglerHolder::constructMangler(size_t const currentTx, net::Node const src, net::Node const dest) {
-  return *(new DuplicatingNameMangler(currentTx,src,dest)); // XXX implemnt decently
+NameMangler& NameManglerHolder::constructMangler(size_t const currentTx, StateDistSymbols& distSymbolsSrc, StateDistSymbols& distSymbolsDest) {
+  return *(new DuplicatingNameMangler(currentTx,distSymbolsSrc.node,distSymbolsDest.node)); // XXX implemnt decently
 }
 
 klee::Array const* LazySymbolTranslator::operator()(klee::Array const* array) {

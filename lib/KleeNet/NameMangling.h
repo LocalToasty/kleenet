@@ -51,7 +51,7 @@ namespace kleenet {
         , preImageSymbols(preImageSymbols) {
       }
       klee::Array const* operator()(klee::Array const* array);
-      TxMap const& symbols() const {
+      TxMap const& symbolTable() const {
         return txMap;
       }
   };

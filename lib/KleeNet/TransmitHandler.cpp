@@ -64,11 +64,17 @@ namespace {
 
 namespace kleenet {
 
-  class ReplaceReadVisitor : public klee::ExprVisitor { // cheap construction
+  class ReadTransformator : protected klee::ExprVisitor { // linear-time construction (linear in packet length)
+    public:
+      typedef std::vector<klee::ref<klee::Expr> > Seq;
     private:
+      LazySymbolTranslator lst;
+      Seq const& seq;
+      Seq dynamicLookup;
+      ReadTransformator(ReadTransformator const&); // don't implement
+      ReadTransformator& operator=(ReadTransformator const&); // don't implement
+
       typedef klee::ExprVisitor::Action Action;
-      LazySymbolTranslator& lst;
-    protected:
       Action visitRead(klee::ReadExpr const& re) {
         if (!llvm::isa<klee::ConstantExpr>(re.index)) {
           std::ostringstream errorBuf;
@@ -85,39 +91,14 @@ namespace kleenet {
         );
         return Action::changeTo(replacement);
       }
-    public:
-      ReplaceReadVisitor(LazySymbolTranslator& lst)
-        : lst(lst) {
-      }
-  };
-
-  class ReadTransformator { // linear-time construction (linear in packet length)
-    public:
-      typedef std::vector<klee::ref<klee::Expr> > Seq;
-    private:
-      template <typename T, typename It, typename Op> static std::vector<T> transform(It begin, It end, unsigned size, Op const& op) { // rvo takes care of us :)
-        std::vector<T> v(size);
-        std::transform(begin,end,v.begin(),op);
-        return v;
-      }
-      LazySymbolTranslator lst;
-      ReplaceReadVisitor rrv;
-      Seq const seq;
-      Seq dynamicLookup;
-      ReadTransformator(ReadTransformator const&); // don't implement
-      ReadTransformator& operator=(ReadTransformator const&); // don't implement
 
     public:
-      template <typename Container, typename UnaryOperation>
-      ReadTransformator(NameMangler& mangler,
-                        Container const& input, UnaryOperation const& op,
-                        LazySymbolTranslator::Symbols* preImageSymbols = NULL)
+      ReadTransformator(NameMangler& mangler
+                       , Seq const& seq
+                       , LazySymbolTranslator::Symbols* preImageSymbols = NULL)
         : lst(mangler,preImageSymbols)
-        , rrv(lst)
-        , seq(transform<klee::ref<klee::Expr>,typename Container::const_iterator,UnaryOperation>(
-                input.begin(),input.end(),input.size(),op))
-        , dynamicLookup(input.size(),klee::ref<klee::Expr>()) {
-        assert(dynamicLookup.size() == seq.size());
+        , seq(seq)
+        , dynamicLookup(seq.size(),klee::ref<klee::Expr>()) {
       }
 
       klee::ref<klee::Expr> const operator[](unsigned const index) {
@@ -125,14 +106,14 @@ namespace kleenet {
         unsigned const normIndex = index % dynamicLookup.size();
         klee::ref<klee::Expr>& slot = dynamicLookup[normIndex];
         if (slot.isNull())
-          slot = rrv.visit(seq[normIndex]);
+          slot = visit(seq[normIndex]);
         return slot;
       }
       klee::ref<klee::Expr> const operator()(klee::ref<klee::Expr> const expr) {
-        return rrv.visit(expr);
+        return visit(expr);
       }
-      LazySymbolTranslator::TxMap const& symbols() const {
-        return lst.symbols();
+      LazySymbolTranslator::TxMap const& symbolTable() const {
+        return lst.symbolTable();
       }
   };
 
@@ -143,8 +124,6 @@ namespace kleenet {
       Key key;
     protected:
       Action visitRead(klee::ReadExpr const& re) {
-        //DD::cout << "Adding array " << re.updates.root << " to constraint slot " << key << ";" << DD::endl;
-        //pprint(klee::ref<klee::Expr>(const_cast<klee::ReadExpr*>(&re)));
         bg.addUndirectedEdge(key,re.updates.root);
         return Action::skipChildren();
       }
@@ -179,7 +158,6 @@ namespace kleenet {
       std::vector<klee::ref<klee::Expr> > eval(ArrayContainer const request) {
         updateGraph();
         std::vector<klee::ref<klee::Expr> > needConstrs;
-        //std::vector<klee::Array const*> needSymbols;
         bGraph.search(request,BGraph::IGNORE,&needConstrs);
         DD::cout << needConstrs.size() << " constraint following ..." << DD::endl;
         return needConstrs;
@@ -192,46 +170,74 @@ namespace kleenet {
       ConstraintsGraph cg;
       class TxData { // linear-time construction (linear in packet length)
         friend class ConfigurationData;
+        friend class PerReceiverData;
         private:
           size_t const currentTx;
           std::set<klee::Array const*> senderSymbols;
-          NameManglerHolder nmh;
-          ReadTransformator rt;
           ConstraintsGraph& cg;
+          StateDistSymbols& distSymbols;
+          net::Node src;
+          net::Node dest;
+          std::vector<klee::ref<klee::Expr> > const seq;
           bool allowMorePacketSymbols; // once this flipps to false operator[] will be forbidden to find additional symbols in the packet
-          std::vector<klee::ref<klee::Expr> > receiverConstraints; // already translated!
+          template <typename T, typename It, typename Op>
+          static std::vector<T> transform(It begin, It end, unsigned size, Op const& op, T /* type inference */) { // rvo takes care of us :)
+            std::vector<T> v(size);
+            std::transform(begin,end,v.begin(),op);
+            return v;
+          }
         public:
-          TxData(size_t currentTx, net::Node src, net::Node dest, std::vector<net::DataAtomHolder> const& data, ConstraintsGraph& cg)
+          TxData(size_t currentTx, StateDistSymbols& distSymbols, net::Node src, net::Node dest, std::vector<net::DataAtomHolder> const& data, ConstraintsGraph& cg)
             : currentTx(currentTx)
             , senderSymbols()
-            , nmh(currentTx,src,dest)
-            , rt(nmh.mangler,data,dataAtomToExpr,&senderSymbols)
             , cg(cg)
+            , distSymbols(distSymbols)
+            , src(src)
+            , dest(dest)
+            , seq(transform(data.begin(),data.end(),data.size(),dataAtomToExpr,klee::ref<klee::Expr>()/* type inference */))
             , allowMorePacketSymbols(true)
             {
           }
+      };
+      class PerReceiverData {
+        private:
+          TxData& txData;
+          NameManglerHolder nmh;
+          ReadTransformator rt;
+          bool constraintsComputed;
+          std::vector<klee::ref<klee::Expr> > receiverConstraints; // already translated!
+        public:
+          PerReceiverData(TxData& txData)
+            : txData(txData)
+            , nmh(txData.currentTx,txData.src,txData.dest)
+            , rt(nmh.mangler,txData.seq,&(txData.senderSymbols))
+            , constraintsComputed(false)
+            , receiverConstraints()
+            {
+          }
           klee::ref<klee::Expr> operator[](size_t index) {
-            size_t const existingPacketSymbols = senderSymbols.size();
+            size_t const existingPacketSymbols = txData.senderSymbols.size();
             klee::ref<klee::Expr> expr = rt[index];
-            assert((allowMorePacketSymbols || (existingPacketSymbols == senderSymbols.size())) \
+            assert((txData.allowMorePacketSymbols || (existingPacketSymbols == txData.senderSymbols.size())) \
               && "When translating an atom, we found completely new symbols, but we already assumed we were done with that.");
             DD::cout << "Packet[" << index << "] = "; pprint(expr);
             return expr;
           }
-          std::set<klee::Array const*> const& peekSymbols() const { // debug
-            return senderSymbols;
-          }
-          LazySymbolTranslator::TxMap const& symbols() const {
-            return rt.symbols();
-          }
           std::vector<klee::ref<klee::Expr> > const& computeNewReceiverConstraints() { // result already translated!
-            if (allowMorePacketSymbols) {
-              allowMorePacketSymbols = false;
+            if (!constraintsComputed) {
+              txData.allowMorePacketSymbols = false;
+              constraintsComputed = true;
               assert(receiverConstraints.empty() && "Garbate data in our constraints buffer.");
-              receiverConstraints = cg.eval(senderSymbols);
+              receiverConstraints = txData.cg.eval(txData.senderSymbols);
               std::transform<std::vector<klee::ref<klee::Expr> >::const_iterator, std::vector<klee::ref<klee::Expr> >::iterator, ReadTransformator&>(receiverConstraints.begin(),receiverConstraints.end(),receiverConstraints.begin(),rt);
             }
             return receiverConstraints;
+          }
+          std::set<klee::Array const*> const& peekSymbols() const { // debug
+            return txData.senderSymbols;
+          }
+          LazySymbolTranslator::TxMap const& symbolTable() const {
+            return rt.symbolTable();
           }
       };
     private:
@@ -243,7 +249,7 @@ namespace kleenet {
         size_t const ctx = forState.getCompletedTransmissions() + 1;
         if (txData && (txData->currentTx != ctx))
           txData->~TxData();
-        txData = new(&txData_) TxData(ctx,src,dest,data,cg);
+        txData = new(&txData_) TxData(ctx,symbols,src,dest,data,cg);
       }
     public:
       ConfigurationData(klee::ExecutionState& state, net::Node src)
@@ -293,7 +299,7 @@ void TransmitHandler::handleTransmission(PacketInfo const& pi, net::BasicState* 
 
   DD::cout << "Involved states: " << &sender << " ---> " << &receiver << DD::endl;
   ConfigurationData& cd = static_cast<ConfigurationData&>(*sender.configurationData); // it's a ConfigurationDataBase
-  ConfigurationData::TxData& txData = cd.transmissionProperties(data,pi.dest);
+  ConfigurationData::PerReceiverData receiverData(cd.transmissionProperties(data,pi.dest));
   // memcpy
   klee::ObjectState const* ose = receiver.addressSpace.findObject(pi.destMo);
   assert(ose && "Destination ObjectState not found.");
@@ -301,12 +307,12 @@ void TransmitHandler::handleTransmission(PacketInfo const& pi, net::BasicState* 
   DD::cout << "Packet data: " << DD::endl;
   // important remark: data might be longer or shorter than pi.length. Always obey the size dictated by PacketInfo.
   for (unsigned i = 0; i < pi.length; i++) {
-    wos->write(pi.offset + i, txData[i]);
+    wos->write(pi.offset + i, receiverData[i]);
   }
-  DD::cout << "! Using the following transmission context: " << &txData << DD::endl;
-  if (!txData.peekSymbols().empty()) {
+  DD::cout << "! Using the following transmission context: " << &receiverData << DD::endl;
+  if (!receiverData.peekSymbols().empty()) {
     DD::cout << "Symbols in transmission:" << DD::endl;
-    for (std::set<klee::Array const*>::const_iterator it = txData.peekSymbols().begin(), end = txData.peekSymbols().end(); it != end; ++it) {
+    for (std::set<klee::Array const*>::const_iterator it = receiverData.peekSymbols().begin(), end = receiverData.peekSymbols().end(); it != end; ++it) {
       DD::cout << " + " << (*it)->name << DD::endl;
     }
     DD::cout << "Sender Constraints:" << DD::endl;
@@ -314,13 +320,13 @@ void TransmitHandler::handleTransmission(PacketInfo const& pi, net::BasicState* 
     DD::cout << "Receiver Constraints:" << DD::endl;
     pprint(receiver.constraints);
     DD::cout << "Listing OFFENDING constraints:" << DD::endl;
-    for (net::util::LoopConstIterator<std::vector<klee::ref<klee::Expr> > > it(txData.computeNewReceiverConstraints()); it.more(); it.next()) {
+    for (net::util::LoopConstIterator<std::vector<klee::ref<klee::Expr> > > it(receiverData.computeNewReceiverConstraints()); it.more(); it.next()) {
       DD::cout << " ! adding constraint ... "; pprint(*it);
       receiver.constraints.addConstraint(*it);
     }
     DD::cout << "EOF Constraints." << DD::endl;
     DD::cout << "Listing OFFENDING symbols:" << DD::endl;
-    for (LazySymbolTranslator::TxMap::const_iterator it = txData.symbols().begin(), end = txData.symbols().end(); it != end; ++it) {
+    for (LazySymbolTranslator::TxMap::const_iterator it = receiverData.symbolTable().begin(), end = receiverData.symbolTable().end(); it != end; ++it) {
       DD::cout << " + " << it->first->name << "  |--->  " << it->second->name << DD::endl;
       bool const didntExist = receiver.arrayNames.insert(it->second->name).second;
       if (!didntExist) {

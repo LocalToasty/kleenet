@@ -178,6 +178,8 @@ namespace kleenet {
           ConfigurationData& cd;
           StateDistSymbols& distSymbolsSrc;
           std::vector<klee::ref<klee::Expr> > const seq;
+          bool constraintsComputed;
+          std::vector<klee::ref<klee::Expr> > senderConstraints; // untranslated!
           bool allowMorePacketSymbols; // once this flipps to false operator[] will be forbidden to find additional symbols in the packet
           template <typename T, typename It, typename Op>
           static std::vector<T> transform(It begin, It end, unsigned size, Op const& op, T /* type inference */) { // rvo takes care of us :)
@@ -192,8 +194,19 @@ namespace kleenet {
             , cd(cd)
             , distSymbolsSrc(distSymbolsSrc)
             , seq(transform(data.begin(),data.end(),data.size(),dataAtomToExpr,klee::ref<klee::Expr>()/* type inference */))
+            , constraintsComputed(false)
+            , senderConstraints()
             , allowMorePacketSymbols(true)
             {
+          }
+          std::vector<klee::ref<klee::Expr> > const& computeSenderConstraints() {
+            if (!constraintsComputed) {
+              allowMorePacketSymbols = false;
+              constraintsComputed = true;
+              assert(senderConstraints.empty() && "Garbate data in our sender's constraints buffer.");
+              senderConstraints = cd.cg.eval(senderSymbols);
+            }
+            return senderConstraints;
           }
       };
       class PerReceiverData {
@@ -222,11 +235,16 @@ namespace kleenet {
           }
           std::vector<klee::ref<klee::Expr> > const& computeNewReceiverConstraints() { // result already translated!
             if (!constraintsComputed) {
-              txData.allowMorePacketSymbols = false;
               constraintsComputed = true;
               assert(receiverConstraints.empty() && "Garbate data in our constraints buffer.");
-              receiverConstraints = txData.cd.cg.eval(txData.senderSymbols);
-              std::transform<std::vector<klee::ref<klee::Expr> >::const_iterator, std::vector<klee::ref<klee::Expr> >::iterator, ReadTransformator&>(receiverConstraints.begin(),receiverConstraints.end(),receiverConstraints.begin(),rt);
+              std::vector<klee::ref<klee::Expr> > const& senderConstraints = txData.computeSenderConstraints();
+              receiverConstraints.resize(senderConstraints.size());
+              std::transform<std::vector<klee::ref<klee::Expr> >::const_iterator, std::vector<klee::ref<klee::Expr> >::iterator, ReadTransformator&>(
+                  senderConstraints.begin()
+                , senderConstraints.end()
+                , receiverConstraints.begin()
+                , rt
+              );
             }
             return receiverConstraints;
           }

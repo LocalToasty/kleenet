@@ -91,8 +91,8 @@ void KleeNet::registerSearcher(Searcher* s) {
 KleeNet::RunEnv::RunEnv(KleeNet& kleenet, klee::ExecutionState* rootState)
   : kleenet(kleenet)
   , stateMapper(net::StateMapper::create(StateMapping,UsePhonyPackets,rootState))
-  , transmitHandler(new TransmitHandler())
-  , packetCache(new KleeNet::PacketCache(*stateMapper,*transmitHandler)) {
+  , transmitHandler(new TransmitHandler(kleenet)) // XXX
+  , packetCache(new KleeNet::PacketCache(*stateMapper,*transmitHandler)) { // XXX
   kleenet.env = this;
   rootState->executor = kleenet.executor;
 }

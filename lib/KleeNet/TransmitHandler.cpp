@@ -2,7 +2,6 @@
 
 #include "klee/ExecutionState.h"
 #include "klee/util/ExprVisitor.h"
-#include "NetExecutor.h"
 
 #include "llvm/ADT/StringExtras.h"
 
@@ -10,9 +9,11 @@
 #include "klee_headers/Common.h"
 #include "klee_headers/MemoryManager.h"
 
+#include "kleenet/KleeNet.h"
 #include "AtomImpl.h"
 #include "DistributedConstraints.h"
 #include "NameMangling.h"
+#include "NetExecutor.h"
 
 #include <string>
 #include <vector>
@@ -260,6 +261,13 @@ namespace kleenet {
         updateTxData(data,dest);
         return *txData;
       }
+      static void configureState(klee::ExecutionState& state, KleeNet& kleenet) {
+        if ((!state.configurationData) || (&(static_cast<ConfigurationData&>(*state.configurationData).forState) != &state)) {
+          if (!state.configurationData)
+            delete state.configurationData;
+          state.configurationData = new ConfigurationData(state,kleenet.getStateNode(state)); //shared pointer takes care or deletion
+        }
+      }
   };
 }
 
@@ -279,12 +287,11 @@ void TransmitHandler::handleTransmission(PacketInfo const& pi, net::BasicState* 
             << DD::endl;
   klee::ExecutionState& sender = static_cast<klee::ExecutionState&>(*basicSender);
   klee::ExecutionState& receiver = static_cast<klee::ExecutionState&>(*basicReceiver);
+
+  ConfigurationData::configureState(sender,kleenet);
+  ConfigurationData::configureState(receiver,kleenet);
+
   DD::cout << "Involved states: " << &sender << " ---> " << &receiver << DD::endl;
-  if ((!sender.configurationData) || (&(static_cast<ConfigurationData&>(*sender.configurationData).forState) != &sender)) {
-    if (!sender.configurationData)
-      delete sender.configurationData;
-    sender.configurationData = new ConfigurationData(sender,pi.src); //shared pointer takes care or deletion
-  }
   ConfigurationData& cd = static_cast<ConfigurationData&>(*sender.configurationData); // it's a ConfigurationDataBase
   ConfigurationData::TxData& txData = cd.transmissionProperties(data,pi.dest);
   // memcpy

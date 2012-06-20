@@ -27,6 +27,7 @@ namespace kleenet {
       std::map<size_t,std::map<klee::Array const*,DistributedArray const*> > knownArrays;
       DistributedArray const& castOrMake(klee::Array const&, size_t);
     public:
+      bool taintLocalSymbols() const;
       net::Node const node;
       explicit StateDistSymbols(net::Node const node) : knownArrays(), node(node) {}
       klee::Array const* locate(klee::Array const* array, size_t forTx, StateDistSymbols* inState);

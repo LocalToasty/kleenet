@@ -12,7 +12,8 @@ namespace kleenet {
   struct DistributedSymbol {
     // TODO: in the future, we should have a more intelligent data structure here. Maps are uncool, as opposed to bowties.
     std::map<StateDistSymbols const*,DistributedArray const*> of;
-    DistributedSymbol() : of() {}
+    std::string const globalName;
+    explicit DistributedSymbol(std::string const globalName) : of(), globalName(globalName) {}
     DistributedSymbol(DistributedSymbol const&); // not implemented
   };
 
@@ -28,15 +29,23 @@ namespace kleenet {
 
       virtual ~DistributedArray() {
       }
+      static std::string taint(StateDistSymbols* state, std::string const name) {
+        if (state->taintLocalSymbols())
+          return name + std::string("@") + llvm::utostr(state->node.id);
+        return name;
+      }
+      static std::string makeGlobalName(klee::Array const* buildFrom, size_t forTx, net::Node src) {
+        return std::string() + buildFrom->name + "{node" + llvm::utostr(src.id) + ":tx" + llvm::utostr(forTx) + "}";
+      }
       DistributedArray(StateDistSymbols* state, klee::Array const* buildFrom, size_t forTx, net::Node src)
-        : klee::Array(std::string() + buildFrom->name + "{node" + llvm::utostr(src.id) + ":tx" + llvm::utostr(forTx) + "}",buildFrom->size)
-        , metaSymbol(new DistributedSymbol())
+        : klee::Array(taint(state,makeGlobalName(buildFrom,forTx,src)), buildFrom->size)
+        , metaSymbol(new DistributedSymbol(makeGlobalName(buildFrom,forTx,src)))
         {
         assert(!llvm::isa<DistributedArray>(*buildFrom));
         metaSymbol->of[state] = this;
       }
-      explicit DistributedArray(StateDistSymbols* state, DistributedArray const& from)
-        : klee::Array(from.name,from.size) // note: this is not the copy-ctor!
+      DistributedArray(StateDistSymbols* state, DistributedArray const& from)
+        : klee::Array(taint(state,from.metaSymbol->globalName),from.size) // note: this is not the copy-ctor!
         , metaSymbol(from.metaSymbol)
         {
         DistributedArray const*& slot = metaSymbol->of[state];
@@ -47,6 +56,10 @@ namespace kleenet {
 }
 
 using namespace kleenet;
+
+bool StateDistSymbols::taintLocalSymbols() const {
+  return true;
+}
 
 DistributedArray const& StateDistSymbols::castOrMake(klee::Array const& from, size_t const forTx) {
   if (!llvm::isa<DistributedArray const>(from)) {

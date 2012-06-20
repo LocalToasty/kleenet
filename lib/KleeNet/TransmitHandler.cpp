@@ -386,13 +386,9 @@ void TransmitHandler::handleTransmission(PacketInfo const& pi, net::BasicState* 
       }
       if (isOnSender) {
         DD::cout << "| " << "    -- reflexive: " << it->was->name << " == " << it->translated->name << DD::endl;
-        klee::ref<klee::Expr> const eq = sender.configurationData->self().distSymbols.buildEquality(it->was,it->translated);
+        klee::ref<klee::Expr> const eq = StateDistSymbols::buildEquality(it->was,it->translated);
         DD::cout << "| "; pprint(eq);
         sender.constraints.addConstraint(eq);
-      } else {
-        klee::MemoryObject* const mo = receiver.getExecutor()->memory->allocate(it->translated->size,false,true,NULL);
-        mo->setName(it->translated->name);
-        /* TODO */ receiver.addSymbolic(mo,it->translated); /**/ // XXX I think this is wrong! CHECK! XXX // YES, it's wrong. FIXME
       }
     }
   } else {

@@ -1,6 +1,7 @@
 #include "NameMangling.h"
 
 #include "klee/Expr.h"
+#include "klee_headers/Common.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/Support/CommandLine.h"
 
@@ -65,6 +66,7 @@ NameMangler& NameManglerHolder::constructMangler(size_t const currentTx, StateDi
     case NMT_ALIASING:
       return *(new AliasingNameMangler(currentTx,distSymbolsSrc,distSymbolsDest));
   }
+  klee::klee_error("No valid name mangler selected.");
 }
 
 klee::Array const* LazySymbolTranslator::operator()(klee::Array const* array) {

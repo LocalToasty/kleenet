@@ -38,6 +38,10 @@ namespace kleenet {
 
       // utilities ...
       bool isDistributed(klee::Array const*) const;
-      klee::ref<klee::Expr> buildEquality(klee::Array const*,klee::Array const*) const;
+      typedef klee::ref<klee::Expr> RefExpr;
+      static RefExpr buildRead8(klee::Array const* array, size_t offset);
+      static RefExpr buildCompleteRead(klee::Array const* array);
+      static RefExpr buildEquality(RefExpr,RefExpr);
+      static RefExpr buildEquality(klee::Array const*,klee::Array const*);
   };
 }

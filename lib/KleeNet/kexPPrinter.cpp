@@ -10,7 +10,8 @@ namespace kleenet {
       klee::ExprPPrinter::printConstraints(str,obj);
     }
     void ppHelper<klee::ref<klee::Expr> >::pprint(std::ostream& str, klee::ref<klee::Expr> const& obj) {
-      klee::ExprPPrinter::printSingleExpr(str,obj);
+      if (obj.get())
+        klee::ExprPPrinter::printSingleExpr(str,obj);
     }
   }
 }

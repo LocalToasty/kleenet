@@ -353,13 +353,13 @@ void TransmitHandler::handleTransmission(PacketInfo const& pi, net::BasicState* 
       DD::cout << "| " << " + " << (*it)->name << DD::endl;
     }
     DD::cout << "| " << "Sender Constraints:" << DD::endl;
-    pprint(sender.constraints);
+    DD::cout << "| "; pprint(sender.constraints);
     DD::cout << "| " << "Receiver Constraints:" << DD::endl;
-    pprint(receiver.constraints);
+    DD::cout << "| "; pprint(receiver.constraints);
     DD::cout << "| " << "Listing OFFENDING constraints:" << DD::endl;
     for (net::util::LoopConstIterator<std::vector<klee::ref<klee::Expr> > > it(receiverData.computeNewReceiverConstraints()); it.more(); it.next()) {
-      DD::cout << "| " << "adding constraint ... " << std::endl;
-      pprint(*it);
+      DD::cout << "| " << "adding constraint ... " << DD::endl;
+      DD::cout << "| "; pprint(*it);
       receiver.constraints.addConstraint(*it);
     }
     std::vector<std::pair<klee::Array const*,klee::Array const*> > additionals = receiverData.additionalSenderOnlyConstraints();

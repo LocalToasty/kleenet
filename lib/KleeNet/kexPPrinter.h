@@ -38,8 +38,11 @@ namespace kleenet {
         if (DD::enable) {
           std::stringstream str;
           ppHelper<T>::pprint(str,obj);
+          char const dummy = 0;
+          char const* p = &dummy;
           while (str.getline(ppHelper<void>::buf,sizeof ppHelper<void>::buf / sizeof *ppHelper<void>::buf)) {
-            DD::cout << prefix << ppHelper<void>::buf << DD::endl;
+            DD::cout << p << ppHelper<void>::buf << DD::endl;
+            p = prefix;
           }
         }
       }

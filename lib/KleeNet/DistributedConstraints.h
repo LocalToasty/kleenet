@@ -12,6 +12,7 @@
 #include <map>
 
 #include "net/Node.h"
+#include <map>
 
 namespace klee {
   class Array;

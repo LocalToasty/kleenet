@@ -366,6 +366,7 @@ void TransmitHandler::handleTransmission(PacketInfo const& pi, net::BasicState* 
     klee::ObjectState* const ose = new klee::ObjectState(mo,array);
     receiver.addressSpace.bindObject(mo,ose);
     receiver.addSymbolic(mo,array);
+    ConfigurationData::PerReceiverData::GeneratedSymbolInformation(&(receiver.configurationData->self().distSymbols),array,array);
 
     for (unsigned i = 0; i < pi.length; i++) {
       StateDistSymbols::RefExpr r8 = StateDistSymbols::buildRead8(array,i);

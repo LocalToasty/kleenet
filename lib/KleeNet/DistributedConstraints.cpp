@@ -3,6 +3,7 @@
 #include "net/util/SharedPtr.h"
 
 #include "klee/Expr.h"
+#include "klee_headers/Context.h"
 
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/Support/Casting.h"
@@ -107,4 +108,40 @@ klee::Array const* StateDistSymbols::locate(klee::Array const* const array, size
 
 bool StateDistSymbols::isDistributed(klee::Array const* array) const {
   return llvm::isa<DistributedArray const>(*array);
+}
+
+namespace {
+  typedef klee::ref<klee::Expr> RefExpr;
+  static RefExpr buildRead8(klee::Array const* array, size_t offset) {
+    return klee::ReadExpr::alloc( // needs review
+        klee::UpdateList(array,0/*UpdateList can handle null-heads, it simly doesn't have a pointer to the most recent update, ... I think*/)
+      , klee::ConstantExpr::alloc(offset,array->getDomain())
+    );
+  }
+  static size_t beginEndianRange(size_t begin, size_t end) {
+    assert(begin <= end);
+    return klee::Context::get().isLittleEndian() ? begin : (end - 1); // underflow is NOT a problem
+  }
+  static size_t endEndianRange(size_t begin, size_t end) {
+    assert(begin <= end);
+    return klee::Context::get().isLittleEndian() ? end : (begin - 1); // underflow is NOT a problem
+  }
+  static size_t incEndianRange() {
+    return klee::Context::get().isLittleEndian() ? (size_t)+1 : (size_t)-1; // underflow is NOT a problem
+  }
+  static RefExpr buildCompleteRead(klee::Array const* array) {
+    size_t const begin = beginEndianRange(0,array->size), inc = incEndianRange(), end = endEndianRange(0,array->size);
+    assert(begin != end && "Cannot build a read expression of a zero length array.");
+    RefExpr cat = buildRead8(array,begin);
+    for (size_t i = begin+inc; i != end; i += inc) {
+      cat = klee::ConcatExpr::create(buildRead8(array,i),cat);
+    }
+    return cat;
+  }
+}
+
+klee::ref<klee::Expr> StateDistSymbols::buildEquality(klee::Array const* lhs, klee::Array const* rhs) const {
+  DD::cout << "| " << " [[WARNING]] this is not yet implemented!" << DD::endl;
+  //return klee::EqExpr::alloc(buildCompleteRead(lhs),buildCompleteRead(rhs));
+  return klee::EqExpr::alloc(buildCompleteRead(lhs),buildCompleteRead(rhs));
 }

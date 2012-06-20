@@ -14,6 +14,8 @@
 
 namespace klee {
   class Array;
+  template <typename> class ref;
+  class Expr;
 }
 
 namespace kleenet {
@@ -36,5 +38,6 @@ namespace kleenet {
 
       // utilities ...
       bool isDistributed(klee::Array const*) const;
+      klee::ref<klee::Expr> buildEquality(klee::Array const*,klee::Array const*) const;
   };
 }

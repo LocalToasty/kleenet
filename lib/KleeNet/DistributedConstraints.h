@@ -30,5 +30,6 @@ namespace kleenet {
       net::Node const node;
       explicit StateDistSymbols(net::Node const node) : knownArrays(), node(node) {}
       klee::Array const* locate(klee::Array const* array, size_t forTx, StateDistSymbols* inState);
+      bool isDistributed(klee::Array const*) const;
   };
 }

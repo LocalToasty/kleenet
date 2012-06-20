@@ -21,8 +21,9 @@ namespace kleenet {
       DistributedArray(DistributedArray const&); // not implemented
     public:
       net::util::SharedPtr<DistributedSymbol> const metaSymbol;
+      virtual bool isBaseArray() const {return false;}
       static bool classof(klee::Array const* array) {
-        return array->name.size() && (array->name[array->name.size()-1] == '}'); // slight hack?
+        return !array->isBaseArray();
       }
 
       virtual ~DistributedArray() {
@@ -65,4 +66,8 @@ klee::Array const* StateDistSymbols::locate(klee::Array const* const array, size
   if (!entry)
     entry = new DistributedArray(inState,da);
   return entry;
+}
+
+bool StateDistSymbols::isDistributed(klee::Array const* array) const {
+  return llvm::isa<DistributedArray const>(*array);
 }

@@ -9,10 +9,8 @@
 
 #pragma once
 
-#include <map>
-
 #include "net/Node.h"
-#include <map>
+#include <cstddef>
 
 namespace klee {
   class Array;
@@ -20,17 +18,23 @@ namespace klee {
 
 namespace kleenet {
   class DistributedArray;
+  class StateDistSymbols_impl;
 
   // These are all (distributed) symbols of a given state.
   class StateDistSymbols {
+    friend class DistributedArray;
     private:
-      std::map<size_t,std::map<klee::Array const*,DistributedArray const*> > knownArrays;
-      DistributedArray const& castOrMake(klee::Array const&, size_t);
+      StateDistSymbols_impl& pimpl;
     public:
-      bool taintLocalSymbols() const;
       net::Node const node;
-      explicit StateDistSymbols(net::Node const node) : knownArrays(), node(node) {}
+
+      explicit StateDistSymbols(net::Node const node);
+      ~StateDistSymbols();
+
+      // `inState` is allowed to coincide with `this`.
       klee::Array const* locate(klee::Array const* array, size_t forTx, StateDistSymbols* inState);
+
+      // utilities ...
       bool isDistributed(klee::Array const*) const;
   };
 }

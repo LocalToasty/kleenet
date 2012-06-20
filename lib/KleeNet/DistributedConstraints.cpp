@@ -49,11 +49,11 @@ namespace kleenet {
       }
       static std::string taint(StateDistSymbols* state, std::string const name) {
         if (state->pimpl.taintLocalSymbols())
-          return name + std::string("@") + llvm::utostr(state->node.id);
+          return name + std::string("@") + llvm::itostr(state->node.id);
         return name;
       }
       static std::string makeGlobalName(klee::Array const* buildFrom, size_t forTx, net::Node src) {
-        return std::string() + buildFrom->name + "{node" + llvm::utostr(src.id) + ":tx" + llvm::utostr(forTx) + "}";
+        return std::string() + buildFrom->name + "{node" + llvm::itostr(src.id) + ":tx" + llvm::utostr(forTx) + "}";
       }
       DistributedArray(StateDistSymbols* state, klee::Array const* buildFrom, size_t forTx, net::Node src)
         : klee::Array(taint(state,makeGlobalName(buildFrom,forTx,src)), buildFrom->size)

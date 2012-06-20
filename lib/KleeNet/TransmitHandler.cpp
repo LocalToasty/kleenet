@@ -155,6 +155,9 @@ namespace kleenet {
           ConList senderConstraints; // untranslated!
           bool senderReflexiveArraysComputed;
           bool allowMorePacketSymbols; // once this flipps to false operator[] will be forbidden to find additional symbols in the packet
+        public:
+          std::string const specialTxName;
+        private:
 
           template <typename T, typename It, typename Op>
           static std::vector<T> transform(It begin, It end, unsigned size, Op const& op, T /* type inference */) { // rvo takes care of us :)
@@ -173,6 +176,7 @@ namespace kleenet {
             , senderConstraints()
             , senderReflexiveArraysComputed(false)
             , allowMorePacketSymbols(true)
+            , specialTxName(std::string("tx") + llvm::utostr(currentTx) + "(node" + llvm::itostr(distSymbolsSrc.node.id) + ")")
             {
           }
           ConList const& computeSenderConstraints() {
@@ -186,8 +190,9 @@ namespace kleenet {
           }
       };
       class PerReceiverData {
-        private:
+        public:
           TxData& txData;
+        private:
           StateDistSymbols& distSymbolsDest;
           NameManglerHolder nmh;
           ReadTransformator rt;
@@ -371,7 +376,7 @@ void TransmitHandler::handleTransmission(PacketInfo const& pi, net::BasicState* 
       DD::cout << "| " << " + (on " << (isOnSender?"sender state)    ":"receiver state)  ") << it->was->name << "  |--->  " << it->translated->name << DD::endl;
       bool const didntExist = (isOnSender?sender:receiver).arrayNames.insert(it->translated->name).second;
       if (!didntExist && !it->belongsTo->isDistributed(it->translated)) {
-        klee::klee_error("%s",(std::string("In transmission of symbol '") + it->was->name + "' from node " + llvm::utostr(pi.src.id) + " to node " + llvm::utostr(pi.dest.id) + "; Symbol '" + it->translated->name + "' already exists on the target state. This is either a bug in KleeNet or you used the symbol '}' when specifying the name of a symbolic object which is not supported in KleeNet as it is used to mark special distributed symbols.").c_str());
+        klee::klee_error("%s",(std::string("In transmission of symbol '") + it->was->name + "' from node " + llvm::itostr(pi.src.id) + " to node " + llvm::itostr(pi.dest.id) + "; Symbol '" + it->translated->name + "' already exists on the target state. This is either a bug in KleeNet or you used the symbol '}' when specifying the name of a symbolic object which is not supported in KleeNet as it is used to mark special distributed symbols.").c_str());
       }
       if (isOnSender) {
         DD::cout << "| " << "    -- reflexive: " << it->was->name << " == " << it->translated->name << DD::endl;

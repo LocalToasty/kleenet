@@ -31,7 +31,7 @@ namespace kleenet {
   struct DuplicatingNameMangler : NameMangler{ // cheap construction
     std::string const appendToName;
     DuplicatingNameMangler(size_t const currentTx, net::Node const src, net::Node const dest)
-      : appendToName("{tx" + llvm::utostr(currentTx) + ":" + llvm::utostr(src.id) + "->" + llvm::utostr(dest.id) + "}") {
+      : appendToName("{tx" + llvm::utostr(currentTx) + ":" + llvm::itostr(src.id) + "->" + llvm::itostr(dest.id) + "}") {
     }
     klee::Array const* operator()(klee::Array const* array) const {
       return new klee::Array(array->name + appendToName, array->size);

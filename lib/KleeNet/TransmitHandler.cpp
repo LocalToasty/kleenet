@@ -353,17 +353,30 @@ void TransmitHandler::handleTransmission(PacketInfo const& pi, net::BasicState* 
     , receiver.configurationData->self().distSymbols
     , 0, pi.length // precomputation of symbols
   );
-  // memcpy
-  klee::ObjectState const* ose = receiver.addressSpace.findObject(pi.destMo);
-  assert(ose && "Destination ObjectState not found.");
-  klee::ObjectState* wos = receiver.addressSpace.getWriteable(pi.destMo, ose);
-  DD::cout << "| " << "Packet data: " << DD::endl;
-  // important remark: data might be longer or shorter than pi.length. Always obey the size dictated by PacketInfo.
-  for (unsigned i = 0; i < pi.length; i++) {
-    wos->write(pi.offset + i, receiverData[i]);
+  klee::ObjectState const* oseDest = receiver.addressSpace.findObject(pi.destMo);
+  assert(oseDest && "Destination ObjectState not found.");
+  klee::ObjectState* wosDest = receiver.addressSpace.getWriteable(pi.destMo, oseDest);
+  bool const hasSymbolics = receiverData.isNonConstTransmission();
+  if (hasSymbolics) {
+    klee::MemoryObject* const mo = receiver.getExecutor()->memory->allocate(pi.length,false,true,NULL);
+    mo->setName(receiverData.txData.specialTxName);
+    klee::Array const* const array = new klee::Array(receiverData.txData.specialTxName,mo->size);
+    klee::ObjectState* const ose = new klee::ObjectState(mo,array);
+    receiver.addressSpace.bindObject(mo,ose);
+    receiver.addSymbolic(mo,array);
+
+    for (unsigned i = 0; i < pi.length; i++) {
+      StateDistSymbols::RefExpr r8 = StateDistSymbols::buildRead8(array,i);
+      wosDest->write(pi.offset + i, r8);
+      receiver.constraints.addConstraint(StateDistSymbols::buildEquality(r8,receiverData[i]));
+    }
+  } else {
+    for (unsigned i = 0; i < pi.length; i++) {
+      wosDest->write(pi.offset + i, receiverData[i]);
+    }
   }
   DD::cout << "| " << "! Using the following transmission context: " << &receiverData << DD::endl;
-  if (receiverData.isNonConstTransmission()) {
+  if (hasSymbolics) {
     DD::cout << "| " << "Sender Constraints:" << DD::endl;
     DD::cout << "| "; pprint(sender.constraints);
     DD::cout << "| " << "Receiver Constraints:" << DD::endl;

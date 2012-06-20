@@ -117,6 +117,9 @@ def main(args):
     op.add_option('','--write-json', dest='writeJson', action='store_true',
                   default=False,
                   help='export ktest to JSON format')
+    op.add_option('','--omit-size', dest='omitSize', action='store_true',
+                  default=False,
+                  help='do not show object sizes')
 
     opts,args = op.parse_args()
     if not args:
@@ -179,7 +182,8 @@ def main(args):
                 str = data
 
             print 'object %4d: name: %r' % (i, name)
-            print 'object %4d: size: %r' % (i, len(data))
+            if not opts.omitSize:
+                print 'object %4d: size: %r' % (i, len(data))
             if opts.writeInts and len(data) == 4:
                 print 'object %4d: data: %r' % (i, struct.unpack('i',str)[0])
             else:

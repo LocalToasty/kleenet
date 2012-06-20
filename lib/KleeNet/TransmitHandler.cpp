@@ -188,6 +188,7 @@ namespace kleenet {
       class PerReceiverData {
         private:
           TxData& txData;
+          StateDistSymbols& distSymbolsDest;
           NameManglerHolder nmh;
           ReadTransformator rt;
           bool constraintsComputed;
@@ -196,6 +197,7 @@ namespace kleenet {
         public:
           PerReceiverData(TxData& txData, StateDistSymbols& distSymbolsDest)
             : txData(txData)
+            , distSymbolsDest(distSymbolsDest)
             , nmh(txData.currentTx,txData.distSymbolsSrc,distSymbolsDest)
             , rt(nmh.mangler,txData.seq,&(txData.senderSymbols))
             , constraintsComputed(false)
@@ -226,7 +228,7 @@ namespace kleenet {
             }
             return receiverConstraints;
           }
-          std::vector<std::pair<klee::Array const*,klee::Array const*> > additionalSenderOnlyConstraints() {
+          std::vector<std::pair<klee::Array const*,klee::Array const*> > additionalSenderOnlyConstraints() __attribute__ ((deprecated)) {
             std::vector<std::pair<klee::Array const*,klee::Array const*> > senderOnlyConstraints;
             if (!txData.senderReflexiveArraysComputed) {
               txData.senderReflexiveArraysComputed = true;
@@ -242,11 +244,36 @@ namespace kleenet {
             }
             return senderOnlyConstraints;
           }
-          std::set<klee::Array const*> const& peekSymbols() const { // debug
+          std::set<klee::Array const*> const& peekSymbols() const __attribute__ ((deprecated)) { // debug
             return txData.senderSymbols;
           }
-          LazySymbolTranslator::TxMap const& symbolTable() const {
+          LazySymbolTranslator::TxMap const& symbolTable() const __attribute__ ((deprecated)) {
             return rt.symbolTable();
+          }
+          struct GeneratedSymbolInformation {
+            StateDistSymbols* belongsTo;
+            klee::Array const* was;
+            klee::Array const* translated;
+            GeneratedSymbolInformation(StateDistSymbols* belongsTo, klee::Array const* was, klee::Array const* translated)
+              : belongsTo(belongsTo)
+              , was(was)
+              , translated(translated) {
+            }
+          };
+          typedef std::vector<GeneratedSymbolInformation> NewSymbols;
+          NewSymbols newSymbols() { // rvo
+            std::vector<std::pair<klee::Array const*,klee::Array const*> > senderOnlyConstraints = additionalSenderOnlyConstraints();
+            NewSymbols result;
+            result.reserve(senderOnlyConstraints.size()+rt.symbolTable().size());
+            for (std::vector<std::pair<klee::Array const*,klee::Array const*> >::const_iterator it = senderOnlyConstraints.begin(), end = senderOnlyConstraints.end(); it != end; ++it) {
+              if (it->first != it->second)
+                result.push_back(GeneratedSymbolInformation(&(txData.distSymbolsSrc),it->first,it->second));
+            }
+            for (LazySymbolTranslator::TxMap::const_iterator it = rt.symbolTable().begin(), end = rt.symbolTable().end(); it != end; ++it) {
+              if (it->first != it->second)
+                result.push_back(GeneratedSymbolInformation(&distSymbolsDest,it->first,it->second));
+            }
+            return result;
           }
       };
     private:
@@ -346,15 +373,16 @@ void TransmitHandler::handleTransmission(PacketInfo const& pi, net::BasicState* 
     }
     DD::cout << "| " << "EOF Constraints." << DD::endl;
     DD::cout << "| " << "Listing OFFENDING symbols:" << DD::endl;
-    for (LazySymbolTranslator::TxMap::const_iterator it = receiverData.symbolTable().begin(), end = receiverData.symbolTable().end(); it != end; ++it) {
-      DD::cout << "| " << " + " << it->first->name << "  |--->  " << it->second->name << DD::endl;
-      bool const didntExist = receiver.arrayNames.insert(it->second->name).second;
-      if (!didntExist) {
-        klee::klee_error("%s",(std::string("In transmission of symbol '") + it->first->name + "' from node " + llvm::utostr(pi.src.id) + " to node " + llvm::utostr(pi.dest.id) + "; Symbol '" + it->second->name + "' already exists on the target state. This is either a bug in KleeNet or you used the symbol '{' when specifying the name of a symbolic object.").c_str());
+    ConfigurationData::PerReceiverData::NewSymbols const newSymbols = receiverData.newSymbols();
+    for (ConfigurationData::PerReceiverData::NewSymbols::const_iterator it = newSymbols.begin(), end = newSymbols.end(); it != end; ++it) {
+      DD::cout << "| " << " + (on " << ((it->belongsTo->node == pi.src)?"sender state)    ":"receiver state)  ") << it->was->name << "  |--->  " << it->translated->name << DD::endl;
+      bool const didntExist = ((it->belongsTo->node == pi.src)?sender:receiver).arrayNames.insert(it->translated->name).second;
+      if (!didntExist && !it->belongsTo->isDistributed(it->translated)) {
+        klee::klee_error("%s",(std::string("In transmission of symbol '") + it->was->name + "' from node " + llvm::utostr(pi.src.id) + " to node " + llvm::utostr(pi.dest.id) + "; Symbol '" + it->translated->name + "' already exists on the target state. This is either a bug in KleeNet or you used the symbol '}' when specifying the name of a symbolic object which is not supported in KleeNet as it is used to mark special distributed symbols.").c_str());
       }
-      klee::MemoryObject* const mo = receiver.getExecutor()->memory->allocate(it->second->size,false,true,NULL);
-      mo->setName(it->second->name);
-      /* TODO */ receiver.addSymbolic(mo,it->second); /**/ // XXX I think this is wrong! CHECK! XXX
+      klee::MemoryObject* const mo = receiver.getExecutor()->memory->allocate(it->translated->size,false,true,NULL);
+      mo->setName(it->translated->name);
+      /* TODO */ receiver.addSymbolic(mo,it->translated); /**/ // XXX I think this is wrong! CHECK! XXX
     }
   } else {
     DD::cout << "| " << "All data in tx is constant. Bypassing Graph construction." << DD::endl;

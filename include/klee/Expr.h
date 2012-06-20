@@ -609,7 +609,7 @@ public:
   // KleeNet patch: Array is extended in the kleenet:: module to efficiently handle transmissions,
   // and whoever cares to delete this, will do this via an klee::Array* handle. So we need the dtor to be virtual.
   virtual ~Array();
-  virtual bool isBaseArray() const {return true;}
+  virtual bool isBaseArray() const {return true;} // KleeNet-only
 
   bool isSymbolicArray() const { return constantValues.empty(); }
   bool isConstantArray() const { return !isSymbolicArray(); }

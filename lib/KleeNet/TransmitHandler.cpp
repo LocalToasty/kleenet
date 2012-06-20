@@ -4,6 +4,7 @@
 #include "klee/util/ExprVisitor.h"
 
 #include "llvm/ADT/StringExtras.h"
+#include "llvm/Support/CommandLine.h"
 
 #include "klee_headers/Memory.h"
 #include "klee_headers/Common.h"
@@ -330,6 +331,25 @@ namespace kleenet {
   };
 }
 
+namespace {
+  enum TxSymbolCreationParadigm {
+    BYPASS,
+    SYMBOLICS,
+    FORCEALL
+  };
+  llvm::cl::opt<TxSymbolCreationParadigm>
+  txSymbolConstructionChoice("packet-symbol-construction"
+    , llvm::cl::desc("Choose for which kind of transmission to introduce individual packets. By default symbols of the form 'tx<<id>>(node<<node_id>>)' will be created for every packet that does not entirely consist of constants (i.e. has at least one symbolic). This is a KleeNet extension.")
+    , llvm::cl::values(
+        clEnumValN(BYPASS,"bypass","Bypass symbol construction alltogether. This option is useful, when the generated tests are of less importance, the actual packet data is irrelevant. Construction of these symbols is expensive, so it should be avoided if you are not interested.")
+      , clEnumValN(SYMBOLICS,"symbolics","Construct packet symbols only for packets that contain any symbolic data. This is the default.")
+      , clEnumValN(FORCEALL,"force","Construct packet symbols not only for symbolic packets but for every single packet, even if its completely concrete.")
+      , clEnumValEnd
+    )
+    , llvm::cl::init(SYMBOLICS)
+  );
+}
+
 using namespace kleenet;
 
 namespace klee {
@@ -359,7 +379,7 @@ void TransmitHandler::handleTransmission(PacketInfo const& pi, net::BasicState* 
   assert(oseDest && "Destination ObjectState not found.");
   klee::ObjectState* wosDest = receiver.addressSpace.getWriteable(pi.destMo, oseDest);
   bool const hasSymbolics = receiverData.isNonConstTransmission();
-  if (hasSymbolics) {
+  if ((txSymbolConstructionChoice == FORCEALL) || (hasSymbolics && (txSymbolConstructionChoice == SYMBOLICS))) {
     klee::MemoryObject* const mo = receiver.getExecutor()->memory->allocate(pi.length,false,true,NULL);
     mo->setName(receiverData.txData.specialTxName);
     klee::Array const* const array = new klee::Array(receiverData.txData.specialTxName,mo->size);

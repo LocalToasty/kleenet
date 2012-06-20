@@ -200,14 +200,19 @@ namespace kleenet {
           typedef TxData::ConList ConList;
           ConList receiverConstraints; // already translated!
         public:
-          PerReceiverData(TxData& txData, StateDistSymbols& distSymbolsDest)
+          PerReceiverData(TxData& txData, StateDistSymbols& distSymbolsDest, size_t const beginPrecomputeRange, size_t const endPrecomputeRange)
             : txData(txData)
             , distSymbolsDest(distSymbolsDest)
             , nmh(txData.currentTx,txData.distSymbolsSrc,distSymbolsDest)
             , rt(nmh.mangler,txData.seq,&(txData.senderSymbols))
             , constraintsComputed(false)
             , receiverConstraints()
-            {
+          {
+            size_t const existingPacketSymbols = txData.senderSymbols.size();
+            for (size_t it = beginPrecomputeRange; it != endPrecomputeRange; ++it)
+              rt[it];
+            assert((txData.allowMorePacketSymbols || (existingPacketSymbols == txData.senderSymbols.size())) \
+              && "When precomuting all transmission atoms, we found completely new symbols, but we already assumed we were done with that.");
           }
           klee::ref<klee::Expr> operator[](size_t index) {
             size_t const existingPacketSymbols = txData.senderSymbols.size();
@@ -346,6 +351,7 @@ void TransmitHandler::handleTransmission(PacketInfo const& pi, net::BasicState* 
   ConfigurationData::PerReceiverData receiverData(
       sender.configurationData->self().transmissionProperties(data)
     , receiver.configurationData->self().distSymbols
+    , 0, pi.length // precomputation of symbols
   );
   // memcpy
   klee::ObjectState const* ose = receiver.addressSpace.findObject(pi.destMo);

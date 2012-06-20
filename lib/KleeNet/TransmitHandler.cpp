@@ -18,11 +18,9 @@
 #include <string>
 #include <vector>
 #include <algorithm>
-#include <sstream>
 
 #include "net/util/debug.h"
-#include "klee/util/ExprPPrinter.h"
-#include <iostream>
+#include "kexPPrinter.h"
 
 #include "net/util/BipartiteGraph.h"
 #include "net/util/Containers.h"
@@ -31,38 +29,13 @@
 
 #define DD net::DEBUG<net::debug::external1>
 
-namespace {
-  template <typename T>
-  struct pp {
-  };
-
-  template <>
-  struct pp<klee::ConstraintManager> {
-    typedef klee::ConstraintManager const& Ref;
-    static void pprint(Ref cm) {
-      if (DD::enable) {
-        klee::ExprPPrinter::printConstraints(std::cout,cm);
-        std::cout << std::endl;
-      }
-    }
-  };
-  template <>
-  struct pp<klee::ref<klee::Expr> > {
-    typedef klee::ref<klee::Expr> Ref;
-    static void pprint(Ref expr) {
-      if (DD::enable) {
-        klee::ExprPPrinter::printSingleExpr(std::cout,expr);
-        std::cout << std::endl;
-      }
-    }
-  };
-  template <typename T>
-  void pprint(T const& t) {
-    pp<T>::pprint(t);
-  }
-}
 
 namespace kleenet {
+
+  template <typename T>
+  void pprint(T const& t) {
+    pprint(DD(),t,"| ");
+  }
 
   class ReadTransformator : protected klee::ExprVisitor { // linear-time construction (linear in packet length)
     public:

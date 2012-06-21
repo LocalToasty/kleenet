@@ -418,10 +418,13 @@ namespace kleenet {
     if (node == net::Node::INVALID_NODE) {
       executor->terminateStateOnError(
         ha.state,
-        llvm::Twine() + "Invalid node id (" + llvm::Twine(node.id) + ") passed to kleenet_set_node_id. This is used as magic number. Note: The default node id is (" + llvm::Twine(Node::FIRST_NODE.id) + ") but you may specify any id that does not equal " + llvm::Twine(Node::INVALID_NODE.id) + ".",
+        llvm::Twine() + "Invalid node id (" + llvm::Twine(node.id) + ") passed to kleenet_set_node_id. This is used as magic number. Note: The default node id is (" + llvm::Twine(Node::FIRST_NODE.id) + ") but you may specify any id greater or equal " + llvm::Twine(Node::INVALID_NODE.id) + ".",
         "exec.err");
-      //std::cerr << "invalid node id, please use an id != " << INVALID_NODE_ID << ".\n";
-      //assert(0 && "invalid node id");
+    } else if (node < net::Node::FIRST_NODE) {
+      executor->terminateStateOnError(
+        ha.state,
+        llvm::Twine() + "Invalid node id (" + llvm::Twine(node.id) + ") passed to kleenet_set_node_id. Note: The default node id is (" + llvm::Twine(Node::FIRST_NODE.id) + ") but you may specify any id greater or equal " + llvm::Twine(Node::FIRST_NODE.id) + ".",
+        "exec.err");
     } else {
       return executor->kleeNet.setStateNode(ha.state,node);
     }

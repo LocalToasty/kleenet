@@ -116,6 +116,8 @@ void LockStepSearcher::add(ConstIteratable<BasicState*> const& begin, ConstItera
   for (ConstIteratorHolder<BasicState*> it = begin; it != end; ++it) {
     lsih.equipState(*it);
     lsih.stateInfo(*it)->slot = lsih.states.size();
+    if (lsih.stateInfo(*it)->blocked)
+      lsih.blockedStates++;
     lsih.states.push_back(*it);
   }
 }

@@ -75,6 +75,8 @@ namespace net {
         }
         next = states.begin();
         end = states.end();
+        fastForwardJunk();
+        assert(next != end);
         globalTime += stepIncrement;
       }
     }

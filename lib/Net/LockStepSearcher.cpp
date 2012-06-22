@@ -41,7 +41,7 @@ namespace net {
       return states.size()-nullSlots;
     }
     void fastForwardJunk() {
-      for (;next != end && !(*next); next++); // fast forward junk-entries
+      for (;next != end && !*next; ++next); // fast forward junk-entries
     }
     void block(LockStepInformation* const lsi) {
       if (lsi && !lsi->blocked) {
@@ -122,7 +122,10 @@ void LockStepSearcher::add(ConstIteratable<BasicState*> const& begin, ConstItera
     lsih.stateInfo(*it)->slot = lsih.states.size();
     if (lsih.stateInfo(*it)->blocked)
       lsih.blockedStates++;
-    lsih.states.push_back(*it);
+    LockStepInformationHandler::States::difference_type const current = lsih.next - lsih.states.begin();
+    lsih.states.push_back(*it); // potentially invalidates iterators!
+    lsih.next = lsih.states.begin() + current;
+    lsih.end = lsih.states.end();
   }
 }
 void LockStepSearcher::remove(ConstIteratable<BasicState*> const& begin, ConstIteratable<BasicState*> const& end) {

@@ -291,25 +291,6 @@ namespace kleenet {
 
 
   HAND(net::NodeId,kleenet_get_node_id,0) {
-    /****** just for comparison: OLD CODE:
-       ##  void SpecialFunctionHandler::handleGetNodeId(ExecutionState &state,
-       ##                                               KInstruction *target,
-       ##                                               std::vector<ref<Expr> > &arguments) {
-       ##    assert(arguments.size()==0 && "invalid number of arguments to kleenet_get_node_id");
-       ##    Expr::Width WordSize = Context::get().getPointerWidth();
-       ##    if (WordSize == Expr::Int32) {
-       ##      executor.bindLocal(target, state,
-       ##                         ConstantExpr::create(state.mappingInformation->node.id,
-       ##                                              Expr::Int32));
-       ##    } else if (WordSize == Expr::Int64) {
-       ##      executor.bindLocal(target, state,
-       ##                         ConstantExpr::create(state.mappingInformation->node.id,
-       ##                                              Expr::Int64));
-       ##    } else {
-       ##      assert(0 && "Unknown word size!");
-       ##    }
-       ##  }
-    ***** and NEW CODE: */
     return executor->kleeNet.getStateNode(ha.state).id;
   }
 

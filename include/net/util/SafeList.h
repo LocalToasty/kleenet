@@ -2,6 +2,7 @@
 
 #include <cassert>
 #include <stdlib.h>
+#include <sys/types.h>
 
 namespace net {
   namespace util {

@@ -28,6 +28,8 @@
 
 #include "llvm/Support/CommandLine.h"
 
+#include <tr1/unordered_map>
+
 namespace {
   llvm::cl::opt<bool>
   DumpKleenetSfhCalls("dump-kleenet-sfh-calls",
@@ -197,9 +199,42 @@ namespace kleenet {
     typedef sfh::HandleArgs HandleArgs;
   };
 
+  class SfhNodeContainer { // Not yet used
+    public:
+      typedef signed PublicId; // non-continuous
+      typedef net::NodeId InternalId; // continuous, starting at net::Node::FIRST_NODE.id
+      PublicId const invalidPublicId;
+    private:
+      std::tr1::unordered_map<PublicId, InternalId> publicToInternal;
+      std::vector<PublicId> internalToPublic;
+    public:
+      InternalId lookupInternal(PublicId publicId) {
+        if (publicId == invalidPublicId)
+          klee::klee_warning("%s %d %s","Using the invlid node id ",invalidPublicId," in as a valid node id. The results may be unexpected.");
+        std::tr1::unordered_map<PublicId, InternalId>::const_iterator internalId = publicToInternal.find(publicId);
+        if (internalId == publicToInternal.end()) {
+          publicToInternal[publicId] = internalToPublic.size();
+          internalToPublic.push_back(publicId);
+        }
+        return publicToInternal[publicId];
+      }
+      PublicId lookupPublic(InternalId internalId) {
+        if (internalId < 0 || static_cast<std::vector<PublicId>::size_type>(internalId) >= internalToPublic.size())
+          return invalidPublicId; // special meaning. It's your own fault if you use it as valid id.
+        else
+          return internalToPublic[internalId];
+      }
+      explicit SfhNodeContainer(PublicId const invalidPublicId)
+        : invalidPublicId(invalidPublicId)
+        , publicToInternal()
+        , internalToPublic()
+      {}
+  };
+
   SpecialFunctionHandler::SpecialFunctionHandler(Executor& netEx)
     : klee::SpecialFunctionHandler(netEx) // implicit downcast
-    , netEx(netEx) {
+    , netEx(netEx)
+    , nodes(*(new SfhNodeContainer(-1))) {
     typedef sfh::SFHBase::ListEntry::GlobalList GL;
     net::util::SharedPtr<GL> gl = sfh::SFHBase::ListEntry::globalList();
     for (GL::iterator it = gl->begin(), en = gl->end(); it != en; ++it) {
@@ -209,6 +244,9 @@ namespace kleenet {
     }
   }
 
+  SpecialFunctionHandler::~SpecialFunctionHandler() {
+    delete &nodes;
+  }
 
 // I AM SOOOOOO LAZY, THAT IT HURTS ...
 #define FULLHAND(RET,NAME,COUNT,DNR,DNO) \

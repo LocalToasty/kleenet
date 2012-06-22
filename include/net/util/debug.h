@@ -26,9 +26,14 @@ namespace net {
   }
 }
 
-#define ENABLE_DEBUG ND_FLAGS_external1
+#define ENABLE_DEBUG (ND_FLAGS_slack | ND_FLAGS_external1)
 
 #undef ND_MAKEFLAG
+
+#ifdef NDEBUG
+#  undef ENABLE_DEBUG
+#  define ENABLE_DEBUG 0
+#endif
 
 #if ENABLE_DEBUG
 #  include <iostream>

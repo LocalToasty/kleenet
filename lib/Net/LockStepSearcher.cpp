@@ -7,6 +7,10 @@
 #include <algorithm>
 #include <iterator>
 
+#include "net/util/debug.h"
+
+#define DD net::DEBUG<net::debug::searchers>
+
 namespace net {
   struct LockStepInformation : SchedulingInformation<LockStepInformation> {
     std::vector<BasicState*>::size_type slot;

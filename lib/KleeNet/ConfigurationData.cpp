@@ -9,6 +9,59 @@
 #include "klee_headers/MemoryManager.h"
 #include "klee_headers/Common.h"
 
+
+namespace kleenet {
+
+      class SenderTxData { // linear-time construction (linear in packet length)
+        friend class ConfigurationData;
+        friend class PerReceiverData;
+        private:
+          size_t const currentTx;
+          std::set<klee::Array const*> senderSymbols;
+          ConfigurationData& cd;
+          StateDistSymbols& distSymbolsSrc;
+          typedef ConfigurationData::ConList ConList;
+          ConList const seq;
+          bool constraintsComputed;
+          ConList senderConstraints; // untranslated!
+          bool senderReflexiveArraysComputed;
+          bool allowMorePacketSymbols; // once this flipps to false operator[] will be forbidden to find additional symbols in the packet
+        public:
+          std::string const specialTxName;
+        private:
+
+          template <typename T, typename It, typename Op>
+          static std::vector<T> transform(It begin, It end, unsigned size, Op const& op, T /* type inference */) { // rvo takes care of us :)
+            std::vector<T> v(size);
+            std::transform(begin,end,v.begin(),op);
+            return v;
+          }
+        public:
+          SenderTxData(ConfigurationData& cd, size_t currentTx, StateDistSymbols& distSymbolsSrc, std::vector<net::DataAtomHolder> const& data)
+            : currentTx(currentTx)
+            , senderSymbols()
+            , cd(cd)
+            , distSymbolsSrc(distSymbolsSrc)
+            , seq(transform(data.begin(),data.end(),data.size(),dataAtomToExpr,klee::ref<klee::Expr>()/* type inference */))
+            , constraintsComputed(false)
+            , senderConstraints()
+            , senderReflexiveArraysComputed(false)
+            , allowMorePacketSymbols(true)
+            , specialTxName(std::string("tx") + llvm::utostr(currentTx) + "(node" + llvm::itostr(distSymbolsSrc.node.id) + ")")
+            {
+          }
+          ConList const& computeSenderConstraints() {
+            if (!constraintsComputed) {
+              allowMorePacketSymbols = false;
+              constraintsComputed = true;
+              assert(senderConstraints.empty() && "Garbate data in our sender's constraints buffer.");
+              senderConstraints = cd.cg.eval(senderSymbols);
+            }
+            return senderConstraints;
+          }
+      };
+}
+
 using namespace kleenet;
 
 
@@ -66,7 +119,7 @@ void ConstraintsGraph::updateGraph() {
 
 
 
-ConfigurationData::PerReceiverData::PerReceiverData(TxData& txData, StateDistSymbols& distSymbolsDest, size_t const beginPrecomputeRange, size_t const endPrecomputeRange)
+ConfigurationData::PerReceiverData::PerReceiverData(SenderTxData& txData, StateDistSymbols& distSymbolsDest, size_t const beginPrecomputeRange, size_t const endPrecomputeRange)
   : txData(txData)
   , distSymbolsDest(distSymbolsDest)
   , nmh(txData.currentTx,txData.distSymbolsSrc,distSymbolsDest)
@@ -94,10 +147,7 @@ klee::ref<klee::Expr> ConfigurationData::PerReceiverData::operator[](size_t inde
   return expr;
 }
 
-std::string ConfigurationData::TxData::makeSpecialName(size_t const currentTx, net::Node const node) {
-  return std::string("tx") + llvm::utostr(currentTx) + "(node" + llvm::itostr(node.id) + ")";
-}
-ConfigurationData::TxData::ConList const& ConfigurationData::PerReceiverData::computeNewReceiverConstraints() { // result already translated!
+ConfigurationData::ConList const& ConfigurationData::PerReceiverData::computeNewReceiverConstraints() { // result already translated!
   if (!constraintsComputed) {
     constraintsComputed = true;
     assert(receiverConstraints.empty() && "Garbate data in our constraints buffer.");
@@ -160,8 +210,8 @@ ConfigurationData::~ConfigurationData() {
   if (txData)
     delete txData;
 }
-ConfigurationData::TxData& ConfigurationData::transmissionProperties(std::vector<net::DataAtomHolder> const& data) {
-  updateTxData(data);
+SenderTxData& ConfigurationData::transmissionProperties(std::vector<net::DataAtomHolder> const& data) {
+  updateSenderTxData(data);
   return *txData;
 }
 
@@ -173,12 +223,12 @@ void ConfigurationData::configureState(klee::ExecutionState& state, KleeNet& kle
   }
 }
 
-void ConfigurationData::updateTxData(std::vector<net::DataAtomHolder> const& data) {
+void ConfigurationData::updateSenderTxData(std::vector<net::DataAtomHolder> const& data) {
   size_t const ctx = forState.getCompletedTransmissions() + 1;
   if (txData && (txData->currentTx != ctx)) {
-    txData->~TxData();
-    txData = new(txData) TxData(*this,ctx,distSymbols,data);
+    txData->~SenderTxData();
+    txData = new(txData) SenderTxData(*this,ctx,distSymbols,data);
   } else {
-    txData = new TxData(*this,ctx,distSymbols,data);
+    txData = new SenderTxData(*this,ctx,distSymbols,data);
   }
 }

@@ -68,7 +68,7 @@ void TransmitHandler::handleTransmission(PacketInfo const& pi, net::BasicState* 
   DD::cout << "| " << "Involved states: " << &sender << " ---> " << &receiver << DD::endl;
   ConfigurationData::PerReceiverData receiverData(
       sender.configurationData->self().transmissionProperties(data)
-    , receiver.configurationData->self().distSymbols
+    , receiver.configurationData->self()
     , 0, pi.length // precomputation of symbols
   );
   klee::ObjectState const* oseDest = receiver.addressSpace.findObject(pi.destMo);

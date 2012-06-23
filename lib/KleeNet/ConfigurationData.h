@@ -20,9 +20,6 @@
 
 #include "klee/util/ExprVisitor.h"
 
-#include <sstream>
-#include <tr1/type_traits>
-
 namespace klee {
   class ExecutionState;
   class ConstraintManager;
@@ -53,26 +50,28 @@ namespace kleenet {
       LazySymbolTranslator::TxMap const& symbolTable() const;
   };
 
-
-  template <typename BGraph, typename Key> class ExtractReadEdgesVisitor : public klee::ExprVisitor { // cheap construction (depends on Key copy-construction)
-    private:
-      BGraph& bg;
-      Key key;
-    protected:
-      Action visitRead(klee::ReadExpr const& re) {
-        bg.addUndirectedEdge(key,re.updates.root);
-        return Action::skipChildren();
-      }
-    public:
-      ExtractReadEdgesVisitor(BGraph& bg, Key key)
-        : bg(bg)
-        , key(key) {
-      }
-  };
-
   class ConstraintsGraph { // constant-time construction (but sizeable number of mallocs)
+    public:
+      struct Constraint {
+        typedef klee::ref<klee::Expr> Expr;
+        typedef size_t SenderId;
+        static SenderId const INVALID = static_cast<SenderId>(-1);
+        Expr expr;
+        SenderId senderId;
+        Constraint(klee::ref<klee::Expr> expr, size_t senderId)
+          : expr(expr), senderId(senderId) {}
+        Constraint()
+          : expr(), senderId(INVALID) {}
+        bool operator<(Constraint const& with) const {
+          return expr < with.expr;
+        }
+        bool operator==(Constraint const& with) const {
+          return expr == with.expr;
+        }
+      };
+      typedef std::vector<Constraint> ConstraintList;
     private:
-      typedef bg::Graph<bg::Props<klee::ref<klee::Expr>,klee::Array const*,net::util::UncontinuousDictionary,net::util::UncontinuousDictionary> > BGraph;
+      typedef bg::Graph<bg::Props<Constraint,klee::Array const*,net::util::UncontinuousDictionary,net::util::UncontinuousDictionary> > BGraph;
       BGraph bGraph;
       klee::ConstraintManager& cm;
       size_t knownConstraints;
@@ -84,15 +83,16 @@ namespace kleenet {
         , knownConstraints(0) {
       }
       template <typename ArrayContainer>
-      std::vector<klee::ref<klee::Expr> > eval(ArrayContainer const request) {
+      ConstraintList eval(ArrayContainer const request) {
         updateGraph();
-        std::vector<klee::ref<klee::Expr> > needConstrs;
+        std::vector<Constraint> needConstrs;
         bGraph.search(request,BGraph::IGNORE,&needConstrs);
         return needConstrs;
       }
   };
 
   class SenderTxData;
+  class ReceivedConstraints;
 
   class ConfigurationData : public ConfigurationDataBase { // constant-time construction (but sizeable number of mallocs)
     public:
@@ -103,7 +103,7 @@ namespace kleenet {
       class PerReceiverData {
         private:
           SenderTxData& txData;
-          StateDistSymbols& distSymbolsDest;
+          ConfigurationData& receiverConfig;
           NameManglerHolder nmh;
           ReadTransformator rt;
           bool constraintsComputed;
@@ -111,7 +111,7 @@ namespace kleenet {
         public:
           std::string const& specialTxName;
         public:
-          PerReceiverData(SenderTxData& txData, StateDistSymbols& distSymbolsDest, size_t const beginPrecomputeRange, size_t const endPrecomputeRange);
+          PerReceiverData(SenderTxData& txData, ConfigurationData& receiverConfig, size_t const beginPrecomputeRange, size_t const endPrecomputeRange);
           klee::ref<klee::Expr> operator[](size_t index);
           ConList const& computeNewReceiverConstraints();
         private:
@@ -137,6 +137,7 @@ namespace kleenet {
       };
     private:
       SenderTxData* txData;
+      ReceivedConstraints& receivedConstraints;
       void updateSenderTxData(std::vector<net::DataAtomHolder> const& data);
     public:
       ConfigurationData(klee::ExecutionState& state, net::Node src);

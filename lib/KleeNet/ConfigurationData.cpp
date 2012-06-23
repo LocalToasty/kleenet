@@ -9,57 +9,81 @@
 #include "klee_headers/MemoryManager.h"
 #include "klee_headers/Common.h"
 
+#include <tr1/unordered_set>
+#include <tr1/unordered_map>
+#include <sstream>
+
+#include "net/util/debug.h"
+#include "kexPPrinter.h"
+
+#define DD net::DEBUG<net::debug::slack>
 
 namespace kleenet {
 
-      class SenderTxData { // linear-time construction (linear in packet length)
-        friend class ConfigurationData;
-        friend class PerReceiverData;
-        private:
-          size_t const currentTx;
-          std::set<klee::Array const*> senderSymbols;
-          ConfigurationData& cd;
-          StateDistSymbols& distSymbolsSrc;
-          typedef ConfigurationData::ConList ConList;
-          ConList const seq;
-          bool constraintsComputed;
-          ConList senderConstraints; // untranslated!
-          bool senderReflexiveArraysComputed;
-          bool allowMorePacketSymbols; // once this flipps to false operator[] will be forbidden to find additional symbols in the packet
-        public:
-          std::string const specialTxName;
-        private:
+  class SenderTxData { // linear-time construction (linear in packet length)
+    friend class ConfigurationData;
+    friend class PerReceiverData;
+    private:
+      size_t const currentTx;
+      std::set<klee::Array const*> senderSymbols;
+      ConfigurationData& cd;
+      StateDistSymbols& distSymbolsSrc;
+      typedef ConfigurationData::ConList ConList;
+      ConList const seq;
+      bool constraintsComputed;
+      ConstraintsGraph::ConstraintList senderConstraints; // untranslated!
+      bool senderReflexiveArraysComputed;
+      bool allowMorePacketSymbols; // once this flipps to false operator[] will be forbidden to find additional symbols in the packet
+    public:
+      std::string const specialTxName;
+    private:
 
-          template <typename T, typename It, typename Op>
-          static std::vector<T> transform(It begin, It end, unsigned size, Op const& op, T /* type inference */) { // rvo takes care of us :)
-            std::vector<T> v(size);
-            std::transform(begin,end,v.begin(),op);
-            return v;
-          }
-        public:
-          SenderTxData(ConfigurationData& cd, size_t currentTx, StateDistSymbols& distSymbolsSrc, std::vector<net::DataAtomHolder> const& data)
-            : currentTx(currentTx)
-            , senderSymbols()
-            , cd(cd)
-            , distSymbolsSrc(distSymbolsSrc)
-            , seq(transform(data.begin(),data.end(),data.size(),dataAtomToExpr,klee::ref<klee::Expr>()/* type inference */))
-            , constraintsComputed(false)
-            , senderConstraints()
-            , senderReflexiveArraysComputed(false)
-            , allowMorePacketSymbols(true)
-            , specialTxName(std::string("tx") + llvm::utostr(currentTx) + "(node" + llvm::itostr(distSymbolsSrc.node.id) + ")")
-            {
-          }
-          ConList const& computeSenderConstraints() {
-            if (!constraintsComputed) {
-              allowMorePacketSymbols = false;
-              constraintsComputed = true;
-              assert(senderConstraints.empty() && "Garbate data in our sender's constraints buffer.");
-              senderConstraints = cd.cg.eval(senderSymbols);
-            }
-            return senderConstraints;
-          }
-      };
+      template <typename T, typename It, typename Op>
+      static std::vector<T> transform(It begin, It end, unsigned size, Op const& op, T /* type inference */) { // rvo takes care of us :)
+        std::vector<T> v(size);
+        std::transform(begin,end,v.begin(),op);
+        return v;
+      }
+    public:
+      SenderTxData(ConfigurationData& cd, size_t currentTx, StateDistSymbols& distSymbolsSrc, std::vector<net::DataAtomHolder> const& data)
+        : currentTx(currentTx)
+        , senderSymbols()
+        , cd(cd)
+        , distSymbolsSrc(distSymbolsSrc)
+        , seq(transform(data.begin(),data.end(),data.size(),dataAtomToExpr,klee::ref<klee::Expr>()/* type inference */))
+        , constraintsComputed(false)
+        , senderConstraints()
+        , senderReflexiveArraysComputed(false)
+        , allowMorePacketSymbols(true)
+        , specialTxName(std::string("tx") + llvm::utostr(currentTx) + "(node" + llvm::itostr(distSymbolsSrc.node.id) + ")")
+        {
+      }
+      ConstraintsGraph::ConstraintList const& computeSenderConstraints() {
+        if (!constraintsComputed) {
+          allowMorePacketSymbols = false;
+          constraintsComputed = true;
+          assert(senderConstraints.empty() && "Garbate data in our sender's constraints buffer.");
+          senderConstraints = cd.cg.eval(senderSymbols);
+        }
+        return senderConstraints;
+      }
+  };
+
+  template <typename BGraph, typename Key> class ExtractReadEdgesVisitor : public klee::ExprVisitor { // cheap construction (depends on Key copy-construction)
+    private:
+      BGraph& bg;
+      Key key;
+    protected:
+      Action visitRead(klee::ReadExpr const& re) {
+        bg.addUndirectedEdge(key,re.updates.root);
+        return Action::skipChildren();
+      }
+    public:
+      ExtractReadEdgesVisitor(BGraph& bg, Key key)
+        : bg(bg)
+        , key(key) {
+      }
+  };
 }
 
 using namespace kleenet;
@@ -107,10 +131,9 @@ LazySymbolTranslator::TxMap const& ReadTransformator::symbolTable() const {
 
 
 void ConstraintsGraph::updateGraph() {
-  typedef klee::ConstraintManager::constraints_ty Vec;
-  bGraph.addNodes(cm.begin()+knownConstraints,cm.end(),cm.size()-knownConstraints);
-  for (Vec::const_iterator it = cm.begin()+knownConstraints, end = cm.end(); it != end; ++it) {
-    ExtractReadEdgesVisitor<BGraph,Vec::value_type>(bGraph,*it).visit(*it);
+  for (size_t i = knownConstraints, end = cm.size(); i != end; ++i) {
+    Constraint const c(cm.begin()[i],i);
+    ExtractReadEdgesVisitor<BGraph,Constraint>(bGraph,c).visit(c.expr);
   }
   knownConstraints = cm.size();
 }
@@ -118,11 +141,10 @@ void ConstraintsGraph::updateGraph() {
 
 
 
-
-ConfigurationData::PerReceiverData::PerReceiverData(SenderTxData& txData, StateDistSymbols& distSymbolsDest, size_t const beginPrecomputeRange, size_t const endPrecomputeRange)
+ConfigurationData::PerReceiverData::PerReceiverData(SenderTxData& txData, ConfigurationData& receiverConfig, size_t const beginPrecomputeRange, size_t const endPrecomputeRange)
   : txData(txData)
-  , distSymbolsDest(distSymbolsDest)
-  , nmh(txData.currentTx,txData.distSymbolsSrc,distSymbolsDest)
+  , receiverConfig(receiverConfig)
+  , nmh(txData.currentTx,txData.distSymbolsSrc,receiverConfig.distSymbols)
   , rt(nmh.mangler,txData.seq,&(txData.senderSymbols))
   , constraintsComputed(false)
   , receiverConstraints()
@@ -147,18 +169,25 @@ klee::ref<klee::Expr> ConfigurationData::PerReceiverData::operator[](size_t inde
   return expr;
 }
 
+namespace kleenet {
+  struct ReceivedConstraints {
+    std::tr1::unordered_map<net::NodeId,std::tr1::unordered_set<ConstraintsGraph::Constraint::SenderId> > knowns;
+  };
+}
+
 ConfigurationData::ConList const& ConfigurationData::PerReceiverData::computeNewReceiverConstraints() { // result already translated!
   if (!constraintsComputed) {
     constraintsComputed = true;
     assert(receiverConstraints.empty() && "Garbate data in our constraints buffer.");
-    std::vector<klee::ref<klee::Expr> > const& senderConstraints = txData.computeSenderConstraints();
-    receiverConstraints.resize(senderConstraints.size());
-    std::transform<std::vector<klee::ref<klee::Expr> >::const_iterator, std::vector<klee::ref<klee::Expr> >::iterator, ReadTransformator&>(
-        senderConstraints.begin()
-      , senderConstraints.end()
-      , receiverConstraints.begin()
-      , rt
-    );
+    ConstraintsGraph::ConstraintList const& senderConstraints = txData.computeSenderConstraints();
+    for (ConstraintsGraph::ConstraintList::const_iterator it = senderConstraints.begin(), end = senderConstraints.end(); it != end; ++it) {
+      if (receiverConfig.receivedConstraints.knowns[txData.distSymbolsSrc.node.id].insert(it->senderId).second) // bool second == true, indicates successful insertion
+        receiverConstraints.push_back(rt(it->expr));
+      else {
+        DD::cout << "| OMITTING constraint transmission of:" << std::endl;
+        DD::cout << "| "; pprint(DD(),it->expr,"| ");
+      }
+    }
   }
   return receiverConstraints;
 }
@@ -189,7 +218,7 @@ ConfigurationData::PerReceiverData::NewSymbols ConfigurationData::PerReceiverDat
   }
   for (LazySymbolTranslator::TxMap::const_iterator it = rt.symbolTable().begin(), end = rt.symbolTable().end(); it != end; ++it) {
     if (it->first != it->second)
-      result.push_back(GeneratedSymbolInformation(&distSymbolsDest,it->first,it->second));
+      result.push_back(GeneratedSymbolInformation(&(receiverConfig.distSymbols),it->first,it->second));
   }
   return result;
 }
@@ -204,9 +233,12 @@ ConfigurationData::ConfigurationData(klee::ExecutionState& state, net::Node src)
   : forState(state)
   , cg(state.constraints)
   , distSymbols(src)
-  , txData(0) {
+  , txData(0)
+  , receivedConstraints(*(new ReceivedConstraints()))
+  {
 }
 ConfigurationData::~ConfigurationData() {
+  delete &receivedConstraints;
   if (txData)
     delete txData;
 }

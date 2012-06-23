@@ -145,8 +145,8 @@ namespace kleenet {
       , clusterCooja(new KleeNetSearcherAF<net::GenericClusterSearcher<net::CoojaSearcher> >(UseCoojaSearch,strategyAdapter))
       {
     }
-    void SearcherAutoRun::noop() const {
+    void SearcherAutoRun::linkme() {
+      static SearcherAutoRun const volatile searcherAutoRun;
     }
-    SearcherAutoRun const SearcherAutoRun::self;
   }
 }

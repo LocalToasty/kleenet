@@ -21,8 +21,7 @@ namespace kleenet {
         F lockStep, cooja, clusterLockStep, clusterCooja;
         SearcherAutoRun();
       public:
-        static SearcherAutoRun const self;
-        void noop() const; // stupid stupid linker!
+        static void linkme(); // stupid stupid linker!
     };
   }
 }

@@ -108,7 +108,7 @@ Executor::Executor(const InterpreterOptions &opts,
   , netInterpreterHandler(ih)
   , netSearcher(NULL)
   , kleeNet(kleenet) {
-  kleenet::searcherautorun::SearcherAutoRun::self.noop(); // stupid linker!
+  kleenet::searcherautorun::SearcherAutoRun::linkme(); // stupid linker!
 }
 
 Searcher* Executor::getNetSearcher() const {

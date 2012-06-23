@@ -17,13 +17,8 @@
 
 #include "kleenet/State.h"
 #include "net/util/BipartiteGraph.h"
-#include "net/util/Containers.h"
 
 #include "klee/util/ExprVisitor.h"
-
-#include "klee_headers/Memory.h"
-#include "klee_headers/MemoryManager.h"
-#include "klee_headers/Common.h"
 
 #include <sstream>
 #include <tr1/type_traits>
@@ -126,6 +121,7 @@ namespace kleenet {
             std::transform(begin,end,v.begin(),op);
             return v;
           }
+          static std::string makeSpecialName(size_t currentTx, net::Node node);
         public:
           TxData(ConfigurationData& cd, size_t currentTx, StateDistSymbols& distSymbolsSrc, std::vector<net::DataAtomHolder> const& data)
             : currentTx(currentTx)
@@ -137,7 +133,7 @@ namespace kleenet {
             , senderConstraints()
             , senderReflexiveArraysComputed(false)
             , allowMorePacketSymbols(true)
-            , specialTxName(std::string("tx") + llvm::utostr(currentTx) + "(node" + llvm::itostr(distSymbolsSrc.node.id) + ")")
+            , specialTxName(makeSpecialName(currentTx, distSymbolsSrc.node))
             {
           }
           ConList const& computeSenderConstraints() {
@@ -151,9 +147,8 @@ namespace kleenet {
           }
       };
       class PerReceiverData {
-        public:
-          TxData& txData;
         private:
+          TxData& txData;
           StateDistSymbols& distSymbolsDest;
           NameManglerHolder nmh;
           ReadTransformator rt;
@@ -161,20 +156,9 @@ namespace kleenet {
           typedef TxData::ConList ConList;
           ConList receiverConstraints; // already translated!
         public:
-          PerReceiverData(TxData& txData, StateDistSymbols& distSymbolsDest, size_t const beginPrecomputeRange, size_t const endPrecomputeRange)
-            : txData(txData)
-            , distSymbolsDest(distSymbolsDest)
-            , nmh(txData.currentTx,txData.distSymbolsSrc,distSymbolsDest)
-            , rt(nmh.mangler,txData.seq,&(txData.senderSymbols))
-            , constraintsComputed(false)
-            , receiverConstraints()
-          {
-            size_t const existingPacketSymbols = txData.senderSymbols.size();
-            for (size_t it = beginPrecomputeRange; it != endPrecomputeRange; ++it)
-              rt[it];
-            assert((txData.allowMorePacketSymbols || (existingPacketSymbols == txData.senderSymbols.size())) \
-              && "When precomuting all transmission atoms, we found completely new symbols, but we already assumed we were done with that.");
-          }
+          std::string const& specialTxName;
+        public:
+          PerReceiverData(TxData& txData, StateDistSymbols& distSymbolsDest, size_t const beginPrecomputeRange, size_t const endPrecomputeRange);
           klee::ref<klee::Expr> operator[](size_t index);
           ConList const& computeNewReceiverConstraints();
         private:
@@ -183,9 +167,7 @@ namespace kleenet {
             return rt.symbolTable();
           }
         public:
-          bool isNonConstTransmission() const {
-            return !(txData.senderSymbols.empty() && rt.symbolTable().empty());
-          }
+          bool isNonConstTransmission() const;
           struct GeneratedSymbolInformation {
             StateDistSymbols* belongsTo;
             klee::Array const* was;
@@ -201,7 +183,6 @@ namespace kleenet {
           NewSymbols newSymbols();
       };
     private:
-      std::tr1::aligned_storage<sizeof(TxData),std::tr1::alignment_of<TxData>::value>::type txData_;
       TxData* txData;
       void updateTxData(std::vector<net::DataAtomHolder> const& data);
     public:

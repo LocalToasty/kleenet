@@ -1,7 +1,10 @@
 #include "TransmitHandler.h"
 
 #include "ConfigurationData.h"
+
 #include "klee/ExecutionState.h"
+#include "klee_headers/Memory.h"
+#include "klee_headers/MemoryManager.h"
 
 #include "llvm/Support/CommandLine.h"
 
@@ -74,8 +77,8 @@ void TransmitHandler::handleTransmission(PacketInfo const& pi, net::BasicState* 
   bool const hasSymbolics = receiverData.isNonConstTransmission();
   if ((txSymbolConstructionChoice == FORCEALL) || (hasSymbolics && (txSymbolConstructionChoice == SYMBOLICS))) {
     klee::MemoryObject* const mo = receiver.getExecutor()->memory->allocate(pi.length,false,true,NULL);
-    mo->setName(receiverData.txData.specialTxName);
-    klee::Array const* const array = new klee::Array(receiverData.txData.specialTxName,mo->size);
+    mo->setName(receiverData.specialTxName);
+    klee::Array const* const array = new klee::Array(receiverData.specialTxName,mo->size);
     klee::ObjectState* const ose = new klee::ObjectState(mo,array);
     receiver.addressSpace.bindObject(mo,ose);
     receiver.addSymbolic(mo,array);

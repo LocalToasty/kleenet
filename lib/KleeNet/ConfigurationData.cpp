@@ -1,6 +1,13 @@
 #include "ConfigurationData.h"
 
+#include "klee_headers/Memory.h"
+#include "klee_headers/MemoryManager.h"
+
 #include "klee/ExecutionState.h"
+
+#include "klee_headers/Memory.h"
+#include "klee_headers/MemoryManager.h"
+#include "klee_headers/Common.h"
 
 using namespace kleenet;
 
@@ -56,12 +63,39 @@ void ConstraintsGraph::updateGraph() {
 }
 
 
+
+
+
+ConfigurationData::PerReceiverData::PerReceiverData(TxData& txData, StateDistSymbols& distSymbolsDest, size_t const beginPrecomputeRange, size_t const endPrecomputeRange)
+  : txData(txData)
+  , distSymbolsDest(distSymbolsDest)
+  , nmh(txData.currentTx,txData.distSymbolsSrc,distSymbolsDest)
+  , rt(nmh.mangler,txData.seq,&(txData.senderSymbols))
+  , constraintsComputed(false)
+  , receiverConstraints()
+  , specialTxName(txData.specialTxName)
+{
+  size_t const existingPacketSymbols = txData.senderSymbols.size();
+  for (size_t it = beginPrecomputeRange; it != endPrecomputeRange; ++it)
+    rt[it];
+  assert((txData.allowMorePacketSymbols || (existingPacketSymbols == txData.senderSymbols.size())) \
+    && "When precomuting all transmission atoms, we found completely new symbols, but we already assumed we were done with that.");
+}
+
+bool ConfigurationData::PerReceiverData::isNonConstTransmission() const {
+  return !(txData.senderSymbols.empty() && rt.symbolTable().empty());
+}
+
 klee::ref<klee::Expr> ConfigurationData::PerReceiverData::operator[](size_t index) {
   size_t const existingPacketSymbols = txData.senderSymbols.size();
   klee::ref<klee::Expr> expr = rt[index];
   assert((txData.allowMorePacketSymbols || (existingPacketSymbols == txData.senderSymbols.size())) \
     && "When translating an atom, we found completely new symbols, but we already assumed we were done with that.");
   return expr;
+}
+
+std::string ConfigurationData::TxData::makeSpecialName(size_t const currentTx, net::Node const node) {
+  return std::string("tx") + llvm::utostr(currentTx) + "(node" + llvm::itostr(node.id) + ")";
 }
 ConfigurationData::TxData::ConList const& ConfigurationData::PerReceiverData::computeNewReceiverConstraints() { // result already translated!
   if (!constraintsComputed) {
@@ -124,7 +158,7 @@ ConfigurationData::ConfigurationData(klee::ExecutionState& state, net::Node src)
 }
 ConfigurationData::~ConfigurationData() {
   if (txData)
-    txData->~TxData();
+    delete txData;
 }
 ConfigurationData::TxData& ConfigurationData::transmissionProperties(std::vector<net::DataAtomHolder> const& data) {
   updateTxData(data);
@@ -141,7 +175,10 @@ void ConfigurationData::configureState(klee::ExecutionState& state, KleeNet& kle
 
 void ConfigurationData::updateTxData(std::vector<net::DataAtomHolder> const& data) {
   size_t const ctx = forState.getCompletedTransmissions() + 1;
-  if (txData && (txData->currentTx != ctx))
+  if (txData && (txData->currentTx != ctx)) {
     txData->~TxData();
-  txData = new(&txData_) TxData(*this,ctx,distSymbols,data);
+    txData = new(txData) TxData(*this,ctx,distSymbols,data);
+  } else {
+    txData = new TxData(*this,ctx,distSymbols,data);
+  }
 }

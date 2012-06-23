@@ -4,6 +4,11 @@
 
 #include "klee/ExecutionState.h"
 #include "klee_headers/PTree.h"
+#include "klee_headers/Common.h"
+
+#include "net/util/debug.h"
+
+#define DD net::DEBUG<net::debug::slack>
 
 using namespace kleenet;
 
@@ -27,7 +32,13 @@ State* State::forceFork() {
 }
 
 void State::mergeConstraints(State& with) {
-  std::cerr << "WARNING: mergeConstraints not yet implemented!" << std::endl; // FIXME
+  if (configurationData && with.configurationData) {
+    ConfigurationData& myConfig = configurationData->self();
+    ConfigurationData& theirConfig = with.configurationData->self();
+    klee::klee_warning("mergeConstraints not yet implemented; configuration objects: %p -> %p",(void*)&myConfig,(void*)&theirConfig);
+  } else {
+    DD::cout << "bypassing mergeConstraints because at least one of the states doesn't have a configuration" << DD::endl;
+  }
 }
 
 Executor* State::getExecutor() const {

@@ -80,6 +80,7 @@ void TransmitHandler::handleTransmission(PacketInfo const& pi, net::BasicState* 
     mo->setName(receiverData.specialTxName);
     klee::Array const* const array = new klee::Array(receiverData.specialTxName,mo->size);
     klee::ObjectState* const ose = new klee::ObjectState(mo,array);
+    ose->initializeToZero();
     receiver.addressSpace.bindObject(mo,ose);
     receiver.addSymbolic(mo,array);
     ConfigurationData::PerReceiverData::GeneratedSymbolInformation(&(receiver.configurationData->self().distSymbols),array,array);

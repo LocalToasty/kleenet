@@ -53,6 +53,16 @@ namespace klee {
   class Expr;
 }
 
+namespace {
+  struct ConstraintAdder {
+    klee::ExecutionState& state;
+    ConstraintAdder(klee::ExecutionState& state) : state(state) {}
+    void operator()(klee::ref<klee::Expr> expr) const {
+      state.constraints.addConstraint(expr);
+    }
+  };
+}
+
 void TransmitHandler::handleTransmission(PacketInfo const& pi, net::BasicState* basicSender, net::BasicState* basicReceiver, std::vector<net::DataAtomHolder> const& data) const {
   size_t const currentTx = basicSender->getCompletedTransmissions() + 1;
   DD::cout << DD::endl
@@ -101,12 +111,8 @@ void TransmitHandler::handleTransmission(PacketInfo const& pi, net::BasicState* 
     DD::cout << "| "; pprint(sender.constraints);
     DD::cout << "| " << "Receiver Constraints:" << DD::endl;
     DD::cout << "| "; pprint(receiver.constraints);
-    DD::cout << "| " << "Listing OFFENDING constraints:" << DD::endl;
-    for (net::util::LoopConstIterator<std::vector<klee::ref<klee::Expr> > > it(receiverData.computeNewReceiverConstraints()); it.more(); it.next()) {
-      DD::cout << "| " << "adding constraint ... " << DD::endl;
-      DD::cout << "| "; pprint(*it);
-      receiver.constraints.addConstraint(*it);
-    }
+    DD::cout << "| " << "Processing OFFENDING constraints:" << DD::endl;
+    receiverData.transferNewReceiverConstraints(net::util::FunctorBuilder<klee::ref<klee::Expr>,net::util::DynamicFunctor>::build(ConstraintAdder(receiver)));
     DD::cout << "| " << "EOF Constraints." << DD::endl;
     DD::cout << "| " << "Listing OFFENDING symbols:" << DD::endl;
     ConfigurationData::PerReceiverData::NewSymbols const newSymbols = receiverData.newSymbols();

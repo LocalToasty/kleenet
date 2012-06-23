@@ -147,7 +147,6 @@ ConfigurationData::PerReceiverData::PerReceiverData(SenderTxData& txData, Config
   , nmh(txData.currentTx,txData.distSymbolsSrc,receiverConfig.distSymbols)
   , rt(nmh.mangler,txData.seq,&(txData.senderSymbols))
   , constraintsComputed(false)
-  , receiverConstraints()
   , specialTxName(txData.specialTxName)
 {
   size_t const existingPacketSymbols = txData.senderSymbols.size();
@@ -175,21 +174,21 @@ namespace kleenet {
   };
 }
 
-ConfigurationData::ConList const& ConfigurationData::PerReceiverData::computeNewReceiverConstraints() { // result already translated!
+void ConfigurationData::PerReceiverData::transferNewReceiverConstraints(net::util::DynamicFunctor<klee::ref<klee::Expr> > const& transfer) { // result already translated!
   if (!constraintsComputed) {
     constraintsComputed = true;
-    assert(receiverConstraints.empty() && "Garbate data in our constraints buffer.");
     ConstraintsGraph::ConstraintList const& senderConstraints = txData.computeSenderConstraints();
     for (ConstraintsGraph::ConstraintList::const_iterator it = senderConstraints.begin(), end = senderConstraints.end(); it != end; ++it) {
-      if (receiverConfig.receivedConstraints.knowns[txData.distSymbolsSrc.node.id].insert(it->senderId).second) // bool second == true, indicates successful insertion
-        receiverConstraints.push_back(rt(it->expr));
-      else {
+      if (receiverConfig.receivedConstraints.knowns[txData.distSymbolsSrc.node.id].insert(it->senderId).second) { // bool second == true, indicates successful insertion
+        DD::cout << "| " << "adding constraint ... " << DD::endl;
+        DD::cout << "| "; pprint(DD(),rt(it->expr),"| ");
+        transfer(rt(it->expr));
+      } else {
         DD::cout << "| OMITTING constraint transmission of:" << std::endl;
         DD::cout << "| "; pprint(DD(),it->expr,"| ");
       }
     }
   }
-  return receiverConstraints;
 }
 std::vector<std::pair<klee::Array const*,klee::Array const*> > ConfigurationData::PerReceiverData::additionalSenderOnlyConstraints() {
   std::vector<std::pair<klee::Array const*,klee::Array const*> > senderOnlyConstraints;

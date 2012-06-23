@@ -17,6 +17,7 @@
 
 #include "kleenet/State.h"
 #include "net/util/BipartiteGraph.h"
+#include "net/util/Type.h"
 
 #include "klee/util/ExprVisitor.h"
 
@@ -107,13 +108,12 @@ namespace kleenet {
           NameManglerHolder nmh;
           ReadTransformator rt;
           bool constraintsComputed;
-          ConList receiverConstraints; // already translated!
         public:
           std::string const& specialTxName;
         public:
           PerReceiverData(SenderTxData& txData, ConfigurationData& receiverConfig, size_t const beginPrecomputeRange, size_t const endPrecomputeRange);
           klee::ref<klee::Expr> operator[](size_t index);
-          ConList const& computeNewReceiverConstraints();
+          void transferNewReceiverConstraints(net::util::DynamicFunctor<klee::ref<klee::Expr> > const&);
         private:
           std::vector<std::pair<klee::Array const*,klee::Array const*> > additionalSenderOnlyConstraints();
           LazySymbolTranslator::TxMap const& symbolTable() const {

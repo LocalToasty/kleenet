@@ -131,11 +131,10 @@ LazySymbolTranslator::TxMap const& ReadTransformator::symbolTable() const {
 
 
 void ConstraintsGraph::updateGraph() {
-  for (size_t i = knownConstraints, end = cm.size(); i != end; ++i) {
-    Constraint const c(cm.begin()[i],i);
-    ExtractReadEdgesVisitor<BGraph,Constraint>(bGraph,c).visit(c.expr);
+  typedef klee::ConstraintManager::constraints_ty Vec;
+  for (Vec::const_iterator it = cm.begin(), end = cm.end(); it != end; ++it) {
+    ExtractReadEdgesVisitor<BGraph,Constraint>(bGraph,*it).visit(*it);
   }
-  knownConstraints = cm.size();
 }
 
 
@@ -168,25 +167,14 @@ klee::ref<klee::Expr> ConfigurationData::PerReceiverData::operator[](size_t inde
   return expr;
 }
 
-namespace kleenet {
-  struct ReceivedConstraints {
-    std::tr1::unordered_map<net::NodeId,std::tr1::unordered_set<ConstraintsGraph::Constraint::SenderId> > knowns;
-  };
-}
-
 void ConfigurationData::PerReceiverData::transferNewReceiverConstraints(net::util::DynamicFunctor<klee::ref<klee::Expr> > const& transfer) { // result already translated!
   if (!constraintsComputed) {
     constraintsComputed = true;
     ConstraintsGraph::ConstraintList const& senderConstraints = txData.computeSenderConstraints();
     for (ConstraintsGraph::ConstraintList::const_iterator it = senderConstraints.begin(), end = senderConstraints.end(); it != end; ++it) {
-      if (receiverConfig.receivedConstraints.knowns[txData.distSymbolsSrc.node.id].insert(it->senderId).second) { // bool second == true, indicates successful insertion
-        DD::cout << "| " << "adding constraint ... " << DD::endl;
-        DD::cout << "| "; pprint(DD(),rt(it->expr),"| ");
-        transfer(rt(it->expr));
-      } else {
-        DD::cout << "| OMITTING constraint transmission of:" << std::endl;
-        DD::cout << "| "; pprint(DD(),it->expr,"| ");
-      }
+      DD::cout << "| " << "adding constraint ... " << DD::endl;
+      DD::cout << "| "; pprint(DD(),rt(*it),"| ");
+      transfer(rt(*it));
     }
   }
 }
@@ -233,11 +221,9 @@ ConfigurationData::ConfigurationData(klee::ExecutionState& state, net::Node src)
   , cg(state.constraints)
   , distSymbols(src)
   , txData(0)
-  , receivedConstraints(*(new ReceivedConstraints()))
   {
 }
 ConfigurationData::~ConfigurationData() {
-  delete &receivedConstraints;
   if (txData)
     delete txData;
 }

@@ -53,35 +53,18 @@ namespace kleenet {
 
   class ConstraintsGraph { // constant-time construction (but sizeable number of mallocs)
     public:
-      struct Constraint {
-        typedef klee::ref<klee::Expr> Expr;
-        typedef size_t SenderId;
-        static SenderId const INVALID = static_cast<SenderId>(-1);
-        Expr expr;
-        SenderId senderId;
-        Constraint(klee::ref<klee::Expr> expr, size_t senderId)
-          : expr(expr), senderId(senderId) {}
-        Constraint()
-          : expr(), senderId(INVALID) {}
-        bool operator<(Constraint const& with) const {
-          return expr < with.expr;
-        }
-        bool operator==(Constraint const& with) const {
-          return expr == with.expr;
-        }
-      };
+      typedef klee::ref<klee::Expr> Constraint;
       typedef std::vector<Constraint> ConstraintList;
     private:
       typedef bg::Graph<bg::Props<Constraint,klee::Array const*,net::util::UncontinuousDictionary,net::util::UncontinuousDictionary> > BGraph;
       BGraph bGraph;
       klee::ConstraintManager& cm;
-      size_t knownConstraints;
       void updateGraph();
     public:
       ConstraintsGraph(klee::ConstraintManager& cm)
         : bGraph()
         , cm(cm)
-        , knownConstraints(0) {
+        {
       }
       template <typename ArrayContainer>
       ConstraintList eval(ArrayContainer const request) {
@@ -93,7 +76,6 @@ namespace kleenet {
   };
 
   class SenderTxData;
-  class ReceivedConstraints;
 
   class ConfigurationData : public ConfigurationDataBase { // constant-time construction (but sizeable number of mallocs)
     public:
@@ -137,7 +119,6 @@ namespace kleenet {
       };
     private:
       SenderTxData* txData;
-      ReceivedConstraints& receivedConstraints;
       void updateSenderTxData(std::vector<net::DataAtomHolder> const& data);
     public:
       ConfigurationData(klee::ExecutionState& state, net::Node src);

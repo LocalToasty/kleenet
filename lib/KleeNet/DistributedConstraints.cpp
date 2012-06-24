@@ -59,7 +59,11 @@ namespace kleenet {
         return name;
       }
       static std::string makeGlobalName(klee::Array const* buildFrom, size_t forTx, net::Node src) {
-        return std::string() + buildFrom->name + "{node" + llvm::itostr(src.id) + ":tx" + llvm::utostr(forTx) + "}";
+        std::string txText = "";
+        if (forTx) // if forTx is zero it's pseudo-transmission (e.g. on termination when contstraints are merged)
+          txText = ":tx" + llvm::utostr(forTx);
+        return std::string() + buildFrom->name + "{node" + llvm::itostr(src.id) + txText + "}";
+
       }
       DistributedArray(StateDistSymbols* state, klee::Array const* buildFrom, size_t forTx, net::Node src)
         : klee::Array(taint(state,makeGlobalName(buildFrom,forTx,src)), buildFrom->size)

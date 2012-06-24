@@ -62,7 +62,7 @@ namespace kleenet {
         if (!constraintsComputed) {
           allowMorePacketSymbols = false;
           constraintsComputed = true;
-          assert(senderConstraints.empty() && "Garbate data in our sender's constraints buffer.");
+          assert(senderConstraints.empty() && "Garbage data in our sender's constraints buffer.");
           senderConstraints = cd.cg.eval(senderSymbols);
         }
         return senderConstraints;
@@ -108,8 +108,10 @@ ReadTransformator::Action ReadTransformator::visitRead(klee::ReadExpr const& re)
 
 ReadTransformator::ReadTransformator(NameMangler& mangler
                  , Seq const& seq
-                 , LazySymbolTranslator::Symbols* preImageSymbols)
-  : lst(mangler,preImageSymbols)
+                 , LazySymbolTranslator::Symbols* preImageSymbols
+                 , LazySymbolTranslator::Symbols* translatedSymbols
+                 )
+  : lst(mangler,preImageSymbols,translatedSymbols)
   , seq(seq)
   , dynamicLookup(seq.size(),klee::ref<klee::Expr>()) {
 }

@@ -73,7 +73,10 @@ klee::Array const* LazySymbolTranslator::operator()(klee::Array const* array) {
   if (preImageSymbols)
     preImageSymbols->insert(array);
   klee::Array const*& it = txMap[array];
-  if (!it)
+  if (!it) {
     it = mangle(array);
+    if (translatedSymbols)
+      translatedSymbols->insert(it);
+  }
   return it;
 }

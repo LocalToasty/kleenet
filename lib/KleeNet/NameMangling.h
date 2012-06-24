@@ -49,10 +49,13 @@ namespace kleenet {
     protected:
       TxMap txMap;
       Symbols* const preImageSymbols;
+      Symbols* const translatedSymbols;
     public:
-      LazySymbolTranslator(NameMangler& mangle, Symbols* const preImageSymbols = NULL)
+      LazySymbolTranslator(NameMangler& mangle, Symbols* const preImageSymbols = NULL, Symbols* const translatedSymbols = NULL)
         : mangle(mangle)
-        , preImageSymbols(preImageSymbols) {
+        , preImageSymbols(preImageSymbols)
+        , translatedSymbols(translatedSymbols)
+        {
       }
       klee::Array const* operator()(klee::Array const* array);
       TxMap const& symbolTable() const {

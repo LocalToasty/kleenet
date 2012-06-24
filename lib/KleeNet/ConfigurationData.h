@@ -44,7 +44,9 @@ namespace kleenet {
     public:
       ReadTransformator(NameMangler& mangler
                        , Seq const& seq
-                       , LazySymbolTranslator::Symbols* preImageSymbols = NULL);
+                       , LazySymbolTranslator::Symbols* preImageSymbols = NULL
+                       , LazySymbolTranslator::Symbols* translatedSymbols = NULL
+                       );
 
       klee::ref<klee::Expr> const operator[](unsigned const index);
       klee::ref<klee::Expr> const operator()(klee::ref<klee::Expr> const expr);

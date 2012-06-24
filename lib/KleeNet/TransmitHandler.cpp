@@ -22,7 +22,7 @@ namespace kleenet {
 
   template <typename T>
   void pprint(T const& t) {
-    pprint(DD(),t,"| ");
+    pprint(DD(),t,"|   ");
   }
 
 }
@@ -66,9 +66,9 @@ namespace {
 void TransmitHandler::handleTransmission(PacketInfo const& pi, net::BasicState* basicSender, net::BasicState* basicReceiver, std::vector<net::DataAtomHolder> const& data) const {
   size_t const currentTx = basicSender->getCompletedTransmissions() + 1;
   DD::cout << DD::endl
-           << "+------------------------------------------------------------------------------+" << DD::endl
-           << "| STARTING TRANSMISSION #" << currentTx << " from node `" << pi.src.id << "' to `" << pi.dest.id << "'.                               |" << DD::endl
-           << "|                                                                              |" << DD::endl;
+           << "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓" << DD::endl
+           << "┃ STARTING TRANSMISSION #" << currentTx << " from node `" << pi.src.id << "' to `" << pi.dest.id << "'.                               ┃" << DD::endl
+           << "┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩" << DD::endl;
   klee::ExecutionState& sender = static_cast<klee::ExecutionState&>(*basicSender);
   klee::ExecutionState& receiver = static_cast<klee::ExecutionState&>(*basicReceiver);
 
@@ -105,12 +105,12 @@ void TransmitHandler::handleTransmission(PacketInfo const& pi, net::BasicState* 
       wosDest->write(pi.offset + i, receiverData[i]);
     }
   }
-  DD::cout << "| " << "! Using the following transmission context: " << &receiverData << DD::endl;
+  DD::cout << "| " << "Using the following transmission context: " << &receiverData << DD::endl;
   if (hasSymbolics) {
     DD::cout << "| " << "Sender Constraints:" << DD::endl;
-    DD::cout << "| "; pprint(sender.constraints);
+    DD::cout << "|   "; pprint(sender.constraints);
     DD::cout << "| " << "Receiver Constraints:" << DD::endl;
-    DD::cout << "| "; pprint(receiver.constraints);
+    DD::cout << "|   "; pprint(receiver.constraints);
     DD::cout << "| " << "Processing OFFENDING constraints:" << DD::endl;
     receiverData.transferNewReceiverConstraints(net::util::FunctorBuilder<klee::ref<klee::Expr>,net::util::DynamicFunctor>::build(ConstraintAdder(receiver)));
     DD::cout << "| " << "EOF Constraints." << DD::endl;
@@ -123,15 +123,15 @@ void TransmitHandler::handleTransmission(PacketInfo const& pi, net::BasicState* 
       if (isOnSender) {
         DD::cout << "| " << "    -- reflexive: " << it->was->name << " == " << it->translated->name << DD::endl;
         klee::ref<klee::Expr> const eq = StateDistSymbols::buildEquality(it->was,it->translated);
-        DD::cout << "| "; pprint(eq);
+        DD::cout << "|   "; pprint(eq);
         sender.constraints.addConstraint(eq);
       }
     }
   } else {
     DD::cout << "| " << "All data in tx is constant. Bypassing Graph construction." << DD::endl;
   }
-  DD::cout << "|                                                                              |" << DD::endl
-           << "| EOF TRANSMISSION #" << currentTx << "                                                          |" << DD::endl
-           << "+------------------------------------------------------------------------------+" << DD::endl
+  DD::cout << "│                                                                              │" << DD::endl
+           << "│ EOF TRANSMISSION #" << currentTx << "                                                          │" << DD::endl
+           << "└──────────────────────────────────────────────────────────────────────────────┘" << DD::endl
            << DD::endl;
 }

@@ -14,7 +14,7 @@
 #include <vector>
 #include <deque>
 
-#include "net/util/Type.h"
+#include "net/util/Functor.h"
 #include "net/util/Containers.h"
 #include "net/util/SafeList.h"
 

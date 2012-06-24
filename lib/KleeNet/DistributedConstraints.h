@@ -31,6 +31,7 @@ namespace kleenet {
       net::Node const node;
 
       explicit StateDistSymbols(net::Node const node);
+      StateDistSymbols(StateDistSymbols const&);
       ~StateDistSymbols();
 
       // `inState` is allowed to coincide with `this`.

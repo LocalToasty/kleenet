@@ -14,16 +14,18 @@
 namespace kleenet {
   class KleeNet;
   class Executor;
+  class State;
+
   class ConfigurationData;
   struct ConfigurationDataBase { // used to figure out how to handle transmissions
     virtual ~ConfigurationDataBase() {}
     virtual ConfigurationData& self() = 0;
-    virtual ConfigurationDataBase* fork() const {
+    virtual ConfigurationDataBase* fork(State*) const {
       return 0;
     }
-    static ConfigurationDataBase* attemptFork(ConfigurationDataBase* from) {
+    static ConfigurationDataBase* attemptFork(ConfigurationDataBase* from, State* state) {
       if (from)
-        return from->fork();
+        return from->fork(state);
       return 0;
     }
   };
@@ -36,7 +38,7 @@ namespace kleenet {
     public:
       ConfigurationDataBase* configurationData;
       State() : net::BasicState(), executor(0), configurationData(0) {}
-      State(State const& from) : net::BasicState(from), executor(from.executor), configurationData(ConfigurationDataBase::attemptFork(from.configurationData)) {}
+      State(State const& from) : net::BasicState(from), executor(from.executor), configurationData(ConfigurationDataBase::attemptFork(from.configurationData,this)) {}
       ~State() {
         if (configurationData)
           delete configurationData;

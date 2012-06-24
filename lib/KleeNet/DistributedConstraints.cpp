@@ -10,7 +10,8 @@
 
 #include "net/util/debug.h"
 
-#include <map>
+#include <tr1/unordered_map>
+#include <tr1/unordered_set>
 
 #define DD net::DEBUG<net::debug::external1>
 
@@ -18,7 +19,7 @@ namespace kleenet {
   // A locator for an array object of a particluar distributed symbol for arbitrary states.
   struct DistributedSymbol {
     // TODO: in the future, we should have a more intelligent data structure here. Maps are uncool, as opposed to bowties.
-    std::map<StateDistSymbols const*,DistributedArray const*> of;
+    std::tr1::unordered_map<StateDistSymbols const*,DistributedArray const*> of;
     std::string const globalName;
     explicit DistributedSymbol(std::string const globalName) : of(), globalName(globalName) {}
     DistributedSymbol(DistributedSymbol const&); // not implemented
@@ -27,9 +28,14 @@ namespace kleenet {
   struct StateDistSymbols_impl {
     StateDistSymbols& parent;
     // Note that the keys in `knownArrays` are always pure klee::Array objects, never DistributedArray objects.
-    std::map<klee::Array const*,DistributedArray const*> knownArrays;
+    typedef std::tr1::unordered_map<klee::Array const*,DistributedArray const*> KnownArrays;
+    KnownArrays knownArrays;
+    // These are ALL DistributedArrays objects associated with this state (note that knownArrays may note contain those, if they don't correspond to a local klee::Array)
+    typedef std::tr1::unordered_set<DistributedArray const*> AllDistributedArrays;
+    AllDistributedArrays allDistributedArrays;
 
     StateDistSymbols_impl(StateDistSymbols& parent) : parent(parent), knownArrays() {}
+    StateDistSymbols_impl(StateDistSymbols_impl const& copyFrom, StateDistSymbols& parent);
 
     DistributedArray const& castOrMake(klee::Array const&, size_t);
     bool taintLocalSymbols() const;
@@ -59,25 +65,36 @@ namespace kleenet {
         : klee::Array(taint(state,makeGlobalName(buildFrom,forTx,src)), buildFrom->size)
         , metaSymbol(new DistributedSymbol(makeGlobalName(buildFrom,forTx,src)))
         {
+        state->pimpl.allDistributedArrays.insert(this);
         assert(!llvm::isa<DistributedArray>(*buildFrom));
         metaSymbol->of[state] = this;
-        DD::cout << "| ################### +Symbol[" << this << "] " << this->name << ", +MetaSymbol[" << &*metaSymbol << "] " << metaSymbol->globalName << "; built from " << buildFrom->name << DD::endl;
+        DD::cout << "| ############## [state " << state << "] +Symbol[" << this << "] " << this->name << ", +MetaSymbol[" << &*metaSymbol << "] " << metaSymbol->globalName << "; built from " << buildFrom->name << DD::endl;
       }
       DistributedArray(StateDistSymbols* state, DistributedArray const& from)
         : klee::Array(taint(state,from.metaSymbol->globalName),from.size) // note: this is not the copy-ctor!
         , metaSymbol(from.metaSymbol)
         {
+        state->pimpl.allDistributedArrays.insert(this);
         DistributedArray const*& slot = metaSymbol->of[state];
         assert(!slot);
         slot = this;
-        DD::cout << "| ################### +Symbol[" << this << "] " << this->name << DD::endl;
+        DD::cout << "| ############## [state " << state << "] +Symbol[" << this << "] " << this->name << DD::endl;
       }
   };
 }
 
 using namespace kleenet;
 
-StateDistSymbols::StateDistSymbols(net::Node const node) : pimpl(*(new StateDistSymbols_impl(*this))), node(node) {
+
+StateDistSymbols::StateDistSymbols(net::Node const node)
+  : pimpl(*(new StateDistSymbols_impl(*this)))
+  , node(node)
+  {
+}
+StateDistSymbols::StateDistSymbols(StateDistSymbols const& from)
+  : pimpl(*(new StateDistSymbols_impl(from.pimpl,*this)))
+  , node(from.node)
+  {
 }
 StateDistSymbols::~StateDistSymbols() {
   delete &pimpl;
@@ -85,6 +102,16 @@ StateDistSymbols::~StateDistSymbols() {
 
 bool StateDistSymbols_impl::taintLocalSymbols() const {
   return true;
+}
+
+StateDistSymbols_impl::StateDistSymbols_impl(StateDistSymbols_impl const& copyFrom, StateDistSymbols& parent)
+  : parent(parent)
+  , knownArrays(copyFrom.knownArrays)
+  , allDistributedArrays(copyFrom.allDistributedArrays)
+  {
+  for (AllDistributedArrays::const_iterator it = allDistributedArrays.begin(), end = allDistributedArrays.end(); it != end; ++it) {
+    (*it)->metaSymbol->of[&parent] = *it;
+  }
 }
 
 DistributedArray const& StateDistSymbols_impl::castOrMake(klee::Array const& from, size_t const forTx) {

@@ -223,10 +223,22 @@ ConfigurationData::ConfigurationData(klee::ExecutionState& state, net::Node src)
   , txData(0)
   {
 }
+ConfigurationData::ConfigurationData(ConfigurationData const& from, State* state)
+  : forState(*state)
+  , cg(static_cast<klee::ExecutionState*>(state)->constraints) // XXX dangerous upcast because ES may not exist yet, but cg only stores the reference, so cross your fingers XXX
+  , distSymbols(from.distSymbols) // !
+  , txData(0)
+  {
+}
 ConfigurationData::~ConfigurationData() {
   if (txData)
     delete txData;
 }
+ConfigurationData* ConfigurationData::fork(State* state) const {
+  DD::cout << "#### ConfigurationData::fork(" << state << ")" << DD::endl;
+  return new ConfigurationData(*this,state);
+}
+
 SenderTxData& ConfigurationData::transmissionProperties(std::vector<net::DataAtomHolder> const& data) {
   updateSenderTxData(data);
   return *txData;

@@ -120,6 +120,9 @@ namespace kleenet {
     private:
       SenderTxData* txData;
       void updateSenderTxData(std::vector<net::DataAtomHolder> const& data);
+      ConfigurationData(ConfigurationData const&); // not implemented
+      ConfigurationData(ConfigurationData const&,State*);
+      ConfigurationData* fork(State*) const;
     public:
       ConfigurationData(klee::ExecutionState& state, net::Node src);
       ~ConfigurationData();

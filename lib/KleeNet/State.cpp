@@ -1,10 +1,14 @@
 #include "kleenet/State.h"
 
 #include "NetExecutor.h"
+#include "ConfigurationData.h"
 
 #include "klee/ExecutionState.h"
 #include "klee_headers/PTree.h"
 #include "klee_headers/Common.h"
+
+#include <vector>
+#include <iterator>
 
 #include "net/util/debug.h"
 
@@ -36,6 +40,15 @@ void State::transferConstraints(State& with) {
     ConfigurationData& myConfig = configurationData->self();
     ConfigurationData& theirConfig = with.configurationData->self();
     klee::klee_warning("mergeConstraints not yet implemented; configuration objects: %p -> %p",(void*)&myConfig,(void*)&theirConfig);
+    std::vector<klee::Array const*> ownArrays;
+    myConfig.distSymbols.iterateArrays(
+      net::util::FunctorBuilder<klee::Array const*,net::util::DynamicFunctor,net::util::IterateOperator>::build(
+        std::back_inserter(ownArrays)
+      )
+    );
+    for (std::vector<klee::Array const*>::const_iterator it = ownArrays.begin(), end = ownArrays.end(); it != end; ++it) {
+      DD::cout << " I got array[" << *it << "] of name: " << (*it)->name << DD::endl;
+    }
   } else {
     DD::cout << "bypassing mergeConstraints because at least one of the states doesn't have a configuration (i.e. wasn't ever involved in a communication)" << DD::endl;
   }

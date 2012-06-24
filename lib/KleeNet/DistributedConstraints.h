@@ -10,6 +10,8 @@
 #pragma once
 
 #include "net/Node.h"
+#include "net/util/Functor.h"
+
 #include <cstddef>
 
 namespace klee {
@@ -36,6 +38,7 @@ namespace kleenet {
 
       // `inState` is allowed to coincide with `this`.
       klee::Array const* locate(klee::Array const* array, size_t forTx, StateDistSymbols* inState);
+      void iterateArrays(net::util::DynamicFunctor<klee::Array const*> const&) const;
 
       // utilities ...
       bool isDistributed(klee::Array const*) const;

@@ -133,6 +133,12 @@ klee::Array const* StateDistSymbols::locate(klee::Array const* const array, size
   return entry;
 }
 
+void StateDistSymbols::iterateArrays(net::util::DynamicFunctor<klee::Array const*> const& func) const {
+  for (StateDistSymbols_impl::AllDistributedArrays::const_iterator it = pimpl.allDistributedArrays.begin(), end = pimpl.allDistributedArrays.end(); it != end; ++it) {
+    func(*it);
+  }
+}
+
 bool StateDistSymbols::isDistributed(klee::Array const* array) const {
   return llvm::isa<DistributedArray const>(*array);
 }

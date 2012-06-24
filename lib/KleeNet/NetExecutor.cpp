@@ -70,10 +70,10 @@ namespace kleenet {
       }
       void operator()(klee::ExecutionState& state, std::vector<klee::ExecutionState*> const& appendix) const {
         for (std::vector<klee::ExecutionState*>::const_iterator it(appendix.begin()), end(appendix.end()); it != end; ++it) {
-          state.mergeConstraints(**it);
+          (*it)->transferConstraints(state);
         }
         for (std::vector<klee::ExecutionState*>::const_iterator it(appendix.begin()), end(appendix.end()); it != end; ++it) {
-          (*it)->mergeConstraints(state);
+          state.transferConstraints(**it);
         }
         if (!appendix.empty())
           e->netInterpreterHandler->incDScenariosExplored();

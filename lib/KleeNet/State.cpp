@@ -31,13 +31,13 @@ State* State::forceFork() {
   return ns;
 }
 
-void State::mergeConstraints(State& with) {
+void State::transferConstraints(State& with) {
   if (configurationData && with.configurationData) {
     ConfigurationData& myConfig = configurationData->self();
     ConfigurationData& theirConfig = with.configurationData->self();
     klee::klee_warning("mergeConstraints not yet implemented; configuration objects: %p -> %p",(void*)&myConfig,(void*)&theirConfig);
   } else {
-    DD::cout << "bypassing mergeConstraints because at least one of the states doesn't have a configuration" << DD::endl;
+    DD::cout << "bypassing mergeConstraints because at least one of the states doesn't have a configuration (i.e. wasn't ever involved in a communication)" << DD::endl;
   }
 }
 

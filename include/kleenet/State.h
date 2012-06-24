@@ -45,7 +45,7 @@ namespace kleenet {
       }
       virtual State* branch() = 0;
       State* forceFork();
-      void mergeConstraints(State&);
+      void transferConstraints(State&);
       Executor* getExecutor() const;
   };
 }

@@ -315,7 +315,8 @@ namespace kleenet {
             wos->write(i, srcOs->read8(i));
           }
           // merge with destination ha.state's constraints
-          siblingEs->mergeConstraints(*destEs);
+          siblingEs->transferConstraints(*destEs);
+          destEs->transferConstraints(*siblingEs);
           assert(++smit == sm->end() && "More than one ha.state on dest node");
           // invalidate mapping
           sm->invalidate();

@@ -233,10 +233,10 @@ SenderTxData& ConfigurationData::transmissionProperties(std::vector<net::DataAto
 }
 
 void ConfigurationData::configureState(klee::ExecutionState& state, KleeNet& kleenet) {
-  if ((!state.configurationData) || (&(static_cast<ConfigurationData&>(*state.configurationData).forState) != &state)) {
-    if (!state.configurationData)
+  if ((!state.configurationData) || (&(state.configurationData->self().forState) != &state)) {
+    if (state.configurationData)
       delete state.configurationData;
-    state.configurationData = new ConfigurationData(state,kleenet.getStateNode(state)); //shared pointer takes care of deletion
+    state.configurationData = new ConfigurationData(state,kleenet.getStateNode(state));
   }
 }
 

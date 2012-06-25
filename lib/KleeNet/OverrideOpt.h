@@ -5,8 +5,12 @@
 /* use like this
 
         OverrideChain()
-          .overrideOpt(executor_options::UseCexCache).withValue(false).onlyIf(Override_UseCexCache).override()
-          .passCRef(opts)
+          .overrideOpt(__OptionToOverride1__).withValue(__withValue1__).onlyIf(__overrideCondition1__).chain()
+          .overrideOpt(__OptionToOverride2__).withValue(__withValue2__).onlyIf(__overrideCondition2__).chain()
+          .overrideOpt(__OptionToOverride3__).withValue(__withValue3__).chain() <---- unconditional override
+          .passSomeCRef(__someValue__)
+
+  command chaining is fun
  */
 
 namespace kleenet {
@@ -100,11 +104,5 @@ namespace kleenet {
         return any;
       }
   };
-
-  template <typename ClOpt>
-  OverrideOpt<void,ClOpt,OverrideOptWith> overrideOpt(ClOpt& target) {
-    return OverrideOpt<void,ClOpt,OverrideOptWith>(target);
-  }
-
 
 }

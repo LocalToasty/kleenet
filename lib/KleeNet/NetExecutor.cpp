@@ -9,6 +9,7 @@
 #include "net/PacketCache.h"
 
 #include "NetUserSearcher.h"
+#include "OverrideOpt.h"
 
 #include <algorithm>
 #include <iostream>
@@ -44,6 +45,25 @@ namespace {
           clEnumValEnd
     ),
     llvm::cl::init(DTB_uniformTestCase)
+  );
+}
+
+namespace executor_options {
+  extern llvm::cl::opt<bool> UseCache;
+  extern llvm::cl::opt<bool> UseCexCache;
+}
+
+
+namespace {
+  llvm::cl::opt<bool> Override_UseCache(
+    "sde-override-cache",
+    llvm::cl::desc("Override KLEE caching. If manually set to =0, use KLEE default setting. This can cause critical errors! You have been warned."),
+    llvm::cl::init(true)
+  );
+  llvm::cl::opt<bool> Override_UseCexCache(
+    "sde-override-cex-cache",
+    llvm::cl::desc("Override KLEE cex caching. If manually set to =0, use KLEE default setting. This can cause critical errors! You have been warned."),
+    llvm::cl::init(true)
   );
 }
 
@@ -103,7 +123,12 @@ using namespace kleenet;
 
 Executor::Executor(const InterpreterOptions &opts,
                    InterpreterHandler *ih)
-  : klee::Executor(opts,ih)
+  : klee::Executor(
+        OverrideChain()
+          .overrideOpt(executor_options::UseCache).withValue(false).onlyIf(Override_UseCache).chain()
+          .overrideOpt(executor_options::UseCexCache).withValue(false).onlyIf(Override_UseCexCache).chain()
+          .passSomeCRef(opts)
+      , ih)
   , kleenet(this)
   , netInterpreterHandler(ih)
   , netSearcher(NULL)

@@ -83,7 +83,7 @@
 using namespace llvm;
 using namespace klee;
 
-namespace {
+namespace executor_options {
   cl::opt<bool>
   DumpStatesOnHalt("dump-states-on-halt",
                    cl::init(true));
@@ -256,6 +256,7 @@ namespace {
                  cl::desc("Optimize constant divides into add/shift/multiplies before passing to STP"),
                  cl::init(true));
 }
+using namespace executor_options;
 
 
 namespace klee {

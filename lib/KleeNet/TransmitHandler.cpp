@@ -34,8 +34,8 @@ namespace {
     FORCEALL
   };
   llvm::cl::opt<TxSymbolCreationParadigm>
-  txSymbolConstructionChoice("packet-symbol-construction"
-    , llvm::cl::desc("Choose for which kind of transmission to introduce individual packets. By default symbols of the form 'tx<<id>>(node<<node_id>>)' will be created for every packet that does not entirely consist of constants (i.e. has at least one symbolic). This is a KleeNet extension.")
+  txSymbolConstructionChoice("sde-packet-symbol-construction"
+    , llvm::cl::desc("Choose for which kind of transmission to introduce individual packets. By default symbols of the form 'tx<<id>>(node<<node_id>>)' will be created for every packet that does not entirely consist of constants (i.e. has at least one symbolic).")
     , llvm::cl::values(
         clEnumValN(BYPASS,"bypass","Bypass symbol construction alltogether. This option is useful, when the generated tests are of less importance, the actual packet data is irrelevant. Construction of these symbols is expensive, so it should be avoided if you are not interested.")
       , clEnumValN(SYMBOLICS,"symbolics","Construct packet symbols only for packets that contain any symbolic data. This is the default.")

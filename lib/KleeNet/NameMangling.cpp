@@ -13,8 +13,8 @@ namespace {
     , NMT_ALIASING
   };
   llvm::cl::opt<NameMangleType>
-  chosenNameMangleType("distributed-symbol-name-mangling"
-    , llvm::cl::desc("The name mangling algorithm to use (Aliasing by default). The Duplicating algorithm is faster but will produce a significant amount of false positives, while Aliasing prevents symbols to separate over time. This is a KleeNet extension.")
+  chosenNameMangleType("sde-distributed-symbol-name-mangling"
+    , llvm::cl::desc("The name mangling algorithm to use (Aliasing by default). The Duplicating algorithm is faster but will produce a significant amount of false positives, while Aliasing prevents symbols to separate over time.")
     , llvm::cl::values(clEnumValN(NMT_DUPLICATING
                                  , "duplicating"
                                  , "Duplicating NameMangler")

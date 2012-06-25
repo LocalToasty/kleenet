@@ -27,38 +27,38 @@ namespace {
 
 
   llvm::cl::opt<bool>
-  UseLockStepSearch("use-lockstep-search",
+  UseLockStepSearch("sde-use-lockstep-search",
                     llvm::cl::desc("Execute all states in a lock-step fashion (default)"));
 
   llvm::cl::opt<net::Time>
-  LockStepIncrement("lockstep-increment",
+  LockStepIncrement("sde-lockstep-increment",
                     llvm::cl::desc("Virtual time advance for lockstep searchers (default 1)"),
                     llvm::cl::init(1));
 
   llvm::cl::opt<bool>
-  UseCoojaSearch("use-cooja-search",
+  UseCoojaSearch("sde-use-cooja-search",
                  llvm::cl::desc("Execute all states by a simulated Cooja Searcher (default)"));
 
   llvm::cl::opt<bool>
-  UseLockStepClusterSearch("use-lockstep-cluster-search",
+  UseLockStepClusterSearch("sde-use-lockstep-cluster-search",
                            llvm::cl::desc("LockStepSearcher with support for clustering"));
 
   llvm::cl::opt<bool>
-  UseCoojaClusterSearch("use-cooja-cluster-search",
+  UseCoojaClusterSearch("sde-use-cooja-cluster-search",
                         llvm::cl::desc("CoojaSearcher with support for clustering"));
 
   llvm::cl::opt<unsigned>
-  ClusterInstructions("cluster-instructions",
+  ClusterInstructions("sde-cluster-instructions",
                     llvm::cl::desc("Number of instructions for which each cluster is executed repeatedly"),
                     llvm::cl::init(10000));
 
   llvm::cl::opt<bool>
-  UseFifoStrategy("fifo-strategy",
+  UseFifoStrategy("sde-fifo-strategy",
               llvm::cl::desc("Use fifo strategy to choose the next cluster"),
               llvm::cl::init(false));
 
   llvm::cl::opt<bool>
-  UseRandomStrategy("random-strategy",
+  UseRandomStrategy("sde-random-strategy",
               llvm::cl::desc("Use random strategy to choose the next cluster"),
               llvm::cl::init(false));
 }

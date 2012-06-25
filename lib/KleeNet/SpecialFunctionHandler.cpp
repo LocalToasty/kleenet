@@ -32,7 +32,7 @@
 
 namespace {
   llvm::cl::opt<bool>
-  DumpKleenetSfhCalls("dump-kleenet-sfh-calls",
+  DumpKleenetSfhCalls("sde-dump-kleenet-sfh-calls",
       llvm::cl::desc("This is a debug feature for interface code. If you enable this, all invocations of special function handlers will be dumped on standard out, prefixed by 'SFH'."));
 }
 

@@ -20,8 +20,8 @@
 
 namespace {
   llvm::cl::opt<net::StateMappingType>
-  StateMapping("state-mapping",
-      llvm::cl::desc("Choose state mapping algorithm (super by default). This is a KleeNet extension."),
+  StateMapping("sde-state-mapping",
+      llvm::cl::desc("Choose state mapping algorithm (sds by default)."),
       llvm::cl::values(
           clEnumValN(net::SM_COPY_ON_BRANCH,
                      "cob",   "Copy-On-Branch"),
@@ -30,17 +30,17 @@ namespace {
           clEnumValN(net::SM_COPY_ON_WRITE2,
                      "cow2",  "Copy-On-Write 2"),
           clEnumValN(net::SM_SUPER_DSTATE,
-                     "super", "Super-DState-Mapping (no clustering: fast but unsearchable)"),
+                     "sds", "Super-DState-Mapping (no clustering: fast but unsearchable)"),
           clEnumValN(net::SM_SUPER_DSTATE_WITH_BF_CLUS,
-                     "super-bfc", "Super-DState-Mapping with brute-force clustering (experimental, slow but searchable)"),
+                     "sds-bfc", "Super-DState-Mapping with brute-force clustering (experimental, slow but searchable)"),
           clEnumValN(net::SM_SUPER_DSTATE_WITH_SMART_CLUS,
-                     "super-sc", "Super-DState-Mapping with smart clustering (exprimental, faster than bf and searchable)"),
+                     "sds-sc", "Super-DState-Mapping with smart clustering (exprimental, faster than bf and searchable)"),
           clEnumValEnd),
           llvm::cl::init(net::SM_SUPER_DSTATE));
 
   llvm::cl::opt<bool>
-  UsePhonyPackets("phony-packets",
-      llvm::cl::desc("Enable phony packet pruning (experimental!). This is a KleeNet extension."));
+  UsePhonyPackets("sde-phony-packets",
+      llvm::cl::desc("Enable phony packet pruning (experimental!)."));
 }
 
 

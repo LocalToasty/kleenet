@@ -32,7 +32,7 @@ namespace {
     DTB_forceAllTestCase
   };
   llvm::cl::opt<DistributedTerminateBehaviour> distributedTerminateBehaviour(
-    "distributed-terminate",
+    "sde-distributed-terminate",
     llvm::cl::desc("Decide what to do when a distributed scenario terminates (default: uniform)."),
     llvm::cl::values(
           clEnumValN(DTB_singleTestCase,

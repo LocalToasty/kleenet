@@ -1,6 +1,7 @@
 #include "TransmitHandler.h"
 
 #include "ConfigurationData.h"
+#include "ExprBuilder.h"
 
 #include "klee/ExecutionState.h"
 #include "klee_headers/Memory.h"
@@ -96,9 +97,9 @@ void TransmitHandler::handleTransmission(PacketInfo const& pi, net::BasicState* 
     ConfigurationData::PerReceiverData::GeneratedSymbolInformation(&(receiver.configurationData->self().distSymbols),array,array);
 
     for (unsigned i = 0; i < pi.length; i++) {
-      StateDistSymbols::RefExpr r8 = StateDistSymbols::buildRead8(array,i);
+      ExprBuilder::RefExpr r8 = ExprBuilder::buildRead8(array,i);
       wosDest->write(pi.offset + i, r8);
-      receiver.constraints.addConstraint(StateDistSymbols::buildEquality(r8,receiverData[i]));
+      receiver.constraints.addConstraint(ExprBuilder::buildEquality(r8,receiverData[i]));
     }
   } else {
     for (unsigned i = 0; i < pi.length; i++) {
@@ -122,7 +123,7 @@ void TransmitHandler::handleTransmission(PacketInfo const& pi, net::BasicState* 
       it->addArrayToStateNames(isOnSender?sender:receiver,pi.src,pi.dest);
       if (isOnSender) {
         DD::cout << "| " << "    -- reflexive: " << it->was->name << " == " << it->translated->name << DD::endl;
-        klee::ref<klee::Expr> const eq = StateDistSymbols::buildEquality(it->was,it->translated);
+        klee::ref<klee::Expr> const eq = ExprBuilder::buildEquality(it->was,it->translated);
         DD::cout << "|   "; pprint(eq);
         sender.constraints.addConstraint(eq);
       }

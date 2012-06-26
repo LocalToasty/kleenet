@@ -30,20 +30,35 @@ namespace kleenet {
 
 namespace {
   enum TxSymbolCreationParadigm {
-    BYPASS,
-    SYMBOLICS,
-    FORCEALL
+    tscp_BYPASS,
+    tscp_SYMBOLICS,
+    tscp_FORCEALL
   };
   llvm::cl::opt<TxSymbolCreationParadigm>
   txSymbolConstructionChoice("sde-packet-symbol-construction"
     , llvm::cl::desc("Choose for which kind of transmission to introduce individual packets. By default symbols of the form 'tx<<id>>(node<<node_id>>)' will be created for every packet that does not entirely consist of constants (i.e. has at least one symbolic).")
     , llvm::cl::values(
-        clEnumValN(BYPASS,"bypass","Bypass symbol construction alltogether. This option is useful, when the generated tests are of less importance, the actual packet data is irrelevant. Construction of these symbols is expensive, so it should be avoided if you are not interested.")
-      , clEnumValN(SYMBOLICS,"symbolics","Construct packet symbols only for packets that contain any symbolic data. This is the default.")
-      , clEnumValN(FORCEALL,"force","Construct packet symbols not only for symbolic packets but for every single packet, even if its completely concrete.")
+        clEnumValN(tscp_BYPASS,"bypass","Bypass symbol construction alltogether. This option is useful, when the generated tests are of less importance, the actual packet data is irrelevant. Construction of these symbols is expensive, so it should be avoided if you are not interested.")
+      , clEnumValN(tscp_SYMBOLICS,"symbolics","Construct packet symbols only for packets that contain any symbolic data. This is the default.")
+      , clEnumValN(tscp_FORCEALL,"force","Construct packet symbols not only for symbolic packets but for every single packet, even if its completely concrete.")
       , clEnumValEnd
     )
-    , llvm::cl::init(SYMBOLICS)
+    , llvm::cl::init(tscp_SYMBOLICS)
+  );
+
+  enum TxConstraintsTransmission {
+    tct_CLOSURE = 0,
+    tct_FORCEALL = 1
+  };
+  llvm::cl::opt<TxConstraintsTransmission>
+  txConstraintsTransmission("sde-constraints-transmission"
+    , llvm::cl::desc("Select how to decide which constraints to propagate on symbolic packet transmission. Default is 'closure'.")
+    , llvm::cl::values(
+        clEnumValN(tct_CLOSURE,"closure","Compute the minimal set of constraints for a given transmission and only transmit the constraints that affect the packet data.")
+      , clEnumValN(tct_FORCEALL,"force-all","Allways transfer all constraints that affect all distributed symbols of the sender state. In some rare cases this can prevent false positives.")
+      , clEnumValEnd
+    )
+    , llvm::cl::init(tct_CLOSURE)
   );
 }
 
@@ -86,7 +101,7 @@ void TransmitHandler::handleTransmission(PacketInfo const& pi, net::BasicState* 
   assert(oseDest && "Destination ObjectState not found.");
   klee::ObjectState* wosDest = receiver.addressSpace.getWriteable(pi.destMo, oseDest);
   bool const hasSymbolics = receiverData.isNonConstTransmission();
-  if ((txSymbolConstructionChoice == FORCEALL) || (hasSymbolics && (txSymbolConstructionChoice == SYMBOLICS))) {
+  if ((txSymbolConstructionChoice == tscp_FORCEALL) || (hasSymbolics && (txSymbolConstructionChoice == tscp_SYMBOLICS))) {
     klee::MemoryObject* const mo = receiver.getExecutor()->memory->allocate(pi.length,false,true,NULL);
     mo->setName(receiverData.specialTxName);
     klee::Array const* const array = new klee::Array(receiverData.specialTxName,mo->size);
@@ -113,7 +128,7 @@ void TransmitHandler::handleTransmission(PacketInfo const& pi, net::BasicState* 
     DD::cout << "| " << "Receiver Constraints:" << DD::endl;
     DD::cout << "|   "; pprint(receiver.constraints);
     DD::cout << "| " << "Processing OFFENDING constraints:" << DD::endl;
-    receiverData.transferNewReceiverConstraints(net::util::FunctorBuilder<klee::ref<klee::Expr>,net::util::DynamicFunctor>::build(ConstraintAdder(receiver)));
+    receiverData.transferNewReceiverConstraints(net::util::FunctorBuilder<klee::ref<klee::Expr>,net::util::DynamicFunctor>::build(ConstraintAdder(receiver)),txConstraintsTransmission);
     DD::cout << "| " << "EOF Constraints." << DD::endl;
     DD::cout << "| " << "Listing OFFENDING symbols:" << DD::endl;
     ConfigurationData::PerReceiverData::NewSymbols const newSymbols = receiverData.newSymbols();

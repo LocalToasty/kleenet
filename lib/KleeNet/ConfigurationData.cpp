@@ -58,12 +58,22 @@ namespace kleenet {
         , specialTxName(std::string("tx") + llvm::utostr(currentTx) + "(node" + llvm::itostr(distSymbolsSrc.node.id) + ")")
         {
       }
-      ConstraintsGraph::ConstraintList const& computeSenderConstraints() {
+      ConstraintsGraph::ConstraintList const& computeSenderConstraints(bool txConstraintsTransmission) {
         if (!constraintsComputed) {
           allowMorePacketSymbols = false;
           constraintsComputed = true;
           assert(senderConstraints.empty() && "Garbage data in our sender's constraints buffer.");
-          senderConstraints = cd.cg.eval(senderSymbols);
+          std::set<klee::Array const*>* symbols = &senderSymbols;
+          if (txConstraintsTransmission) {
+            std::set<klee::Array const*> allSymbols(senderSymbols);
+            symbols = &allSymbols;
+            distSymbolsSrc.iterateArrays(
+              net::util::FunctorBuilder<klee::Array const*,net::util::DynamicFunctor,net::util::IterateOperator>::build(
+                std::inserter(*symbols,symbols->begin())
+              )
+            );
+          }
+          senderConstraints = cd.cg.eval(*symbols);
         }
         return senderConstraints;
       }
@@ -169,10 +179,11 @@ klee::ref<klee::Expr> ConfigurationData::PerReceiverData::operator[](size_t inde
   return expr;
 }
 
-void ConfigurationData::PerReceiverData::transferNewReceiverConstraints(net::util::DynamicFunctor<klee::ref<klee::Expr> > const& transfer) { // result already translated!
+// result already translated!
+void ConfigurationData::PerReceiverData::transferNewReceiverConstraints(net::util::DynamicFunctor<klee::ref<klee::Expr> > const& transfer, bool txConstraintsTransmission) {
   if (!constraintsComputed) {
     constraintsComputed = true;
-    ConstraintsGraph::ConstraintList const& senderConstraints = txData.computeSenderConstraints();
+    ConstraintsGraph::ConstraintList const& senderConstraints = txData.computeSenderConstraints(txConstraintsTransmission);
     for (ConstraintsGraph::ConstraintList::const_iterator it = senderConstraints.begin(), end = senderConstraints.end(); it != end; ++it) {
       DD::cout << "| " << "adding constraint ... " << DD::endl;
       DD::cout << "| "; pprint(DD(),rt(*it),"| ");

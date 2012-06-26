@@ -97,7 +97,7 @@ namespace kleenet {
         public:
           PerReceiverData(SenderTxData& txData, ConfigurationData& receiverConfig, size_t const beginPrecomputeRange, size_t const endPrecomputeRange);
           klee::ref<klee::Expr> operator[](size_t index);
-          void transferNewReceiverConstraints(net::util::DynamicFunctor<klee::ref<klee::Expr> > const&);
+          void transferNewReceiverConstraints(net::util::DynamicFunctor<klee::ref<klee::Expr> > const&, bool txConstraintsTransmission);
         private:
           std::vector<std::pair<klee::Array const*,klee::Array const*> > additionalSenderOnlyConstraints();
           LazySymbolTranslator::TxMap const& symbolTable() const {

@@ -4,6 +4,8 @@
 #include "PacketInfo.h"
 #include "kleenet/Searcher.h"
 #include "AtomImpl.h"
+#include "ExprBuilder.h"
+#include "kexPPrinter.h"
 
 #include "net/Time.h"
 #include "net/util/SharedPtr.h"
@@ -14,21 +16,21 @@
 #include "klee/util/Ref.h"
 #include "klee/util/ExprPPrinter.h"
 
-#include "llvm/Module.h"
-#include "llvm/ADT/Twine.h"
-
-#include <set>
-#include <assert.h>
-
 #include "klee_headers/Context.h"
 #include "klee_headers/Memory.h"
 #include "klee_headers/Common.h"
 
-#include <sstream>
-
+#include "llvm/Module.h"
+#include "llvm/ADT/Twine.h"
 #include "llvm/Support/CommandLine.h"
 
+#include <set>
+#include <vector>
+#include <cassert>
+#include <sstream>
 #include <tr1/unordered_map>
+
+#include "net/util/debug.h"
 
 namespace {
   llvm::cl::opt<bool>
@@ -409,6 +411,25 @@ namespace kleenet {
 
     ExDataCarrier values;
     main->memoryTransferWrapper(ha.state, ha.arguments[0], main->acquireExprRange(values, ha.state, ha.arguments[0], 0/* figure the length out yourself, please*/), values, destNode);
+  }
+  HAND(void,kleenet_pull,2) {
+    Node const srcNode = args[1]->getZExtValue();
+
+    std::vector<ExprBuilder::RefExpr> conjunctions;
+
+    klee::ConstraintManager cm;
+    if (net::StateMapper* const sm = executor->kleeNet.getStateMapper()) {
+      sm->findTargets(ha.state, srcNode);
+      for (net::StateMapper::iterator it = sm->begin(), end = sm->end(); it != end; ++it) {
+        klee::ExecutionState* const originState = static_cast<klee::ExecutionState*>(*it);
+        conjunctions.push_back(ExprBuilder::conjunction(originState->constraints.begin(),originState->constraints.end()));
+      }
+      sm->invalidate();
+    }
+    ExprBuilder::RefExpr disjunction = ExprBuilder::disjunction(conjunctions.begin(),conjunctions.end());
+
+    net::DEBUG<net::debug::external1>::cout << "Pulled disjunction of conjunctions: " << net::DEBUG<net::debug::external1>::endl << "> ";
+    pprint(net::DEBUG<net::debug::external1>(),disjunction,"> ");
   }
 
   HAND(void,kleenet_memset,4) {

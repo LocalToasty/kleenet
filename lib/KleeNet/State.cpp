@@ -58,7 +58,7 @@ void State::transferConstraints(State& onto) {
 
     std::set<klee::Array const*> newSymbols;
 
-    NameManglerHolder nmh(0,myConfig.distSymbols,theirConfig.distSymbols);
+    NameManglerHolder nmh("<*>",myConfig.distSymbols,theirConfig.distSymbols);
     ReadTransformator rt(nmh.mangler,constraints,NULL,&newSymbols);
 
     for (std::vector<klee::ref<klee::Expr> >::const_iterator it = constraints.begin(), end = constraints.end(); it != end; ++it) {

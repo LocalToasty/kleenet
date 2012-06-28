@@ -36,7 +36,7 @@ namespace kleenet {
     StateDistSymbols_impl(StateDistSymbols& parent) : parent(parent), knownArrays() {}
     StateDistSymbols_impl(StateDistSymbols_impl const& copyFrom, StateDistSymbols& parent);
 
-    DistributedArray const& castOrMake(klee::Array const&, size_t);
+    DistributedArray const& castOrMake(klee::Array const&, std::string);
     bool taintLocalSymbols() const;
   };
 
@@ -57,16 +57,13 @@ namespace kleenet {
           return name + std::string("@") + llvm::itostr(state->node.id);
         return name;
       }
-      static std::string makeGlobalName(klee::Array const* buildFrom, size_t forTx, net::Node src) {
-        std::string txText = "";
-        if (forTx) // if forTx is zero it's pseudo-transmission (e.g. on termination when contstraints are merged)
-          txText = ":tx" + llvm::utostr(forTx);
-        return std::string() + buildFrom->name + "{node" + llvm::itostr(src.id) + txText + "}";
+      static std::string makeGlobalName(klee::Array const* buildFrom, std::string designation, net::Node src) {
+        return std::string() + buildFrom->name + "{node" + llvm::itostr(src.id) + ":" + designation + "}";
 
       }
-      DistributedArray(StateDistSymbols* state, klee::Array const* buildFrom, size_t forTx, net::Node src)
-        : klee::Array(taint(state,makeGlobalName(buildFrom,forTx,src)), buildFrom->size)
-        , metaSymbol(new DistributedSymbol(makeGlobalName(buildFrom,forTx,src)))
+      DistributedArray(StateDistSymbols* state, klee::Array const* buildFrom, std::string designation, net::Node src)
+        : klee::Array(taint(state,makeGlobalName(buildFrom,designation,src)), buildFrom->size)
+        , metaSymbol(new DistributedSymbol(makeGlobalName(buildFrom,designation,src)))
         {
         state->pimpl.allDistributedArrays.insert(this);
         assert(!llvm::isa<DistributedArray>(*buildFrom));
@@ -117,19 +114,19 @@ StateDistSymbols_impl::StateDistSymbols_impl(StateDistSymbols_impl const& copyFr
   }
 }
 
-DistributedArray const& StateDistSymbols_impl::castOrMake(klee::Array const& from, size_t const forTx) {
+DistributedArray const& StateDistSymbols_impl::castOrMake(klee::Array const& from, std::string const designation) {
   if (llvm::isa<DistributedArray const>(from))
     return static_cast<DistributedArray const&>(from);
   DistributedArray const*& known = knownArrays[&from];
   if (!known)
-    known = new DistributedArray(&parent,&from,forTx,parent.node);
+    known = new DistributedArray(&parent,&from,designation,parent.node);
   return *known;
 }
 
-klee::Array const* StateDistSymbols::locate(klee::Array const* const array, size_t const forTx, StateDistSymbols* inState) {
+klee::Array const* StateDistSymbols::locate(klee::Array const* const array, std::string const designation, StateDistSymbols* inState) {
   assert(array);
   assert(inState);
-  DistributedArray const& da = pimpl.castOrMake(*array, forTx);
+  DistributedArray const& da = pimpl.castOrMake(*array, designation);
   DistributedArray const*& entry = da.metaSymbol->of[inState];
   if (!entry)
     entry = new DistributedArray(inState,da);

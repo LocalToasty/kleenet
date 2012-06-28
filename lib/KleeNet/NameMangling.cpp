@@ -30,28 +30,28 @@ namespace kleenet {
 
   struct DuplicatingNameMangler : NameMangler{ // cheap construction
     std::string const appendToName;
-    DuplicatingNameMangler(size_t const currentTx, net::Node const src, net::Node const dest)
-      : appendToName("{tx" + llvm::utostr(currentTx) + ":" + llvm::itostr(src.id) + "->" + llvm::itostr(dest.id) + "}") {
+    DuplicatingNameMangler(std::string const designation, net::Node const src, net::Node const dest)
+      : appendToName("{" + designation + ":" + llvm::itostr(src.id) + "->" + llvm::itostr(dest.id) + "}") {
     }
     klee::Array const* operator()(klee::Array const* array) const {
       return new klee::Array(array->name + appendToName, array->size);
     }
   };
   struct AliasingNameMangler : NameMangler {
-    size_t const currentTx;
+    std::string const designation;
     StateDistSymbols& distSymbolsSrc;
     StateDistSymbols& distSymbolsDest;
-    AliasingNameMangler(size_t const currentTx, StateDistSymbols& distSymbolsSrc, StateDistSymbols& distSymbolsDest)
-      : currentTx(currentTx)
+    AliasingNameMangler(std::string const designation, StateDistSymbols& distSymbolsSrc, StateDistSymbols& distSymbolsDest)
+      : designation(designation)
       , distSymbolsSrc(distSymbolsSrc)
       , distSymbolsDest(distSymbolsDest)
       {
     }
     klee::Array const* operator()(klee::Array const* array) const {
-      return distSymbolsSrc.locate(array, currentTx, &distSymbolsDest);
+      return distSymbolsSrc.locate(array, designation, &distSymbolsDest);
     }
     klee::Array const* isReflexive(klee::Array const* array) const {
-      return distSymbolsSrc.locate(array, currentTx, &distSymbolsSrc /*!*/);
+      return distSymbolsSrc.locate(array, designation, &distSymbolsSrc /*!*/);
     }
   };
 
@@ -59,12 +59,12 @@ namespace kleenet {
 
 using namespace kleenet;
 
-NameMangler& NameManglerHolder::constructMangler(size_t const currentTx, StateDistSymbols& distSymbolsSrc, StateDistSymbols& distSymbolsDest) {
+NameMangler& NameManglerHolder::constructMangler(std::string const designation, StateDistSymbols& distSymbolsSrc, StateDistSymbols& distSymbolsDest) {
   switch (chosenNameMangleType) {
     case NMT_DUPLICATING:
-      return *(new DuplicatingNameMangler(currentTx,distSymbolsSrc.node,distSymbolsDest.node));
+      return *(new DuplicatingNameMangler(designation,distSymbolsSrc.node,distSymbolsDest.node));
     case NMT_ALIASING:
-      return *(new AliasingNameMangler(currentTx,distSymbolsSrc,distSymbolsDest));
+      return *(new AliasingNameMangler(designation,distSymbolsSrc,distSymbolsDest));
   }
   klee::klee_error("No valid name mangler selected.");
 }

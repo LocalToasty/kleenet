@@ -2,14 +2,15 @@
 
 #include "ConfigurationData.h"
 #include "ExprBuilder.h"
+#include "NetExecutor.h"
+
+#include "net/Iterator.h"
 
 #include "klee/ExecutionState.h"
 #include "klee_headers/Memory.h"
 #include "klee_headers/MemoryManager.h"
 
 #include "llvm/Support/CommandLine.h"
-
-#include "NetExecutor.h"
 
 #include <vector>
 
@@ -93,7 +94,11 @@ void TransmitHandler::handleTransmission(PacketInfo const& pi, net::BasicState* 
 
   DD::cout << "| " << "Involved states: " << &sender << " ---> " << &receiver << DD::endl;
   ConfigurationData::PerReceiverData receiverData(
-      sender.configurationData->self().transmissionProperties(data)
+      sender.configurationData->self().transmissionProperties(
+          net::StdIteratorFactory<klee::ref<klee::Expr> >::build(data,dataAtomToExpr).begin
+        , net::StdIteratorFactory<klee::ref<klee::Expr> >::build(data,dataAtomToExpr).end
+        , TransmissionKind::tx
+      )
     , receiver.configurationData->self()
     , 0, pi.length // precomputation of symbols
   );

@@ -32,9 +32,9 @@ namespace kleenet {
 
   struct NameManglerHolder {
     NameMangler& mangler; // heap allocated!
-    static NameMangler& constructMangler(size_t const currentTx, StateDistSymbols& distSymbolsSrc, StateDistSymbols& distSymbolsDest);
-    NameManglerHolder(size_t const currentTx, StateDistSymbols& distSymbolsSrc, StateDistSymbols& distSymbolsDest)
-      : mangler(constructMangler(currentTx,distSymbolsSrc,distSymbolsDest)) {}
+    static NameMangler& constructMangler(std::string const designation, StateDistSymbols& distSymbolsSrc, StateDistSymbols& distSymbolsDest);
+    NameManglerHolder(std::string const designation, StateDistSymbols& distSymbolsSrc, StateDistSymbols& distSymbolsDest)
+      : mangler(constructMangler(designation,distSymbolsSrc,distSymbolsDest)) {}
     ~NameManglerHolder() {
       delete &mangler;
     }

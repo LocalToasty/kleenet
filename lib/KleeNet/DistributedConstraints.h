@@ -13,6 +13,7 @@
 #include "net/util/Functor.h"
 
 #include <cstddef>
+#include <string>
 
 namespace klee {
   class Array;
@@ -37,7 +38,7 @@ namespace kleenet {
       ~StateDistSymbols();
 
       // `inState` is allowed to coincide with `this`.
-      klee::Array const* locate(klee::Array const* array, size_t forTx, StateDistSymbols* inState);
+      klee::Array const* locate(klee::Array const* array, std::string designation, StateDistSymbols* inState);
       void iterateArrays(net::util::DynamicFunctor<klee::Array const*> const&) const;
 
       // utilities ...

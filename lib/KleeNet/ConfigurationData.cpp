@@ -24,7 +24,7 @@ namespace kleenet {
     friend class ConfigurationData;
     friend class PerReceiverData;
     private:
-      size_t const currentTx;
+      std::string const designation;
       std::set<klee::Array const*> senderSymbols;
       ConfigurationData& cd;
       StateDistSymbols& distSymbolsSrc;
@@ -45,17 +45,18 @@ namespace kleenet {
         return v;
       }
     public:
-      SenderTxData(ConfigurationData& cd, size_t currentTx, StateDistSymbols& distSymbolsSrc, std::vector<net::DataAtomHolder> const& data)
-        : currentTx(currentTx)
+      template <typename InputIterator>
+      SenderTxData(ConfigurationData& cd, std::string designation, StateDistSymbols& distSymbolsSrc, InputIterator const& begin, InputIterator const& end)
+        : designation(designation)
         , senderSymbols()
         , cd(cd)
         , distSymbolsSrc(distSymbolsSrc)
-        , seq(transform(data.begin(),data.end(),data.size(),dataAtomToExpr,klee::ref<klee::Expr>()/* type inference */))
+        , seq(begin,end)
         , constraintsComputed(false)
         , senderConstraints()
         , senderReflexiveArraysComputed(false)
         , allowMorePacketSymbols(true)
-        , specialTxName(std::string("tx") + llvm::utostr(currentTx) + "(node" + llvm::itostr(distSymbolsSrc.node.id) + ")")
+        , specialTxName(designation + "(node" + llvm::itostr(distSymbolsSrc.node.id) + ")")
         {
       }
       ConstraintsGraph::ConstraintList const& computeSenderConstraints(bool txConstraintsTransmission) {
@@ -153,7 +154,7 @@ void ConstraintsGraph::updateGraph() {
 ConfigurationData::PerReceiverData::PerReceiverData(SenderTxData& txData, ConfigurationData& receiverConfig, size_t const beginPrecomputeRange, size_t const endPrecomputeRange)
   : txData(txData)
   , receiverConfig(receiverConfig)
-  , nmh(txData.currentTx,txData.distSymbolsSrc,receiverConfig.distSymbols)
+  , nmh(txData.designation,txData.distSymbolsSrc,receiverConfig.distSymbols)
   , rt(nmh.mangler,txData.seq,&(txData.senderSymbols))
   , constraintsComputed(false)
   , specialTxName(txData.specialTxName)
@@ -250,8 +251,29 @@ ConfigurationData* ConfigurationData::fork(State* state) const {
   return new ConfigurationData(*this,state);
 }
 
-SenderTxData& ConfigurationData::transmissionProperties(std::vector<net::DataAtomHolder> const& data) {
-  updateSenderTxData(data);
+SenderTxData& ConfigurationData::transmissionProperties(net::ConstIteratable<klee::ref<klee::Expr> > const& begin, net::ConstIteratable<klee::ref<klee::Expr> > const& end, TransmissionKind::Enum kind) {
+  std::string designation;
+  switch (kind) {
+    case TransmissionKind::tx:
+      designation = (std::string("tx") + llvm::utostr(forState.getCompletedTransmissions() + 1));
+      break;
+    case TransmissionKind::pull:
+      designation = std::string("pull") + llvm::utostr(forState.getCompletedPullRequests() + 1);
+      break;
+  };
+  assert(designation.size());
+  std::vector<klee::ref<klee::Expr> > data;
+  for (net::ConstIteratorHolder<klee::ref<klee::Expr> > it = begin; it != end; ++it) {
+    data.push_back(*it);
+  }
+  if (txData) DD::cout << "old tx string " << txData->designation << DD::endl;
+  DD::cout << "new tx string " << designation << DD::endl;
+  if (txData && (txData->designation != designation)) {
+    txData->~SenderTxData();
+    txData = new(txData) SenderTxData(*this,designation,distSymbols,data.begin(),data.end());
+  } else {
+    txData = new SenderTxData(*this,designation,distSymbols,data.begin(),data.end());
+  }
   return *txData;
 }
 
@@ -260,15 +282,5 @@ void ConfigurationData::configureState(klee::ExecutionState& state) {
     if (state.configurationData)
       delete state.configurationData;
     state.configurationData = new ConfigurationData(state,KleeNet::getStateNode(state));
-  }
-}
-
-void ConfigurationData::updateSenderTxData(std::vector<net::DataAtomHolder> const& data) {
-  size_t const ctx = forState.getCompletedTransmissions() + 1;
-  if (txData && (txData->currentTx != ctx)) {
-    txData->~SenderTxData();
-    txData = new(txData) SenderTxData(*this,ctx,distSymbols,data);
-  } else {
-    txData = new SenderTxData(*this,ctx,distSymbols,data);
   }
 }

@@ -18,6 +18,7 @@
 #include "kleenet/State.h"
 #include "net/util/BipartiteGraph.h"
 #include "net/util/Type.h"
+#include "net/Iterator.h"
 
 #include "klee/util/ExprVisitor.h"
 
@@ -79,6 +80,13 @@ namespace kleenet {
 
   class SenderTxData;
 
+  struct TransmissionKind {
+    enum Enum {
+      tx,
+      pull
+    };
+  };
+
   class ConfigurationData : public ConfigurationDataBase { // constant-time construction (but sizeable number of mallocs)
     public:
       State& forState;
@@ -121,14 +129,13 @@ namespace kleenet {
       };
     private:
       SenderTxData* txData;
-      void updateSenderTxData(std::vector<net::DataAtomHolder> const& data);
       ConfigurationData(ConfigurationData const&); // not implemented
       ConfigurationData(ConfigurationData const&,State*);
       ConfigurationData* fork(State*) const;
     public:
       ConfigurationData(klee::ExecutionState& state, net::Node src);
       ~ConfigurationData();
-      SenderTxData& transmissionProperties(std::vector<net::DataAtomHolder> const& data);
+      SenderTxData& transmissionProperties(net::ConstIteratable<klee::ref<klee::Expr> > const&, net::ConstIteratable<klee::ref<klee::Expr> > const&, TransmissionKind::Enum kind);
       ConfigurationData& self() {
         return *this;
       }

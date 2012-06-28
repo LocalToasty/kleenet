@@ -15,7 +15,7 @@ size_t& BasicState::tableSize() {
 }
 
 BasicState::BasicState()
-  : dependants(tableSize(),NULL), fake(util::isOnStack(this)), completedTransmissions(0) {
+  : dependants(tableSize(),NULL), fake(util::isOnStack(this)), completedTransmissions(0), completedPullRequests(0) {
 }
 
 bool BasicState::isFake() const {
@@ -27,6 +27,13 @@ size_t BasicState::getCompletedTransmissions() const {
 }
 void BasicState::incCompletedTransmissions() {
   completedTransmissions++;
+}
+
+size_t BasicState::getCompletedPullRequests() const {
+  return completedPullRequests;
+}
+void BasicState::incCompletedPullRequests() {
+  completedPullRequests++;
 }
 
 BasicState::BasicState(BasicState const& from)

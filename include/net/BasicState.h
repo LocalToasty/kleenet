@@ -25,6 +25,7 @@ namespace net {
       std::vector<Dependant> dependants;
       bool const fake;
       size_t completedTransmissions;
+      size_t completedPullRequests;
     public:
       BasicState();
       BasicState(BasicState const&);
@@ -33,6 +34,8 @@ namespace net {
       bool isFake() const;
       size_t getCompletedTransmissions() const;
       void incCompletedTransmissions();
+      size_t getCompletedPullRequests() const;
+      void incCompletedPullRequests();
   };
 }
 

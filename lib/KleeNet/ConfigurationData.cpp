@@ -255,11 +255,11 @@ SenderTxData& ConfigurationData::transmissionProperties(std::vector<net::DataAto
   return *txData;
 }
 
-void ConfigurationData::configureState(klee::ExecutionState& state, KleeNet& kleenet) {
+void ConfigurationData::configureState(klee::ExecutionState& state) {
   if ((!state.configurationData) || (&(state.configurationData->self().forState) != &state)) {
     if (state.configurationData)
       delete state.configurationData;
-    state.configurationData = new ConfigurationData(state,kleenet.getStateNode(state));
+    state.configurationData = new ConfigurationData(state,KleeNet::getStateNode(state));
   }
 }
 

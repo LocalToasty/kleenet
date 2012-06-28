@@ -88,8 +88,8 @@ void TransmitHandler::handleTransmission(PacketInfo const& pi, net::BasicState* 
   klee::ExecutionState& sender = static_cast<klee::ExecutionState&>(*basicSender);
   klee::ExecutionState& receiver = static_cast<klee::ExecutionState&>(*basicReceiver);
 
-  ConfigurationData::configureState(sender,kleenet);
-  ConfigurationData::configureState(receiver,kleenet);
+  ConfigurationData::configureState(sender);
+  ConfigurationData::configureState(receiver);
 
   DD::cout << "| " << "Involved states: " << &sender << " ---> " << &receiver << DD::endl;
   ConfigurationData::PerReceiverData receiverData(

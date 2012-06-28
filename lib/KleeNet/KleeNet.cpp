@@ -65,19 +65,16 @@ net::StateMapper* KleeNet::getStateMapper() const {
   return NULL;
 }
 
-net::Node KleeNet::getStateNode(klee::ExecutionState const* state) const {
-  if (state && env && env->stateMapper.get())
-    return env->stateMapper->getStateNode(state);
-  return net::Node(); // invalid node
+net::Node KleeNet::getStateNode(klee::ExecutionState const* state) {
+  return net::StateMapper::getStateNode(state);
 }
-net::Node KleeNet::getStateNode(klee::ExecutionState const& state) const {
+net::Node KleeNet::getStateNode(klee::ExecutionState const& state) {
   return getStateNode(&state);
 }
-void KleeNet::setStateNode(klee::ExecutionState const* state, net::Node const& n) const {
-  if (state && env && env->stateMapper.get())
-    env->stateMapper->setStateNode(state,n);
+void KleeNet::setStateNode(klee::ExecutionState const* state, net::Node const& n) {
+  net::StateMapper::setStateNode(state,n);
 }
-void KleeNet::setStateNode(klee::ExecutionState const& state, net::Node const& n) const {
+void KleeNet::setStateNode(klee::ExecutionState const& state, net::Node const& n) {
   setStateNode(&state,n);
 }
 
@@ -91,7 +88,7 @@ void KleeNet::registerSearcher(Searcher* s) {
 KleeNet::RunEnv::RunEnv(KleeNet& kleenet, klee::ExecutionState* rootState)
   : kleenet(kleenet)
   , stateMapper(net::StateMapper::create(StateMapping,UsePhonyPackets,rootState))
-  , transmitHandler(new TransmitHandler(kleenet)) // XXX
+  , transmitHandler(new TransmitHandler()) // XXX
   , packetCache(new KleeNet::PacketCache(*stateMapper,*transmitHandler)) { // XXX
   kleenet.env = this;
   rootState->executor = kleenet.executor;

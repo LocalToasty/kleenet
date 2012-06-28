@@ -139,8 +139,8 @@ namespace net {
       virtual ~StateMapper();
 
       /// Grabs the node of a state. Esp. useful for code outside the net namespace.
-      Node getStateNode(BasicState const*) const;
-      void setStateNode(BasicState const*, Node const&);
+      static Node getStateNode(BasicState const*);
+      static void setStateNode(BasicState const*, Node const&);
 
       /// Called by the engine if the execution state 'state' wants to share
       /// data with states of node 'dest'.

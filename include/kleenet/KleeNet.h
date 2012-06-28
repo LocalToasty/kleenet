@@ -54,10 +54,10 @@ namespace kleenet {
       KleeNet(Executor* executor);
       PacketCache* getPacketCache() const;
       net::StateMapper* getStateMapper() const;
-      net::Node getStateNode(klee::ExecutionState const*) const;
-      net::Node getStateNode(klee::ExecutionState const&) const;
-      void setStateNode(klee::ExecutionState const*,net::Node const&) const;
-      void setStateNode(klee::ExecutionState const&,net::Node const&) const;
+      static net::Node getStateNode(klee::ExecutionState const*);
+      static net::Node getStateNode(klee::ExecutionState const&);
+      static void setStateNode(klee::ExecutionState const*,net::Node const&);
+      static void setStateNode(klee::ExecutionState const&,net::Node const&);
       void registerSearcher(Searcher*); // Called by kleenet::Searcher. Do not call otherwise!!!
       void memTxRequest(klee::ExecutionState&, PacketInfo const&, net::ExData const&) const;
       struct TerminateStateHandler {

@@ -103,7 +103,7 @@ std::set<Node> const& StateMapper::nodes() const {
 StateMapper::~StateMapper() {
 }
 
-Node StateMapper::getStateNode(BasicState const* state) const {
+Node StateMapper::getStateNode(BasicState const* state) {
   MappingInformation* const mi = MappingInformation::retrieveDependant(state);
   if (!mi)
     return Node(); // invalid node

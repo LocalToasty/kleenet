@@ -132,6 +132,6 @@ namespace kleenet {
       ConfigurationData& self() {
         return *this;
       }
-      static void configureState(klee::ExecutionState& state, KleeNet& kleenet);
+      static void configureState(klee::ExecutionState& state);
   };
 }

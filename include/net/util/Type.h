@@ -24,6 +24,13 @@ namespace net {
       typedef T* Type;
     };
 
+    template <typename T> struct RemoveReference {
+      typedef typename Type<T>::Rigid Type;
+    };
+    template <typename T> struct RemoveReference<T&> {
+      typedef T Type;
+    };
+
 
     template <bool condition, typename Enable = void> struct enable_if {
     };

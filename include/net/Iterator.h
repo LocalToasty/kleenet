@@ -16,7 +16,7 @@ namespace net {
         return 0; // double dispatch, in a sense
       }
     public:
-      typedef typename util::ConstRefUnlessPtr<T>::Type Content;
+      typedef typename util::RemoveReference<T>::Type Content;
       virtual Content operator*() const = 0;
       virtual Content operator->() const {
         return **this;
@@ -93,7 +93,7 @@ namespace net {
       StdConstIterator(StdConstIterator const& from) : it(from.it) {
       }
       typename ConstIteratable<T>::Content operator*() const {
-        return static_cast<typename ConstIteratable<T>::Content>(*it);
+        return *it;
       }
       ConstIteratable<T>& operator++() {
         ++it;
@@ -102,6 +102,54 @@ namespace net {
       bool operator==(ConstIteratable<T> const& with) const {
         return static_cast<StdConstIterator const&>(with).it == it;
       }
+  };
+
+  template <typename T, typename Container, typename Transform> class StdConstTransformIterator : public ConstIteratable<T> {
+    private:
+      typename Container::const_iterator it;
+      Transform transform;
+      util::SharedPtr<ConstIteratable<T> > dup() const {
+        return util::SharedPtr<ConstIteratable<T> >(new StdConstTransformIterator(*this));
+      }
+    public:
+      StdConstTransformIterator(typename Container::const_iterator it, Transform transform) : ConstIteratable<T>(), it(it), transform(transform) {
+      }
+      StdConstTransformIterator(StdConstTransformIterator const& from) : ConstIteratable<T>(from), it(from.it), transform(from.transform) {
+      }
+      typename ConstIteratable<T>::Content operator*() const {
+        return transform(*it);
+      }
+      ConstIteratable<T>& operator++() {
+        ++it;
+        return *this;
+      }
+      bool operator==(ConstIteratable<T> const& with) const {
+        return static_cast<StdConstTransformIterator const&>(with).it == it;
+      }
+  };
+
+  template <typename T>
+  struct StdIteratorFactory {
+    template <typename It>
+    struct IteratorPair {
+      It begin;
+      It end;
+      IteratorPair(It begin, It end) : begin(begin), end(end) {}
+    };
+    template <typename Container>
+    static IteratorPair<StdConstIterator<T,Container> > build(Container const& container) {
+      return IteratorPair<StdConstIterator<T,Container> >(
+          StdConstIterator<T,Container>(container.begin())
+        , StdConstIterator<T,Container>(container.end())
+      );
+    }
+    template <typename Container, typename Transform>
+    static IteratorPair<StdConstTransformIterator<T,Container,Transform> > build(Container const& container, Transform transform) {
+      return IteratorPair<StdConstTransformIterator<T,Container,Transform> >(
+          StdConstTransformIterator<T,Container,Transform>(container.begin(),transform)
+        , StdConstTransformIterator<T,Container,Transform>(container.end(),transform)
+      );
+    }
   };
 }
 

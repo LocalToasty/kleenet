@@ -99,8 +99,10 @@ void ClusterSearcher::add(ConstIteratable<BasicState*> const& begin, ConstIterat
   }
 
   for (Cache::const_iterator it = cache.begin(), en = cache.end(); it != en; ++it) {
-    typedef net::StdConstIterator<net::BasicState*,std::vector<BasicState*> > It;
-    it->first->add(It(it->second.begin()),It(it->second.end()));
+    it->first->add(
+      StdIteratorFactory<BasicState*>::build(it->second.begin())
+    , StdIteratorFactory<BasicState*>::build(it->second.end())
+    );
   }
 }
 void ClusterSearcher::remove(ConstIteratable<BasicState*> const& begin, ConstIteratable<BasicState*> const& end) {
@@ -122,8 +124,10 @@ void ClusterSearcher::remove(ConstIteratable<BasicState*> const& begin, ConstIte
   }
 
   for (Cache::const_iterator it = cache.begin(), en = cache.end(); it != en; ++it) {
-    typedef net::StdConstIterator<net::BasicState*,std::vector<BasicState*> > It;
-    it->first->remove(It(it->second.second.begin()),It(it->second.second.end()));
+    it->first->remove(
+      StdIteratorFactory<BasicState*>::build(it->second.second.begin())
+    , StdIteratorFactory<BasicState*>::build(it->second.second.end())
+    );
     if (it->first->empty()) {
       *strategy -= it->second.first;
       internalSearchers.erase(it->second.first);

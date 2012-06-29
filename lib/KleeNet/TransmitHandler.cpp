@@ -95,8 +95,8 @@ void TransmitHandler::handleTransmission(PacketInfo const& pi, net::BasicState* 
   DD::cout << "| " << "Involved states: " << &sender << " ---> " << &receiver << DD::endl;
   ConfigurationData::PerReceiverData receiverData(
       sender.configurationData->self().transmissionProperties(
-          net::StdIteratorFactory<klee::ref<klee::Expr> >::build(data,dataAtomToExpr).begin
-        , net::StdIteratorFactory<klee::ref<klee::Expr> >::build(data,dataAtomToExpr).end
+          net::StdIteratorFactory<klee::ref<klee::Expr> >::build(data.begin(),dataAtomToExpr)
+        , net::StdIteratorFactory<klee::ref<klee::Expr> >::build(data.end(),dataAtomToExpr)
         , TransmissionKind::tx
       )
     , receiver.configurationData->self()

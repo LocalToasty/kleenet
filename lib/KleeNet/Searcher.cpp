@@ -30,11 +30,11 @@ klee::ExecutionState& Searcher::selectState() {
   return *state;
 }
 void Searcher::update(klee::ExecutionState* current, std::set<klee::ExecutionState*> const& added, std::set<klee::ExecutionState*> const& removed) {
-  typedef net::StdConstIterator<net::BasicState*,std::set<klee::ExecutionState*> > It;
+  typedef net::StdIteratorFactory<net::BasicState*> Fac;
   if (!added.empty())
-    ns->add(It(added.begin()), It(added.end()));
+    ns->add(Fac::build(added.begin()), Fac::build(added.end()));
   if (!removed.empty())
-    ns->remove(It(removed.begin()), It(removed.end()));
+    ns->remove(Fac::build(removed.begin()), Fac::build(removed.end()));
 }
 bool Searcher::empty() {
   return ns->empty();

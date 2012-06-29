@@ -14,6 +14,7 @@
 #include "DistributedConstraints.h"
 #include "NameMangling.h"
 #include "AtomImpl.h"
+#include "TransmissionKind.h"
 
 #include "kleenet/State.h"
 #include "net/util/BipartiteGraph.h"
@@ -80,13 +81,6 @@ namespace kleenet {
 
   class SenderTxData;
 
-  struct TransmissionKind {
-    enum Enum {
-      tx,
-      pull
-    };
-  };
-
   class ConfigurationData : public ConfigurationDataBase { // constant-time construction (but sizeable number of mallocs)
     public:
       State& forState;
@@ -129,6 +123,7 @@ namespace kleenet {
       };
     private:
       SenderTxData* txData;
+      size_t merges;
       ConfigurationData(ConfigurationData const&); // not implemented
       ConfigurationData(ConfigurationData const&,State*);
       ConfigurationData* fork(State*) const;

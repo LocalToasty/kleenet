@@ -37,7 +37,7 @@ void BasicState::incCompletedPullRequests() {
 }
 
 BasicState::BasicState(BasicState const& from)
-  : dependants(tableSize(), NULL), fake(util::isOnStack(this)), completedTransmissions(from.completedTransmissions) {
+  : dependants(tableSize(), NULL), fake(util::isOnStack(this)), completedTransmissions(from.completedTransmissions), completedPullRequests(from.completedPullRequests) {
 
   assert((fake || !from.fake) && "Attempt to create a non-fake state from a fake state.");
   assert(from.dependants.size() == tableSize() && "Table size was changed after initialisation");

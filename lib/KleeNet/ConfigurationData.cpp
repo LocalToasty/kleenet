@@ -233,6 +233,7 @@ ConfigurationData::ConfigurationData(klee::ExecutionState& state, net::Node src)
   , cg(state.constraints)
   , distSymbols(src)
   , txData(0)
+  , merges(0)
   {
 }
 ConfigurationData::ConfigurationData(ConfigurationData const& from, State* state)
@@ -240,6 +241,7 @@ ConfigurationData::ConfigurationData(ConfigurationData const& from, State* state
   , cg(static_cast<klee::ExecutionState*>(state)->constraints) // XXX dangerous upcast because ES may not exist yet, but cg only stores the reference, so cross your fingers XXX
   , distSymbols(from.distSymbols) // !
   , txData(0)
+  , merges(from.merges)
   {
 }
 ConfigurationData::~ConfigurationData() {
@@ -259,6 +261,9 @@ SenderTxData& ConfigurationData::transmissionProperties(net::ConstIteratable<kle
       break;
     case TransmissionKind::pull:
       designation = std::string("pull") + llvm::utostr(forState.getCompletedPullRequests() + 1);
+      break;
+    case TransmissionKind::merge:
+      designation = std::string("merge") + llvm::utostr(++merges);
       break;
   };
   assert(designation.size());

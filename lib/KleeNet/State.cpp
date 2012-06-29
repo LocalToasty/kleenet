@@ -88,3 +88,11 @@ void State::transferConstraints(State& onto) {
 Executor* State::getExecutor() const {
   return executor;
 }
+
+klee::ExecutionState const* State::executionState() const {
+  return static_cast<klee::ExecutionState const*>(this);
+}
+
+klee::ExecutionState* State::executionState() {
+  return static_cast<klee::ExecutionState*>(this);
+}

@@ -11,6 +11,10 @@
 
 #include "net/BasicState.h"
 
+namespace klee {
+  class ExecutionState;
+}
+
 namespace kleenet {
   class KleeNet;
   class Executor;
@@ -47,6 +51,8 @@ namespace kleenet {
       State* forceFork();
       void transferConstraints(State&);
       Executor* getExecutor() const;
+      klee::ExecutionState const* executionState() const;
+      klee::ExecutionState* executionState();
   };
 }
 

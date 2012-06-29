@@ -83,7 +83,7 @@ namespace kleenet {
 
   class ConfigurationData : public ConfigurationDataBase { // constant-time construction (but sizeable number of mallocs)
     public:
-      State& forState;
+      klee::ExecutionState& forState;
       ConstraintsGraph cg;
       StateDistSymbols distSymbols;
       typedef std::vector<klee::ref<klee::Expr> > ConList;
@@ -91,7 +91,7 @@ namespace kleenet {
       SenderTxData* txData;
       size_t merges;
       ConfigurationData(ConfigurationData const&); // not implemented
-      ConfigurationData(ConfigurationData const&,State*);
+      ConfigurationData(ConfigurationData const&,klee::ExecutionState*);
       ConfigurationData* fork(State*) const;
     public:
       ConfigurationData(klee::ExecutionState& state, net::Node src);

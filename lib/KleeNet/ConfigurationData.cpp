@@ -236,7 +236,7 @@ ConfigurationData::ConfigurationData(klee::ExecutionState& state, net::Node src)
   , merges(0)
   {
 }
-ConfigurationData::ConfigurationData(ConfigurationData const& from, State* state)
+ConfigurationData::ConfigurationData(ConfigurationData const& from, klee::ExecutionState* state)
   : forState(*state)
   , cg(static_cast<klee::ExecutionState*>(state)->constraints) // XXX dangerous upcast because ES may not exist yet, but cg only stores the reference, so cross your fingers XXX
   , distSymbols(from.distSymbols) // !
@@ -250,7 +250,7 @@ ConfigurationData::~ConfigurationData() {
 }
 ConfigurationData* ConfigurationData::fork(State* state) const {
   DD::cout << "#### ConfigurationData::fork(" << state << ")" << DD::endl;
-  return new ConfigurationData(*this,state);
+  return new ConfigurationData(*this,state->executionState());
 }
 
 SenderTxData& ConfigurationData::transmissionProperties(net::ConstIteratable<klee::ref<klee::Expr> > const& begin, net::ConstIteratable<klee::ref<klee::Expr> > const& end, TransmissionKind::Enum kind) {

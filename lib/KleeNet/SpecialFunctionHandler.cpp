@@ -6,6 +6,7 @@
 #include "AtomImpl.h"
 #include "ExprBuilder.h"
 #include "kexPPrinter.h"
+#include "ConstraintSet.h"
 
 #include "net/Time.h"
 #include "net/util/SharedPtr.h"
@@ -345,7 +346,7 @@ namespace kleenet {
     net::ExData exData;
   };
 
-  size_t SpecialFunctionHandler::acquireExprRange(ExDataCarrier& out, klee::ExecutionState& sourceState, klee::ref<klee::Expr> const dataSource, size_t len /*mutated!*/) const {
+  size_t SpecialFunctionHandler::acquireExprRange(ExDataCarrier* out1, std::vector<klee::ref<klee::Expr> >* out2, klee::ExecutionState& sourceState, klee::ref<klee::Expr> const dataSource, size_t len /*mutated!*/) const {
     // grab the source ObjetState and the offset
     klee::ResolutionList rl;
     sourceState.addressSpace.resolve(sourceState, netEx.solver, dataSource, rl);
@@ -359,15 +360,22 @@ namespace kleenet {
 
     assert(srcOffset + len <= srcMo->size);
 
-    out.exData.reserve(out.exData.size()+len);
+    if (out1)
+      out1->exData.reserve(out1->exData.size()+len);
+    if (out2)
+      out2->reserve(out2->size()+len);
     for (size_t i = 0; i < len; i++) {
       klee::ref<Expr> const re = srcOs->read8(srcOffset + i);
       typedef net::util::SharedPtr<net::DataAtom> DA;
-      if (isa<ConstantExpr>(re)) {
-        out.exData.push_back(DA(new ConcreteAtom(dyn_cast<ConstantExpr>(re)->getZExtValue())));
-      } else {
-        out.exData.push_back(DA(new SymbolicAtom(re)));
+      if (out1) {
+        if (isa<ConstantExpr>(re)) {
+          out1->exData.push_back(DA(new ConcreteAtom(dyn_cast<ConstantExpr>(re)->getZExtValue())));
+        } else {
+          out1->exData.push_back(DA(new SymbolicAtom(re)));
+        }
       }
+      if (out2)
+        out2->push_back(re);
     }
 
     return len;
@@ -403,14 +411,14 @@ namespace kleenet {
     assert(len > 0 && "n must be > 0");
 
     ExDataCarrier values;
-    main->memoryTransferWrapper(ha.state, ha.arguments[0], main->acquireExprRange(values, ha.state, ha.arguments[1], len), values, destNode);
+    main->memoryTransferWrapper(ha.state, ha.arguments[0], main->acquireExprRange(&values, 0, ha.state, ha.arguments[1], len), values, destNode);
   }
 
   HAND(void,kleenet_sync,2) {
     Node const destNode = args[1]->getZExtValue();
 
     ExDataCarrier values;
-    main->memoryTransferWrapper(ha.state, ha.arguments[0], main->acquireExprRange(values, ha.state, ha.arguments[0], 0/* figure the length out yourself, please*/), values, destNode);
+    main->memoryTransferWrapper(ha.state, ha.arguments[0], main->acquireExprRange(&values, 0, ha.state, ha.arguments[0], 0/* figure the length out yourself, please*/), values, destNode);
   }
   HAND(void,kleenet_pull,2) {
     Node const srcNode = args[1]->getZExtValue();
@@ -421,8 +429,14 @@ namespace kleenet {
     if (net::StateMapper* const sm = executor->kleeNet.getStateMapper()) {
       sm->findTargets(ha.state, srcNode);
       for (net::StateMapper::iterator it = sm->begin(), end = sm->end(); it != end; ++it) {
-        klee::ExecutionState* const originState = static_cast<klee::ExecutionState*>(*it);
-        conjunctions.push_back(ExprBuilder::conjunction(originState->constraints.begin(),originState->constraints.end()));
+        klee::ExecutionState* const es = static_cast<State*>(*it)->executionState();
+        std::vector<ExprBuilder::RefExpr> exprs;
+        main->acquireExprRange(0, &exprs, *es, ha.arguments[0], 0/* figure the length out yourself, please*/);
+        std::vector<ExprBuilder::RefExpr> const constr = ConstraintSet(TransmissionKind::pull,*es,exprs.begin(),exprs.end()).extractFor(ha.state).extractConstraints(ConstraintSetTransfer::FORCEALL);
+        (*it)->incCompletedPullRequests();
+        for (std::vector<ExprBuilder::RefExpr>::const_iterator it = constr.begin(); it != constr.end(); ++it)
+          pprint(net::DEBUG<net::debug::external1>(),*it,". ");
+        conjunctions.push_back(ExprBuilder::conjunction(constr.begin(),constr.end()));
       }
       sm->invalidate();
     }

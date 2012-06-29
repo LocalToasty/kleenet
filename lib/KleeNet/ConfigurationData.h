@@ -87,40 +87,6 @@ namespace kleenet {
       ConstraintsGraph cg;
       StateDistSymbols distSymbols;
       typedef std::vector<klee::ref<klee::Expr> > ConList;
-      class PerReceiverData {
-        private:
-          SenderTxData& txData;
-          ConfigurationData& receiverConfig;
-          NameManglerHolder nmh;
-          ReadTransformator rt;
-          bool constraintsComputed;
-        public:
-          std::string const& specialTxName;
-        public:
-          PerReceiverData(SenderTxData& txData, ConfigurationData& receiverConfig, size_t const beginPrecomputeRange, size_t const endPrecomputeRange);
-          klee::ref<klee::Expr> operator[](size_t index);
-          void transferNewReceiverConstraints(net::util::DynamicFunctor<klee::ref<klee::Expr> > const&, bool txConstraintsTransmission);
-        private:
-          std::vector<std::pair<klee::Array const*,klee::Array const*> > additionalSenderOnlyConstraints();
-          LazySymbolTranslator::TxMap const& symbolTable() const {
-            return rt.symbolTable();
-          }
-        public:
-          bool isNonConstTransmission() const;
-          struct GeneratedSymbolInformation {
-            StateDistSymbols* belongsTo;
-            klee::Array const* was;
-            klee::Array const* translated;
-            GeneratedSymbolInformation(StateDistSymbols* belongsTo, klee::Array const* was, klee::Array const* translated)
-              : belongsTo(belongsTo)
-              , was(was)
-              , translated(translated) {
-            }
-            void addArrayToStateNames(klee::ExecutionState& state, net::Node src, net::Node dest) const;
-          };
-          typedef std::vector<GeneratedSymbolInformation> NewSymbols;
-          NewSymbols newSymbols();
-      };
     private:
       SenderTxData* txData;
       size_t merges;
@@ -135,5 +101,42 @@ namespace kleenet {
         return *this;
       }
       static void configureState(klee::ExecutionState& state);
+  };
+
+
+  class PerReceiverData {
+    public:
+      SenderTxData& txData;
+      ConfigurationData& receiverConfig;
+    private:
+      NameManglerHolder nmh;
+      ReadTransformator rt;
+      bool constraintsComputed;
+    public:
+      std::string const& specialTxName;
+    public:
+      PerReceiverData(SenderTxData& txData, ConfigurationData& receiverConfig, size_t const beginPrecomputeRange, size_t const endPrecomputeRange);
+      klee::ref<klee::Expr> operator[](size_t index);
+      bool isNonConstTransmission() const;
+    private:
+      std::vector<std::pair<klee::Array const*,klee::Array const*> > additionalSenderOnlyConstraints();
+      LazySymbolTranslator::TxMap const& symbolTable() const {
+        return rt.symbolTable();
+      }
+      struct GeneratedSymbolInformation {
+        StateDistSymbols* belongsTo;
+        klee::Array const* was;
+        klee::Array const* translated;
+        GeneratedSymbolInformation(StateDistSymbols* belongsTo, klee::Array const* was, klee::Array const* translated)
+          : belongsTo(belongsTo)
+          , was(was)
+          , translated(translated) {
+        }
+        void addArrayToStateNames(klee::ExecutionState& state, net::Node src, net::Node dest) const;
+      };
+    public:
+      typedef std::vector<GeneratedSymbolInformation> NewSymbols;
+      NewSymbols newSymbols();
+      void transferNewReceiverConstraints(net::util::DynamicFunctor<klee::ref<klee::Expr> > const&, bool txConstraintsTransmission);
   };
 }

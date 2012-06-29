@@ -151,7 +151,7 @@ void ConstraintsGraph::updateGraph() {
 
 
 
-ConfigurationData::PerReceiverData::PerReceiverData(SenderTxData& txData, ConfigurationData& receiverConfig, size_t const beginPrecomputeRange, size_t const endPrecomputeRange)
+PerReceiverData::PerReceiverData(SenderTxData& txData, ConfigurationData& receiverConfig, size_t const beginPrecomputeRange, size_t const endPrecomputeRange)
   : txData(txData)
   , receiverConfig(receiverConfig)
   , nmh(txData.designation,txData.distSymbolsSrc,receiverConfig.distSymbols)
@@ -166,11 +166,11 @@ ConfigurationData::PerReceiverData::PerReceiverData(SenderTxData& txData, Config
     && "When precomuting all transmission atoms, we found completely new symbols, but we already assumed we were done with that.");
 }
 
-bool ConfigurationData::PerReceiverData::isNonConstTransmission() const {
+bool PerReceiverData::isNonConstTransmission() const {
   return !(txData.senderSymbols.empty() && rt.symbolTable().empty());
 }
 
-klee::ref<klee::Expr> ConfigurationData::PerReceiverData::operator[](size_t index) {
+klee::ref<klee::Expr> PerReceiverData::operator[](size_t index) {
   size_t const existingPacketSymbols = txData.senderSymbols.size();
   klee::ref<klee::Expr> expr = rt[index];
   assert((txData.allowMorePacketSymbols || (existingPacketSymbols == txData.senderSymbols.size())) \
@@ -179,7 +179,7 @@ klee::ref<klee::Expr> ConfigurationData::PerReceiverData::operator[](size_t inde
 }
 
 // result already translated!
-void ConfigurationData::PerReceiverData::transferNewReceiverConstraints(net::util::DynamicFunctor<klee::ref<klee::Expr> > const& transfer, bool txConstraintsTransmission) {
+void PerReceiverData::transferNewReceiverConstraints(net::util::DynamicFunctor<klee::ref<klee::Expr> > const& transfer, bool txConstraintsTransmission) {
   if (!constraintsComputed) {
     constraintsComputed = true;
     ConstraintsGraph::ConstraintList const& senderConstraints = txData.computeSenderConstraints(txConstraintsTransmission);
@@ -190,7 +190,7 @@ void ConfigurationData::PerReceiverData::transferNewReceiverConstraints(net::uti
     }
   }
 }
-std::vector<std::pair<klee::Array const*,klee::Array const*> > ConfigurationData::PerReceiverData::additionalSenderOnlyConstraints() {
+std::vector<std::pair<klee::Array const*,klee::Array const*> > PerReceiverData::additionalSenderOnlyConstraints() {
   std::vector<std::pair<klee::Array const*,klee::Array const*> > senderOnlyConstraints;
   if (!txData.senderReflexiveArraysComputed) {
     txData.senderReflexiveArraysComputed = true;
@@ -207,7 +207,7 @@ std::vector<std::pair<klee::Array const*,klee::Array const*> > ConfigurationData
   return senderOnlyConstraints;
 }
 
-ConfigurationData::PerReceiverData::NewSymbols ConfigurationData::PerReceiverData::newSymbols() { // rvo
+PerReceiverData::NewSymbols PerReceiverData::newSymbols() { // rvo
   std::vector<std::pair<klee::Array const*,klee::Array const*> > senderOnlyConstraints = additionalSenderOnlyConstraints();
   NewSymbols result;
   result.reserve(senderOnlyConstraints.size()+rt.symbolTable().size());
@@ -222,7 +222,7 @@ ConfigurationData::PerReceiverData::NewSymbols ConfigurationData::PerReceiverDat
   return result;
 }
 
-void ConfigurationData::PerReceiverData::GeneratedSymbolInformation::addArrayToStateNames(klee::ExecutionState& state, net::Node src, net::Node dest) const {
+void PerReceiverData::GeneratedSymbolInformation::addArrayToStateNames(klee::ExecutionState& state, net::Node src, net::Node dest) const {
   if (!state.arrayNames.insert(translated->name).second && !belongsTo->isDistributed(translated)) {
     klee::klee_error("%s",(std::string("In transmission of symbol '") + was->name + "' from node " + llvm::itostr(src.id) + " to node " + llvm::itostr(dest.id) + "; Symbol '" + translated->name + "' already exists on the target state. This is either a bug in KleeNet or you used the symbol '}' when specifying the name of a symbolic object which is not supported in KleeNet as it is used to mark special distributed symbols.").c_str());
   }

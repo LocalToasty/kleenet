@@ -93,7 +93,7 @@ void TransmitHandler::handleTransmission(PacketInfo const& pi, net::BasicState* 
   ConfigurationData::configureState(receiver);
 
   DD::cout << "| " << "Involved states: " << &sender << " ---> " << &receiver << DD::endl;
-  ConfigurationData::PerReceiverData receiverData(
+  PerReceiverData receiverData(
       sender.configurationData->self().transmissionProperties(
           net::StdIteratorFactory<klee::ref<klee::Expr> >::build(data.begin(),dataAtomToExpr)
         , net::StdIteratorFactory<klee::ref<klee::Expr> >::build(data.end(),dataAtomToExpr)
@@ -114,7 +114,6 @@ void TransmitHandler::handleTransmission(PacketInfo const& pi, net::BasicState* 
     ose->initializeToZero();
     receiver.addressSpace.bindObject(mo,ose);
     receiver.addSymbolic(mo,array);
-    ConfigurationData::PerReceiverData::GeneratedSymbolInformation(&(receiver.configurationData->self().distSymbols),array,array);
 
     for (unsigned i = 0; i < pi.length; i++) {
       ExprBuilder::RefExpr r8 = ExprBuilder::buildRead8(array,i);
@@ -136,8 +135,8 @@ void TransmitHandler::handleTransmission(PacketInfo const& pi, net::BasicState* 
     receiverData.transferNewReceiverConstraints(net::util::FunctorBuilder<klee::ref<klee::Expr>,net::util::DynamicFunctor>::build(ConstraintAdder(receiver)),txConstraintsTransmission);
     DD::cout << "| " << "EOF Constraints." << DD::endl;
     DD::cout << "| " << "Listing OFFENDING symbols:" << DD::endl;
-    ConfigurationData::PerReceiverData::NewSymbols const newSymbols = receiverData.newSymbols();
-    for (ConfigurationData::PerReceiverData::NewSymbols::const_iterator it = newSymbols.begin(), end = newSymbols.end(); it != end; ++it) {
+    PerReceiverData::NewSymbols const newSymbols = receiverData.newSymbols();
+    for (PerReceiverData::NewSymbols::const_iterator it = newSymbols.begin(), end = newSymbols.end(); it != end; ++it) {
       bool const isOnSender = it->belongsTo->node == pi.src;
       DD::cout << "| " << " + (on " << (isOnSender?"sender state)    ":"receiver state)  ") << it->was->name << "  |--->  " << it->translated->name << DD::endl;
       it->addArrayToStateNames(isOnSender?sender:receiver,pi.src,pi.dest);

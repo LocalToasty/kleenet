@@ -3,8 +3,10 @@
 #include "ConfigurationData.h"
 #include "ExprBuilder.h"
 #include "NetExecutor.h"
+#include "ConstraintSet.h"
 
 #include "net/Iterator.h"
+#include "net/util/Containers.h"
 
 #include "klee/ExecutionState.h"
 #include "klee_headers/Memory.h"
@@ -47,20 +49,6 @@ namespace {
     , llvm::cl::init(tscp_SYMBOLICS)
   );
 
-  enum TxConstraintsTransmission {
-    tct_CLOSURE = 0,
-    tct_FORCEALL = 1
-  };
-  llvm::cl::opt<TxConstraintsTransmission>
-  txConstraintsTransmission("sde-constraints-transmission"
-    , llvm::cl::desc("Select how to decide which constraints to propagate on symbolic packet transmission. Default is 'closure'.")
-    , llvm::cl::values(
-        clEnumValN(tct_CLOSURE,"closure","Compute the minimal set of constraints for a given transmission and only transmit the constraints that affect the packet data.")
-      , clEnumValN(tct_FORCEALL,"force-all","Allways transfer all constraints that affect all distributed symbols of the sender state. In some rare cases this can prevent false positives.")
-      , clEnumValEnd
-    )
-    , llvm::cl::init(tct_CLOSURE)
-  );
 }
 
 using namespace kleenet;
@@ -70,46 +58,32 @@ namespace klee {
   class Expr;
 }
 
-namespace {
-  struct ConstraintAdder {
-    klee::ExecutionState& state;
-    ConstraintAdder(klee::ExecutionState& state) : state(state) {}
-    void operator()(klee::ref<klee::Expr> expr) const {
-      state.constraints.addConstraint(expr);
-    }
-  };
-}
-
 void TransmitHandler::handleTransmission(PacketInfo const& pi, net::BasicState* basicSender, net::BasicState* basicReceiver, std::vector<net::DataAtomHolder> const& data) const {
   size_t const currentTx = basicSender->getCompletedTransmissions() + 1;
   DD::cout << DD::endl
            << "┏━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┓" << DD::endl
-           << "┃ STARTING TRANSMISSION #" << currentTx << " from node `" << pi.src.id << "' to `" << pi.dest.id << "'.                               ┃" << DD::endl
+           << "┃ STARTING TRANSMISSION #" << currentTx << " from node `" << pi.src.id << "' to `" << pi.dest.id << "'. of size " << pi.length << "                     ┃" << DD::endl
            << "┡━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━┩" << DD::endl;
-  klee::ExecutionState& sender = static_cast<klee::ExecutionState&>(*basicSender);
-  klee::ExecutionState& receiver = static_cast<klee::ExecutionState&>(*basicReceiver);
+  klee::ExecutionState& sender = *static_cast<State*>(basicSender)->executionState();
+  klee::ExecutionState& receiver = *static_cast<State*>(basicReceiver)->executionState();
 
-  ConfigurationData::configureState(sender);
-  ConfigurationData::configureState(receiver);
+  std::vector<klee::ref<klee::Expr> > expressions;
+  expressions.reserve((data.size() < pi.length)?data.size():pi.length);
+  for (size_t i = 0; i < data.size() && i < pi.length; ++i) {
+    expressions.push_back(dataAtomToExpr(data[i]));
+  }
 
-  DD::cout << "| " << "Involved states: " << &sender << " ---> " << &receiver << DD::endl;
-  PerReceiverData receiverData(
-      sender.configurationData->self().transmissionProperties(
-          net::StdIteratorFactory<klee::ref<klee::Expr> >::build(data.begin(),dataAtomToExpr)
-        , net::StdIteratorFactory<klee::ref<klee::Expr> >::build(data.end(),dataAtomToExpr)
-        , TransmissionKind::tx
-      )
-    , receiver.configurationData->self()
-    , 0, pi.length // precomputation of symbols
-  );
+  ConstraintSetTransfer const cst = ConstraintSet(TransmissionKind::tx,sender,expressions.begin(),expressions.end()).extractFor(receiver);
+
   klee::ObjectState const* oseDest = receiver.addressSpace.findObject(pi.destMo);
   assert(oseDest && "Destination ObjectState not found.");
   klee::ObjectState* wosDest = receiver.addressSpace.getWriteable(pi.destMo, oseDest);
-  bool const hasSymbolics = receiverData.isNonConstTransmission();
-  if ((txSymbolConstructionChoice == tscp_FORCEALL) || (hasSymbolics && (txSymbolConstructionChoice == tscp_SYMBOLICS))) {
+  bool const hasSymbolics = cst.receiverData().isNonConstTransmission();
+  if (   (txSymbolConstructionChoice == tscp_FORCEALL)
+      || (hasSymbolics && (txSymbolConstructionChoice == tscp_SYMBOLICS))) {
     klee::MemoryObject* const mo = receiver.getExecutor()->memory->allocate(pi.length,false,true,NULL);
-    mo->setName(receiverData.specialTxName);
-    klee::Array const* const array = new klee::Array(receiverData.specialTxName,mo->size);
+    mo->setName(cst.receiverData().specialTxName);
+    klee::Array const* const array = new klee::Array(cst.receiverData().specialTxName,mo->size);
     klee::ObjectState* const ose = new klee::ObjectState(mo,array);
     ose->initializeToZero();
     receiver.addressSpace.bindObject(mo,ose);
@@ -118,35 +92,24 @@ void TransmitHandler::handleTransmission(PacketInfo const& pi, net::BasicState* 
     for (unsigned i = 0; i < pi.length; i++) {
       ExprBuilder::RefExpr r8 = ExprBuilder::buildRead8(array,i);
       wosDest->write(pi.offset + i, r8);
-      receiver.constraints.addConstraint(ExprBuilder::buildEquality(r8,receiverData[i]));
+      receiver.constraints.addConstraint(ExprBuilder::buildEquality(r8,cst.receiverData()[i]));
     }
   } else {
     for (unsigned i = 0; i < pi.length; i++) {
-      wosDest->write(pi.offset + i, receiverData[i]);
+      wosDest->write(pi.offset + i, cst.receiverData()[i]);
     }
   }
-  DD::cout << "| " << "Using the following transmission context: " << &receiverData << DD::endl;
   if (hasSymbolics) {
     DD::cout << "| " << "Sender Constraints:" << DD::endl;
     DD::cout << "|   "; pprint(sender.constraints);
     DD::cout << "| " << "Receiver Constraints:" << DD::endl;
     DD::cout << "|   "; pprint(receiver.constraints);
     DD::cout << "| " << "Processing OFFENDING constraints:" << DD::endl;
-    receiverData.transferNewReceiverConstraints(net::util::FunctorBuilder<klee::ref<klee::Expr>,net::util::DynamicFunctor>::build(ConstraintAdder(receiver)),txConstraintsTransmission);
-    DD::cout << "| " << "EOF Constraints." << DD::endl;
-    DD::cout << "| " << "Listing OFFENDING symbols:" << DD::endl;
-    PerReceiverData::NewSymbols const newSymbols = receiverData.newSymbols();
-    for (PerReceiverData::NewSymbols::const_iterator it = newSymbols.begin(), end = newSymbols.end(); it != end; ++it) {
-      bool const isOnSender = it->belongsTo->node == pi.src;
-      DD::cout << "| " << " + (on " << (isOnSender?"sender state)    ":"receiver state)  ") << it->was->name << "  |--->  " << it->translated->name << DD::endl;
-      it->addArrayToStateNames(isOnSender?sender:receiver,pi.src,pi.dest);
-      if (isOnSender) {
-        DD::cout << "| " << "    -- reflexive: " << it->was->name << " == " << it->translated->name << DD::endl;
-        klee::ref<klee::Expr> const eq = ExprBuilder::buildEquality(it->was,it->translated);
-        DD::cout << "|   "; pprint(eq);
-        sender.constraints.addConstraint(eq);
-      }
+    std::vector<klee::ref<klee::Expr> > const constr = cst.extractConstraints();
+    for (std::vector<klee::ref<klee::Expr> >::const_iterator it = constr.begin(), end = constr.end(); it != end; ++it) {
+      receiver.constraints.addConstraint(*it);
     }
+    DD::cout << "| " << "EOF Constraints." << DD::endl;
   } else {
     DD::cout << "| " << "All data in tx is constant. Bypassing Graph construction." << DD::endl;
   }

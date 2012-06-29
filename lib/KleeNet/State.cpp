@@ -2,6 +2,7 @@
 
 #include "NetExecutor.h"
 #include "ConfigurationData.h"
+#include "ConstraintSet.h"
 
 #include "klee/ExecutionState.h"
 #include "klee_headers/PTree.h"
@@ -38,46 +39,16 @@ State* State::forceFork() {
 
 void State::transferConstraints(State& onto) {
   if (configurationData && onto.configurationData) {
-    ConfigurationData& myConfig = configurationData->self();
-    ConfigurationData& theirConfig = onto.configurationData->self();
-    klee::ExecutionState& receiver = static_cast<klee::ExecutionState&>(onto);
-    size_t const existingSymbols = receiver.arrayNames.size();
-    DD::cout << "transferring Constraints; configuration objects: " << &myConfig << " -> " << &theirConfig << DD::endl;
-    std::vector<klee::Array const*> ownArrays;
-    myConfig.distSymbols.iterateArrays(
-      net::util::FunctorBuilder<klee::Array const*,net::util::DynamicFunctor,net::util::IterateOperator>::build(
-        std::back_inserter(ownArrays)
-      )
-    );
-
-    for (std::vector<klee::Array const*>::const_iterator it = ownArrays.begin(), end = ownArrays.end(); it != end; ++it) {
-      DD::cout << " - I got array[" << *it << "] of name: " << (*it)->name << DD::endl;
-    }
-
-    std::vector<klee::ref<klee::Expr> > constraints = myConfig.cg.eval(ownArrays);
-
-    std::set<klee::Array const*> newSymbols;
-
-    NameManglerHolder nmh("<*>",myConfig.distSymbols,theirConfig.distSymbols);
-    ReadTransformator rt(nmh.mangler,constraints,NULL,&newSymbols);
+    std::vector<klee::ref<klee::Expr> > constraints =
+      ConstraintSet(TransmissionKind::merge,configurationData->self()).extractFor(onto.configurationData->self()).extractConstraints(ConstraintSetTransfer::FORCEALL);
 
     for (std::vector<klee::ref<klee::Expr> >::const_iterator it = constraints.begin(), end = constraints.end(); it != end; ++it) {
       DD::cout << "________________________________________________________________________________" << DD::endl;
       DD::cout << " . I got a constraint to transfer: " << DD::endl;
-      DD::cout << " .   + "; pprint(DD(), *it, "     + ");
-      klee::ref<klee::Expr> const sc = rt(*it);
-      DD::cout << " . I will send the translated constraint: " << DD::endl;
-      DD::cout << " .   # "; pprint(DD(), sc, " .   # ");
+      DD::cout << " .   # "; pprint(DD(), *it, " .   # ");
       DD::cout << "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~" << DD::endl;
-      receiver.constraints.addConstraint(sc);
+      onto.executionState()->constraints.addConstraint(*it);
     }
-
-    for (std::set<klee::Array const*>::const_iterator it = newSymbols.begin(), end = newSymbols.end(); it != end; ++it) {
-      DD::cout << " ~~> " << (*it)->name << DD::endl;
-      receiver.arrayNames.insert((*it)->name);
-    }
-
-    DD::cout << "New symbols for receiver state: " << (receiver.arrayNames.size() - existingSymbols) << DD::endl;
 
     DD::cout << "EOF transferConstraints" << DD::endl << DD::endl;
   } else {

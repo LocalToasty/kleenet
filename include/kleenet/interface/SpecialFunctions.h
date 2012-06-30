@@ -46,9 +46,9 @@ extern "C" {
   /// NOTE: If you pass anything other than the pointer to beginning of the object
   ///       the resulting behaviour is **unspecified**.
   ///
-  /// \param object - The object to synchronise
-  /// \param destId - The node id of the destination node.
-  void kleenet_sync(void volatile *object, int destId);
+  /// \param ptr  - The object to synchronise
+  /// \param dest - The node id of the destination node.
+  #define kleenet_sync(ptr,dest) kleeney_memcpy(ptr,ptr,sizeof(*ptr),dest)
 
   /// No-mapping data transmission operation.
   /// Writes a disjunction of all solutions of the targets into the object.

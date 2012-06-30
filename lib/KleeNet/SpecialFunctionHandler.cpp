@@ -350,7 +350,7 @@ namespace kleenet {
     // grab the source ObjetState and the offset
     klee::ResolutionList rl;
     sourceState.addressSpace.resolve(sourceState, netEx.solver, dataSource, rl);
-    assert(rl.size() == 1 && "data range (memcpy/sync) src must resolve to precisely one object");
+    assert(rl.size() == 1 && "data range memcpy src must resolve to precisely one object");
     klee::MemoryObject const* const srcMo = rl[0].first;
     klee::ObjectState const* const srcOs = rl[0].second;
     unsigned const srcOffset =
@@ -414,13 +414,13 @@ namespace kleenet {
     main->memoryTransferWrapper(ha.state, ha.arguments[0], main->acquireExprRange(&values, 0, ha.state, ha.arguments[1], len), values, destNode);
   }
 
-  HAND(void,kleenet_sync,2) {
-    Node const destNode = args[1]->getZExtValue();
+  //HAND(void,kleenet_sync,2) {
+  //  Node const destNode = args[1]->getZExtValue();
 
-    ExDataCarrier values;
-    main->memoryTransferWrapper(ha.state, ha.arguments[0], main->acquireExprRange(&values, 0, ha.state, ha.arguments[0], 0/* figure the length out yourself, please*/), values, destNode);
-  }
-  HAND(void,kleenet_pull,2) {
+  //  ExDataCarrier values;
+  //  main->memoryTransferWrapper(ha.state, ha.arguments[0], main->acquireExprRange(&values, 0, ha.state, ha.arguments[0], 0/* figure the length out yourself, please*/), values, destNode);
+  //}
+  HAND(void,kleenet_pull,2) { // TODO change to four argument version and alias as macro in interface/
     Node const srcNode = args[1]->getZExtValue();
 
     std::vector<ExprBuilder::RefExpr> conjunctions;

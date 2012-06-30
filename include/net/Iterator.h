@@ -88,9 +88,9 @@ namespace net {
         return util::SharedPtr<ConstIteratable<T> >(new StdConstIterator(*this));
       }
     public:
-      StdConstIterator(ContainerIterator it) : it(it) {
+      StdConstIterator(ContainerIterator it) : ConstIteratable<T>(), it(it) {
       }
-      StdConstIterator(StdConstIterator const& from) : it(from.it) {
+      StdConstIterator(StdConstIterator const& from) : ConstIteratable<T>(from), it(from.it) {
       }
       typename ConstIteratable<T>::Content operator*() const {
         return *it;

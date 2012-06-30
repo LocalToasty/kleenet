@@ -60,15 +60,15 @@ namespace net {
       }
       // this is probably not how you want to create your dependants, as
       // you have to implement that ctor all the way down to the leafs
-      StateDependant(BasicState* state) : state(state), cloner(NULL) {
+      StateDependant(BasicState* state) : StateDependantDelayable(), state(state), cloner(NULL) {
         registerState(state);
       }
       // this is how you probably want to create the first dep
-      StateDependant() : state(NULL), cloner(NULL) {
+      StateDependant() : StateDependantDelayable(), state(NULL), cloner(NULL) {
         reg.delayedConstruction(this);
       }
       // this is how you probably want to create all but the first dep
-      StateDependant(StateDependant const& from) : state(NULL), cloner(from.cloner) {
+      StateDependant(StateDependant const& from) : StateDependantDelayable(from), state(NULL), cloner(from.cloner) {
         reg.delayedConstruction(this);
       }
       BasicState* getState() const {

@@ -19,10 +19,12 @@ NullStrategy& NullStrategy::operator-=(StateCluster* c) {
 }
 
 FifoStrategy::FifoStrategy()
-  : current(clusters.end()) {
+  : SearcherStrategy()
+  , current(clusters.end()) {
 }
 FifoStrategy::FifoStrategy(FifoStrategy const& from)
-  : clusters(from.clusters)
+  : SearcherStrategy(from)
+  , clusters(from.clusters)
   , current(clusters.end()) {
 }
 StateCluster* FifoStrategy::selectCluster() {
@@ -72,13 +74,15 @@ RandomStrategy& RandomStrategy::operator-=(StateCluster* c) {
 
 
 MangleStrategy::MangleStrategy(Components const& components)
-  : components(components)
+  : SearcherStrategy()
+  , components(components)
   , current(components.end())
   , remaining(0) {
   assert(!components.empty());
 }
 MangleStrategy::MangleStrategy(MangleStrategy const& from)
-  : components(from.components)
+  : SearcherStrategy(from)
+  , components(from.components)
   , current(components.end())
   , remaining(0) {
 }
@@ -110,7 +114,8 @@ MangleStrategy& MangleStrategy::operator-=(StateCluster* c) {
 
 
 RepeatStrategy::RepeatStrategy(util::SharedPtr<SearcherStrategy> s, unsigned repeat)
-  : s(s)
+  : SearcherStrategy()
+  , s(s)
   , repeat(repeat)
   , current(0)
   , streak(0) {
@@ -118,7 +123,8 @@ RepeatStrategy::RepeatStrategy(util::SharedPtr<SearcherStrategy> s, unsigned rep
   assert(repeat);
 }
 RepeatStrategy::RepeatStrategy(RepeatStrategy const& from)
-  : s(from.s)
+  : SearcherStrategy(from)
+  , s(from.s)
   , repeat(from.repeat)
   , current(0)
   , streak(0) {

@@ -14,6 +14,7 @@ namespace net {
     protected:
       static char nextClassId();
       DataAtom();
+    public:
       virtual char getClassId() const = 0;
       bool sameClass(DataAtom const&) const;
     public:
@@ -26,8 +27,12 @@ namespace net {
     protected:
       DataAtomT() : DataAtom() {}
       char getClassId() const {
-        static char const classId = nextClassId();
-        return classId;
+        return classId();
+      }
+    public:
+      static char classId() {
+        static char const _classId = nextClassId();
+        return _classId;
       }
   };
 

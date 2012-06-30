@@ -738,19 +738,6 @@ static const char *modelledExternals[] = {
   "_Znwj", 
   "_Znam", 
   "_Znwm", 
-  // KleeNet special functions
-  "kleenet_early_exit",
-  "kleenet_get_global_symbol",// XXX FIXME XXX
-  "kleenet_get_node_id",
-  "kleenet_get_virtual_time",
-  "kleenet_memcpy",
-  "kleenet_memset",
-  "kleenet_schedule_boot_state",
-  "kleenet_schedule_state",
-  "kleenet_set_node_id",
-  "kleenet_yield_state",
-  "kleenet_wakeup_dest_states",
-  "SYMBOL",
 };
 // Symbols we aren't going to warn about
 static const char *dontCareExternals[] = {
@@ -828,11 +815,17 @@ static const char *unsafeExternals[] = {
   "raise", // yeah
   "kill", // mmmhmmm
 };
+
+namespace kleenet {
+  void addDynamicSpecialFunctionHandlers(std::set<std::string>&);
+}
+
 #define NELEMS(array) (sizeof(array)/sizeof(array[0]))
 void externalsAndGlobalsCheck(const Module *m) {
   std::map<std::string, bool> externals;
   std::set<std::string> modelled(modelledExternals, 
                                  modelledExternals+NELEMS(modelledExternals));
+  kleenet::addDynamicSpecialFunctionHandlers(modelled);
   std::set<std::string> dontCare(dontCareExternals, 
                                  dontCareExternals+NELEMS(dontCareExternals));
   std::set<std::string> unsafe(unsafeExternals, 

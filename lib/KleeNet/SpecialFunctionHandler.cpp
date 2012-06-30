@@ -197,6 +197,13 @@ namespace kleenet {
     };
   }
 
+  void addDynamicSpecialFunctionHandlers(std::set<std::string>& set) { // used DIRECTLY by by main.cpp!
+    typedef sfh::SFHBase::ListEntry::GlobalList SourceSet;
+    for (SourceSet::const_iterator it = sfh::SFHBase::ListEntry::globalList()->begin(), end = sfh::SFHBase::ListEntry::globalList()->end(); it != end; ++it) {
+      set.insert((*it)->name);
+    }
+  }
+
   template <typename Self, typename Returns, unsigned args, char const* binding, bool doesNotReturn = false, bool doNotOverride = false>
   struct SFH : sfh::SFH<Self,Returns,args,binding,doesNotReturn,doNotOverride> {
     typedef sfh::HandleArgs HandleArgs;

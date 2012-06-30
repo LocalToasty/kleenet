@@ -34,8 +34,6 @@ namespace kleenet {
     ConstraintSetTransfer_impl(ConstraintSet_impl const&, ConfigurationData&);
 
     std::vector<klee::ref<klee::Expr> > extractConstraints(TxConstraintsTransmission txct) {
-      if (!receiverData.isNonConstTransmission())
-        return std::vector<klee::ref<klee::Expr> >();
       if (txct == ConstraintSetTransfer::USERCHOICE)
         txct = txConstraintsTransmission;
       std::vector<klee::ref<klee::Expr> > constraints;

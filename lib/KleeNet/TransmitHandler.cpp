@@ -91,28 +91,29 @@ void TransmitHandler::handleTransmission(PacketInfo const& pi, net::BasicState* 
 
     for (unsigned i = 0; i < pi.length; i++) {
       ExprBuilder::RefExpr r8 = ExprBuilder::buildRead8(array,i);
+      DD::cout << "| " << "Packet[" << i << "] = ";
+      DD::cout << "|    "; pprint(cst.receiverData()[i]);
       wosDest->write(pi.offset + i, r8);
       receiver.constraints.addConstraint(ExprBuilder::buildEquality(r8,cst.receiverData()[i]));
     }
   } else {
     for (unsigned i = 0; i < pi.length; i++) {
+      DD::cout << "| " << "Packet[" << i << "] = ";
+      DD::cout << "|    "; pprint(cst.receiverData()[i]);
       wosDest->write(pi.offset + i, cst.receiverData()[i]);
     }
   }
-  if (hasSymbolics) {
-    DD::cout << "| " << "Sender Constraints:" << DD::endl;
-    DD::cout << "|   "; pprint(sender.constraints);
-    DD::cout << "| " << "Receiver Constraints:" << DD::endl;
-    DD::cout << "|   "; pprint(receiver.constraints);
-    DD::cout << "| " << "Processing OFFENDING constraints:" << DD::endl;
-    std::vector<klee::ref<klee::Expr> > const constr = cst.extractConstraints();
-    for (std::vector<klee::ref<klee::Expr> >::const_iterator it = constr.begin(), end = constr.end(); it != end; ++it) {
-      receiver.constraints.addConstraint(*it);
-    }
-    DD::cout << "| " << "EOF Constraints." << DD::endl;
-  } else {
-    DD::cout << "| " << "All data in tx is constant. Bypassing Graph construction." << DD::endl;
+  DD::cout << "| " << "Sender Constraints:" << DD::endl;
+  DD::cout << "|   "; pprint(sender.constraints);
+  DD::cout << "| " << "Receiver Constraints:" << DD::endl;
+  DD::cout << "|   "; pprint(receiver.constraints);
+  DD::cout << "| " << "Processing OFFENDING constraints:" << DD::endl;
+  std::vector<klee::ref<klee::Expr> > const constr = cst.extractConstraints();
+  for (std::vector<klee::ref<klee::Expr> >::const_iterator it = constr.begin(), end = constr.end(); it != end; ++it) {
+    DD::cout << "|   "; pprint(*it);
+    receiver.constraints.addConstraint(*it);
   }
+  DD::cout << "| " << "EOF Constraints." << DD::endl;
   DD::cout << "│                                                                              │" << DD::endl
            << "│ EOF TRANSMISSION #" << currentTx << "                                                          │" << DD::endl
            << "└──────────────────────────────────────────────────────────────────────────────┘" << DD::endl

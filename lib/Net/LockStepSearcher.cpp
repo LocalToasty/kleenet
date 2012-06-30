@@ -67,11 +67,12 @@ namespace net {
       fastForwardJunk();
       if (next == end) {
         if (getGovernedStates() < states.capacity()/4) {
-          std::vector<BasicState*> replace;
-          replace.reserve(states.size()-nullSlots);
-          std::remove_copy_if(states.begin(),states.end(),
-              std::back_inserter(replace),
-              std::bind2nd(std::equal_to<BasicState*>(),static_cast<BasicState*>(NULL)));
+          std::vector<BasicState*> replace(states.size()-nullSlots,NULL);
+          std::vector<BasicState*>::size_type index = 0;
+          for (std::vector<BasicState*>::const_iterator it = states.begin(), en = states.end(); it != en; ++it)
+            if (*it)
+              replace[(stateInfo(*it)->slot = index++)] = *it;
+          assert(replace.size() == index);
           // Using swap is imperative to force vector to actually SHRINK!
           // So we do this whole mumbo jumbo even if there are no holes.
           states.swap(replace);

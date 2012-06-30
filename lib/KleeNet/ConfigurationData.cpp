@@ -65,12 +65,15 @@ namespace kleenet {
           constraintsComputed = true;
           assert(senderConstraints.empty() && "Garbage data in our sender's constraints buffer.");
           std::set<klee::Array const*> symbols(senderSymbols);
+          DD::cout << "| txConstraintsTransmission = " << txConstraintsTransmission << DD::endl;
           if (txConstraintsTransmission) {
+            DD::cout << "| symbols before force-adding: " << symbols.size() << DD::endl;
             distSymbolsSrc.iterateArrays(
               net::util::FunctorBuilder<klee::Array const*,net::util::DynamicFunctor,net::util::IterateOperator>::build(
                 std::inserter(symbols,symbols.end())
               )
             );
+            DD::cout << "| symbols after force-adding: " << symbols.size() << DD::endl;
           }
           senderConstraints = cd.cg.eval(symbols);
         }

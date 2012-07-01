@@ -38,8 +38,8 @@ namespace net {
         return this;
       }
     public:
-      ConstIteratorHolder(ConstIteratable<T> const& iter) : it(iter.dup()) {}
-      ConstIteratorHolder(ConstIteratorHolder const& from) : it(from.it) {}
+      ConstIteratorHolder(ConstIteratable<T> const& iter) : ConstIteratable<T>(iter), it(iter.dup()) {}
+      ConstIteratorHolder(ConstIteratorHolder const& from) : ConstIteratable<T>(iter), it(from.it) {}
       typename ConstIteratable<T>::Content operator*() const {
         return **it;
       }

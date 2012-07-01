@@ -41,7 +41,8 @@ namespace net {
       return states.size()-nullSlots;
     }
     void fastForwardJunk() {
-      for (;next != end && !*next; ++next); // fast forward junk-entries
+      while (next != end && !*next)
+        ++next; // fast forward junk-entries
     }
     void block(LockStepInformation* const lsi) {
       if (lsi && !lsi->blocked) {

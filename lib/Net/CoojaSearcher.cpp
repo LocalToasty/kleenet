@@ -110,7 +110,7 @@ void CoojaSearcher::scheduleStateAt(BasicState* state, Time time, EventKind ekin
   DD::cout << "Queue Size before scheduling " << calQueue.size() << DD::endl;
   if (ekind == EK_Boot) {
     schedInfo->scheduledBootTime = time;
-    while (removeState(state));
+    while (removeState(state)){}
     //schedInfo->scheduledTime.insert(0); // XXX do we still need this? if so, why?
     //calQueue[0].pushBack(state);
   }

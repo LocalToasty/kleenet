@@ -66,8 +66,8 @@ namespace net {
     public:
       SingletonIterator(T const* subject) : subject(subject) {}
       // dereferencing a default-ctor'd iterator results in undefined behaviour
-      SingletonIterator() : subject(0) {}
-      SingletonIterator(SingletonIterator const& from) : subject(from.subject) {}
+      SingletonIterator() : ConstIteratable<T>(), subject(0) {}
+      SingletonIterator(SingletonIterator const& from) : ConstIteratable<T>(from) , subject(from.subject) {}
       typename ConstIteratable<T>::Content operator*() const {
         assert(subject);
         return *subject;

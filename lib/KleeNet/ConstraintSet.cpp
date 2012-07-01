@@ -67,7 +67,7 @@ namespace kleenet {
     }
     ConfigurationData& cd;
     TransmissionKind::Enum tk;
-    typedef std::pair<SenderTxData&,size_t> TxPair;
+    typedef std::pair<SenderTxData*,size_t> TxPair;
     TxPair txData;
     template <typename T, typename Iterator>
     ConstraintSet_impl(TransmissionKind::Enum tk, T& in, Iterator begin, Iterator end)
@@ -91,12 +91,12 @@ namespace kleenet {
     // If we're given actual data to "transmit" we expand all expressions there.
     template <typename Iterator>
     static TxPair expand(ConfigurationData& cd, Iterator begin, Iterator end, TransmissionKind::Enum tk) {
-      return std::pair<SenderTxData&,size_t>(
-        cd.transmissionProperties(
+      return std::pair<SenderTxData*,size_t>(
+        &(cd.transmissionProperties(
           net::StdIteratorFactory<klee::ref<klee::Expr> >::build(begin)
         , net::StdIteratorFactory<klee::ref<klee::Expr> >::build(end)
         , tk
-        )
+        ))
       , end - begin
       );
     }
@@ -109,12 +109,12 @@ namespace kleenet {
           std::back_inserter(ownArrays)
         )
       );
-      return std::pair<SenderTxData&,size_t>(
-        cd.transmissionProperties(
+      return std::pair<SenderTxData*,size_t>(
+        &(cd.transmissionProperties(
           net::StdIteratorFactory<klee::ref<klee::Expr> >::build(ownArrays.begin(),ExprBuilder::buildCompleteRead)
         , net::StdIteratorFactory<klee::ref<klee::Expr> >::build(ownArrays.end(),ExprBuilder::buildCompleteRead)
         , tk
-        )
+        ))
       , ownArrays.size()
       );
     }
@@ -122,7 +122,7 @@ namespace kleenet {
 
   ConstraintSetTransfer_impl::ConstraintSetTransfer_impl(ConstraintSet_impl const& csi, ConfigurationData& transferTo)
     : senderConfig(csi.cd)
-    , receiverData(csi.txData.first,transferTo,0,csi.txData.second) {
+    , receiverData(*csi.txData.first,transferTo,0,csi.txData.second) {
   }
 }
 

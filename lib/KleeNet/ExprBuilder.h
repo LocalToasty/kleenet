@@ -24,14 +24,28 @@ namespace kleenet {
       static RefExpr buildCompleteRead(klee::Array const* array);
       static RefExpr buildEquality(RefExpr,RefExpr);
       static RefExpr buildEquality(klee::Array const*,klee::Array const*);
+      static RefExpr buildImplication(RefExpr,RefExpr);
+      static RefExpr buildConcat(RefExpr,RefExpr); // obeys endianness!
       template <typename Ex>
       static RefExpr build(RefExpr lhs, RefExpr rhs) {
-        return Ex::alloc(lhs,rhs);
+        return Ex::create(lhs,rhs);
       }
       static RefExpr makeZeroBits(klee::Expr::Width);
       static RefExpr makeOneBits(klee::Expr::Width);
-      static RefExpr assertTrue(RefExpr exp);
+      static RefExpr makeFalse();
+      static RefExpr makeTrue();
       static RefExpr assertFalse(RefExpr exp);
+      static RefExpr assertTrue(RefExpr exp);
+
+
+      struct ToExpr {
+        RefExpr operator()(klee::Array const* array) const {
+          return buildCompleteRead(array);
+        }
+        RefExpr operator()(RefExpr expr) const {
+          return expr;
+        }
+      };
 
       template <typename BinaryOperator, typename UnaryOperator, typename InputIterator>
       static RefExpr foldl_map(BinaryOperator binOp, RefExpr start, UnaryOperator unOp, InputIterator begin, InputIterator end) {
@@ -40,13 +54,22 @@ namespace kleenet {
           expr = binOp(expr,unOp(*it));
         return expr;
       }
+      template <typename BinaryOperator, typename UnaryOperator, typename InputIterator>
+      static RefExpr foldl1_map(BinaryOperator binOp, UnaryOperator unOp, InputIterator begin, InputIterator end) {
+        InputIterator start = begin++;
+        return foldl_map(binOp,*start,unOp,begin,end);
+      }
       template <typename InputIterator>
       static RefExpr conjunction(InputIterator begin, InputIterator end) {
-        return foldl_map(klee::AndExpr::alloc,ExprBuilder::makeOneBits(klee::Expr::Bool),assertTrue,begin,end);
+        return foldl_map(klee::AndExpr::alloc,ExprBuilder::makeTrue(),assertTrue,begin,end);
       }
       template <typename InputIterator>
       static RefExpr disjunction(InputIterator begin, InputIterator end) {
-        return foldl_map(klee::OrExpr::alloc,ExprBuilder::makeZeroBits(klee::Expr::Bool),assertTrue,begin,end);
+        return foldl_map(klee::OrExpr::alloc,ExprBuilder::makeFalse(),assertTrue,begin,end);
+      }
+      template <typename InputIterator>
+      static RefExpr concat(InputIterator begin, InputIterator end) {
+        return foldl1_map(buildConcat,ExprBuilder::ToExpr(),begin,end);
       }
   };
 }

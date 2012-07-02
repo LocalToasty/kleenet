@@ -28,6 +28,11 @@ ExprBuilder::RefExpr ExprBuilder::buildRead8(klee::Array const* array, size_t of
   );
 }
 
+ExprBuilder::RefExpr ExprBuilder::buildConcat(RefExpr msb, RefExpr lsb) {
+  RefExpr arr[2] = {lsb,msb};
+  return klee::ConcatExpr::create(arr[beginEndianRange(0,2)],arr[beginEndianRange(0,2)+incEndianRange()]);
+}
+
 ExprBuilder::RefExpr ExprBuilder::buildCompleteRead(klee::Array const* array) {
   size_t const begin = beginEndianRange(0,array->size), inc = incEndianRange(), end = endEndianRange(0,array->size);
   assert(begin != end && "Cannot build a read expression of a zero length array.");
@@ -39,11 +44,15 @@ ExprBuilder::RefExpr ExprBuilder::buildCompleteRead(klee::Array const* array) {
 }
 
 ExprBuilder::RefExpr ExprBuilder::buildEquality(ExprBuilder::RefExpr lhs, ExprBuilder::RefExpr rhs) {
-  return klee::EqExpr::alloc(lhs,rhs);
+  return klee::EqExpr::create(lhs,rhs);
 }
 
 ExprBuilder::RefExpr ExprBuilder::buildEquality(klee::Array const* lhs, klee::Array const* rhs) {
   return buildEquality(buildCompleteRead(lhs),buildCompleteRead(rhs));
+}
+
+ExprBuilder::RefExpr ExprBuilder::buildImplication(ExprBuilder::RefExpr premise, ExprBuilder::RefExpr conclusion) {
+  return klee::OrExpr::create(klee::NotExpr::create(assertTrue(premise)), assertTrue(conclusion));
 }
 
 ExprBuilder::RefExpr ExprBuilder::makeZeroBits(klee::Expr::Width width) {
@@ -55,8 +64,18 @@ ExprBuilder::RefExpr ExprBuilder::makeOneBits(klee::Expr::Width width) {
 }
 
 ExprBuilder::RefExpr ExprBuilder::assertTrue(RefExpr expr) {
-  return klee::NeExpr::alloc(makeZeroBits(expr->getWidth()),expr);
+  // for some odd reason NeExpr (not-equal) are evil ...
+  return klee::NotExpr::create(klee::EqExpr::create(makeZeroBits(expr->getWidth()),expr));
 }
 ExprBuilder::RefExpr ExprBuilder::assertFalse(RefExpr expr) {
-  return klee::EqExpr::alloc(makeZeroBits(expr->getWidth()),expr);
+  return klee::EqExpr::create(makeZeroBits(expr->getWidth()),expr);
 }
+
+ExprBuilder::RefExpr ExprBuilder::makeTrue() {
+  return ExprBuilder::makeOneBits(klee::Expr::Bool);
+}
+ExprBuilder::RefExpr ExprBuilder::makeFalse() {
+  return ExprBuilder::makeZeroBits(klee::Expr::Bool);
+}
+
+

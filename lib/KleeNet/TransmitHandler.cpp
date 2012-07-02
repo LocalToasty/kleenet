@@ -53,9 +53,40 @@ namespace {
 
 using namespace kleenet;
 
-namespace klee {
-  class ObjectState;
-  class Expr;
+void TransmitHandler::handleTransmission(klee::ExecutionState& receiver, klee::MemoryObject const* destMo, size_t offset, size_t size, PerReceiverData& receiverData, std::vector<klee::ref<klee::Expr> > const& constr) const {
+  klee::ObjectState const* oseDest = receiver.addressSpace.findObject(destMo);
+  assert(oseDest && "Destination ObjectState not found.");
+  klee::ObjectState* wosDest = receiver.addressSpace.getWriteable(destMo, oseDest);
+  handleTransmission(receiver,wosDest,offset,size,receiverData,constr);
+}
+
+void TransmitHandler::handleTransmission(klee::ExecutionState& receiver, klee::ObjectState* wosDest, size_t offset, size_t size, PerReceiverData& receiverData, std::vector<klee::ref<klee::Expr> > const& constr) const {
+  if (   (txSymbolConstructionChoice == tscp_FORCEALL)
+      || (   (receiverData.isNonConstTransmission())
+          && (txSymbolConstructionChoice == tscp_SYMBOLICS))) {
+
+    klee::Array const* const array = receiver.makeNewSymbol(receiverData.specialTxName.c_str(),size);
+
+    for (size_t i = 0; i < size; i++) {
+      ExprBuilder::RefExpr r8 = ExprBuilder::buildRead8(array,i);
+      DD::cout << "| " << "Packet[" << i << "] = ";
+      DD::cout << "|    "; pprint(receiverData[i]);
+      wosDest->write(offset + i, r8);
+      receiver.constraints.addConstraint(ExprBuilder::buildEquality(r8,receiverData[i]));
+    }
+  } else {
+    for (size_t i = 0; i < size; i++) {
+      DD::cout << "| " << "Packet[" << i << "] = ";
+      DD::cout << "|    "; pprint(receiverData[i]);
+      wosDest->write(offset + i, receiverData[i]);
+    }
+  }
+  DD::cout << "| " << "Processing OFFENDING constraints:" << DD::endl;
+  for (std::vector<klee::ref<klee::Expr> >::const_iterator it = constr.begin(), end = constr.end(); it != end; ++it) {
+    DD::cout << "|   "; pprint(*it);
+    receiver.constraints.addConstraint(*it);
+  }
+  DD::cout << "| " << "EOF Constraints." << DD::endl;
 }
 
 void TransmitHandler::handleTransmission(PacketInfo const& pi, net::BasicState* basicSender, net::BasicState* basicReceiver, std::vector<net::DataAtomHolder> const& data) const {
@@ -75,45 +106,13 @@ void TransmitHandler::handleTransmission(PacketInfo const& pi, net::BasicState* 
 
   ConstraintSetTransfer const cst = ConstraintSet(TransmissionKind::tx,sender,expressions.begin(),expressions.end()).extractFor(receiver);
 
-  klee::ObjectState const* oseDest = receiver.addressSpace.findObject(pi.destMo);
-  assert(oseDest && "Destination ObjectState not found.");
-  klee::ObjectState* wosDest = receiver.addressSpace.getWriteable(pi.destMo, oseDest);
-  bool const hasSymbolics = cst.receiverData().isNonConstTransmission();
-  if (   (txSymbolConstructionChoice == tscp_FORCEALL)
-      || (hasSymbolics && (txSymbolConstructionChoice == tscp_SYMBOLICS))) {
-    klee::MemoryObject* const mo = receiver.getExecutor()->memory->allocate(pi.length,false,true,NULL);
-    mo->setName(cst.receiverData().specialTxName);
-    klee::Array const* const array = new klee::Array(cst.receiverData().specialTxName,mo->size);
-    klee::ObjectState* const ose = new klee::ObjectState(mo,array);
-    ose->initializeToZero();
-    receiver.addressSpace.bindObject(mo,ose);
-    receiver.addSymbolic(mo,array);
-
-    for (unsigned i = 0; i < pi.length; i++) {
-      ExprBuilder::RefExpr r8 = ExprBuilder::buildRead8(array,i);
-      DD::cout << "| " << "Packet[" << i << "] = ";
-      DD::cout << "|    "; pprint(cst.receiverData()[i]);
-      wosDest->write(pi.offset + i, r8);
-      receiver.constraints.addConstraint(ExprBuilder::buildEquality(r8,cst.receiverData()[i]));
-    }
-  } else {
-    for (unsigned i = 0; i < pi.length; i++) {
-      DD::cout << "| " << "Packet[" << i << "] = ";
-      DD::cout << "|    "; pprint(cst.receiverData()[i]);
-      wosDest->write(pi.offset + i, cst.receiverData()[i]);
-    }
-  }
   DD::cout << "| " << "Sender Constraints:" << DD::endl;
   DD::cout << "|   "; pprint(sender.constraints);
   DD::cout << "| " << "Receiver Constraints:" << DD::endl;
   DD::cout << "|   "; pprint(receiver.constraints);
-  DD::cout << "| " << "Processing OFFENDING constraints:" << DD::endl;
-  std::vector<klee::ref<klee::Expr> > const constr = cst.extractConstraints();
-  for (std::vector<klee::ref<klee::Expr> >::const_iterator it = constr.begin(), end = constr.end(); it != end; ++it) {
-    DD::cout << "|   "; pprint(*it);
-    receiver.constraints.addConstraint(*it);
-  }
-  DD::cout << "| " << "EOF Constraints." << DD::endl;
+
+  handleTransmission(receiver,pi.destMo,pi.offset,pi.length,cst.receiverData(),cst.extractConstraints());
+
   DD::cout << "│                                                                              │" << DD::endl
            << "│ EOF TRANSMISSION #" << currentTx << "                                                          │" << DD::endl
            << "└──────────────────────────────────────────────────────────────────────────────┘" << DD::endl

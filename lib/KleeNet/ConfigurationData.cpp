@@ -56,7 +56,7 @@ namespace kleenet {
         , senderConstraints()
         , senderReflexiveArraysComputed(false)
         , allowMorePacketSymbols(true)
-        , specialTxName(designation + "(node" + llvm::itostr(distSymbolsSrc.node.id) + ")")
+        , specialTxName(cd.compileSpecialSymbolName(designation))
         {
       }
       ConstraintsGraph::ConstraintList const& computeSenderConstraints(bool txConstraintsTransmission) {
@@ -256,19 +256,28 @@ ConfigurationData* ConfigurationData::fork(State* state) const {
   return new ConfigurationData(*this,state->executionState());
 }
 
-SenderTxData& ConfigurationData::transmissionProperties(net::ConstIteratable<klee::ref<klee::Expr> > const& begin, net::ConstIteratable<klee::ref<klee::Expr> > const& end, TransmissionKind::Enum kind) {
-  std::string designation;
+std::string ConfigurationData::compileBasicSymbolName(TransmissionKind::Enum kind) {
   switch (kind) {
     case TransmissionKind::tx:
-      designation = (std::string("tx") + llvm::utostr(forState.getCompletedTransmissions() + 1));
-      break;
+      return (std::string("tx") + llvm::utostr(forState.getCompletedTransmissions() + 1));
     case TransmissionKind::pull:
-      designation = std::string("pull") + llvm::utostr(forState.getCompletedPullRequests() + 1);
-      break;
+      return std::string("pull") + llvm::utostr(forState.getCompletedPullRequests() + 1);
     case TransmissionKind::merge:
-      designation = std::string("merge") + llvm::utostr(++merges);
-      break;
+      return std::string("merge") + llvm::utostr(++merges);
   };
+  assert(0 && "Found garbage transmission kind when constructing basic symbol name");
+  return std::string("__garbage_transmission_kind__");
+}
+
+std::string ConfigurationData::compileSpecialSymbolName(TransmissionKind::Enum kind) {
+  return compileSpecialSymbolName(compileBasicSymbolName(kind));
+}
+std::string ConfigurationData::compileSpecialSymbolName(std::string designation) {
+  return designation + "(node" + llvm::itostr(distSymbols.node.id) + ")";
+}
+
+SenderTxData& ConfigurationData::transmissionProperties(net::ConstIteratable<klee::ref<klee::Expr> > const& begin, net::ConstIteratable<klee::ref<klee::Expr> > const& end, TransmissionKind::Enum kind) {
+  std::string designation = compileBasicSymbolName(kind);
   assert(designation.size());
   std::vector<klee::ref<klee::Expr> > data;
   for (net::ConstIteratorHolder<klee::ref<klee::Expr> > it = begin; it != end; ++it) {

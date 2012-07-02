@@ -100,6 +100,9 @@ namespace kleenet {
       ConfigurationData& self() {
         return *this;
       }
+      std::string compileBasicSymbolName(TransmissionKind::Enum kind);
+      std::string compileSpecialSymbolName(TransmissionKind::Enum kind);
+      std::string compileSpecialSymbolName(std::string designation);
       static void configureState(klee::ExecutionState& state);
   };
 

@@ -9,6 +9,7 @@
 #include "ConstraintSet.h"
 #include "ConfigurationData.h"
 
+#include "net/Node.h"
 #include "net/Time.h"
 #include "net/util/SharedPtr.h"
 #include "net/StateMapper.h"
@@ -28,11 +29,14 @@
 
 #include <set>
 #include <vector>
+#include <utility>
 #include <cassert>
 #include <sstream>
 #include <tr1/unordered_map>
 
 #include "net/util/debug.h"
+
+typedef net::DEBUG<net::debug::external1> DD;
 
 namespace {
   llvm::cl::opt<bool>
@@ -52,7 +56,7 @@ namespace kleenet {
    *   We implement special function handlers (sfhs) by implementing classes which
    *   have private static members of their own type. So by declaring a class, you instantiate it.
    *   This private static instance will insert itself in a static global list owned by SFHBase.
-   *   During the construction of the SpecialFuntionHandler instance, which is NOT a static object
+   *   During the construction of the SpecialFunctionHandler instance, which is NOT a static object
    *   (hence is constructed AFTER all static objects are created and after ::main was called)
    *   the CTOR peaks in the List of SFHBase and creates wrappers for all listed sfhs in its
    *   parent, which is klee::SpecialFunctionHandler, which in turn can accept arbitrary external sfhs.
@@ -82,7 +86,7 @@ namespace kleenet {
           }
         };
         Executor* executor;
-        SpecialFunctionHandler* main;
+        SpecialFunctionHandler_impl* main;
     };
     struct HandleArgs {
       klee::ExecutionState& state;
@@ -242,21 +246,96 @@ namespace kleenet {
       {}
   };
 
+  struct SpecialFunctionHandler_impl {
+    Executor& netEx;
+    SfhNodeContainer nodes;
+    SpecialFunctionHandler& parent;
+    SpecialFunctionHandler_impl(SpecialFunctionHandler* parent, Executor& netEx)
+      : netEx(netEx)
+      , nodes(-1)
+      , parent(*parent)
+      {
+    }
+    // returns the length (equalling `len` iff `len` != 0)
+    size_t acquireExprRange(net::ExData* out1, std::vector<klee::ref<klee::Expr> >* out2, klee::ExecutionState& sourceState, klee::ref<klee::Expr> dataSource, size_t len /*Maybe 0*/) const {
+      klee::ResolutionList rl;
+      sourceState.addressSpace.resolve(sourceState, netEx.solver, dataSource, rl);
+      assert(rl.size() == 1 && "data range memcpy src must resolve to precisely one object");
+      klee::MemoryObject const* const srcMo = rl[0].first;
+      klee::ObjectState const* const srcOs = rl[0].second;
+      unsigned const srcOffset =
+        dyn_cast<ConstantExpr>(srcMo->getOffsetExpr(dataSource))->getZExtValue();
+      if (!len)
+        len = srcMo->size; //user didn't provide the length so they want everything
+
+      assert(srcOffset + len <= srcMo->size);
+
+      if (out1)
+        out1->reserve(out1->size()+len);
+      if (out2)
+        out2->reserve(out2->size()+len);
+      for (size_t i = 0; i < len; i++) {
+        klee::ref<Expr> const re = srcOs->read8(srcOffset + i);
+        typedef net::util::SharedPtr<net::DataAtom> DA;
+        if (out1) {
+          if (isa<ConstantExpr>(re)) {
+            out1->push_back(DA(new ConcreteAtom(dyn_cast<ConstantExpr>(re)->getZExtValue())));
+          } else {
+            out1->push_back(DA(new SymbolicAtom(re)));
+          }
+        }
+        if (out2)
+          out2->push_back(re);
+      }
+
+      return len;
+    }
+
+    // returns the unique memory object and the respective offset
+    std::pair<klee::MemoryObject const*,size_t> findDestMo(klee::ExecutionState& state, klee::ref<klee::Expr> const& dest) const {
+      klee::ResolutionList rl;
+      state.addressSpace.resolve(state, netEx.solver, dest, rl);
+      assert(rl.size() == 1 && "KleeNet memory operations expressions must resolve to precisely one object");
+
+      return std::make_pair(rl[0].first,dyn_cast<ConstantExpr>(rl[0].first->getOffsetExpr(dest))->getZExtValue());
+    }
+
+    void memoryTransferWrapper(klee::ExecutionState& state,
+                               klee::ref<klee::Expr> dest, size_t destLen,
+                               net::ExData const& src,
+                               net::Node destNode) {
+      std::pair<klee::MemoryObject const*,size_t> const destMo = findDestMo(state,dest);
+
+      // prepare mapping
+      kleenet::PacketInfo pi(dyn_cast<ConstantExpr>(dest)->getZExtValue(),
+                             destMo.second,
+                             destLen,
+                             destMo.first,
+                             netEx.kleeNet.getStateNode(state),
+                             destNode);
+
+      netEx.kleeNet.memTxRequest(state, pi, src);
+    }
+
+    std::string readStringAtAddress(klee::ExecutionState& state, klee::ref<klee::Expr> address) {
+      return parent.readStringAtAddress(state,address);
+    }
+  };
+
   SpecialFunctionHandler::SpecialFunctionHandler(Executor& netEx)
     : klee::SpecialFunctionHandler(netEx) // implicit downcast
-    , netEx(netEx)
-    , nodes(*(new SfhNodeContainer(-1))) {
+    , impl(*(new SpecialFunctionHandler_impl(this,netEx))) {
     typedef sfh::SFHBase::ListEntry::GlobalList GL;
     net::util::SharedPtr<GL> gl = sfh::SFHBase::ListEntry::globalList();
     for (GL::iterator it = gl->begin(), en = gl->end(); it != en; ++it) {
-      (*it)->sfhBase->main = this;
+      (*it)->sfhBase->main = &impl;
       (*it)->sfhBase->executor = &netEx;
       learnHandlerInfo(**it);
     }
   }
 
   SpecialFunctionHandler::~SpecialFunctionHandler() {
-    delete &nodes;
+    delete &impl;
   }
 
 // I AM SOOOOOO LAZY, THAT IT HURTS ...
@@ -348,78 +427,12 @@ namespace kleenet {
     return executor->getNetSearcher()->getStateTime(ha.state);
   }
 
-  // unfortunately, aliasing here is not enough :(
-  // ... but I forgot why (thanks very much past me)
-  struct ExDataCarrier {
-    net::ExData exData;
-  };
-
-  size_t SpecialFunctionHandler::acquireExprRange(ExDataCarrier* out1, std::vector<klee::ref<klee::Expr> >* out2, klee::ExecutionState& sourceState, klee::ref<klee::Expr> const dataSource, size_t len /*mutated!*/) const {
-    // grab the source ObjetState and the offset
-    klee::ResolutionList rl;
-    sourceState.addressSpace.resolve(sourceState, netEx.solver, dataSource, rl);
-    assert(rl.size() == 1 && "data range memcpy src must resolve to precisely one object");
-    klee::MemoryObject const* const srcMo = rl[0].first;
-    klee::ObjectState const* const srcOs = rl[0].second;
-    unsigned const srcOffset =
-      dyn_cast<ConstantExpr>(srcMo->getOffsetExpr(dataSource))->getZExtValue();
-    if (!len)
-      len = srcMo->size; //user didn't provide the length so they want everything
-
-    assert(srcOffset + len <= srcMo->size);
-
-    if (out1)
-      out1->exData.reserve(out1->exData.size()+len);
-    if (out2)
-      out2->reserve(out2->size()+len);
-    for (size_t i = 0; i < len; i++) {
-      klee::ref<Expr> const re = srcOs->read8(srcOffset + i);
-      typedef net::util::SharedPtr<net::DataAtom> DA;
-      if (out1) {
-        if (isa<ConstantExpr>(re)) {
-          out1->exData.push_back(DA(new ConcreteAtom(dyn_cast<ConstantExpr>(re)->getZExtValue())));
-        } else {
-          out1->exData.push_back(DA(new SymbolicAtom(re)));
-        }
-      }
-      if (out2)
-        out2->push_back(re);
-    }
-
-    return len;
-  }
-
-  std::pair<klee::MemoryObject const*,size_t> SpecialFunctionHandler::findDestMo(klee::ExecutionState& state, klee::ref<klee::Expr> const& dest) const {
-    klee::ResolutionList rl;
-    state.addressSpace.resolve(state, netEx.solver, dest, rl);
-    assert(rl.size() == 1 && "KleeNet memory operations expressions must resolve to precisely one object");
-
-    return std::make_pair(rl[0].first,dyn_cast<ConstantExpr>(rl[0].first->getOffsetExpr(dest))->getZExtValue());
-  }
-
-  void SpecialFunctionHandler::memoryTransferWrapper(klee::ExecutionState& state,
-                                                     klee::ref<Expr> dest, size_t destLen,
-                                                     ExDataCarrier const& src,
-                                                     Node destNode) {
-    std::pair<klee::MemoryObject const*,size_t> const destMo = findDestMo(state,dest);
-
-    // prepare mapping
-    kleenet::PacketInfo pi(dyn_cast<ConstantExpr>(dest)->getZExtValue(),
-                           destMo.second,
-                           destLen,
-                           destMo.first,
-                           netEx.kleeNet.getStateNode(state),
-                           destNode);
-
-    netEx.kleeNet.memTxRequest(state, pi, src.exData);
-  }
-
   HAND(void,kleenet_memcpy,4) {
     Node const destNode = args[3]->getZExtValue();
     size_t const len = args[2]->getZExtValue();
     assert(len > 0 && "n must be > 0");
 
-    ExDataCarrier values;
+    net::ExData values;
     main->memoryTransferWrapper(ha.state, ha.arguments[0], main->acquireExprRange(&values, 0, ha.state, ha.arguments[1], len), values, destNode);
   }
 
@@ -428,7 +441,6 @@ namespace kleenet {
     size_t const len = args[2]->getZExtValue();
 
     typedef ExprBuilder::RefExpr Expr;
-    typedef net::DEBUG<net::debug::external1> DD;
 
     Expr requirements = ExprBuilder::makeFalse();
     ConfigurationData::configureState(ha.state);
@@ -479,10 +491,10 @@ namespace kleenet {
   }
 
   HAND(void,kleenet_memset,4) {
-    ExDataCarrier value;
+    net::ExData value;
     size_t const len = args[2]->getZExtValue();
     assert(len && "asked to kleenet_memset 0 bytes.");
-    value.exData.push_back(net::util::SharedPtr<net::DataAtom>(new ConcreteAtom(args[1]->getZExtValue())));
+    value.push_back(net::util::SharedPtr<net::DataAtom>(new ConcreteAtom(args[1]->getZExtValue())));
 
     main->memoryTransferWrapper(ha.state, ha.arguments[0], len, value, args[3]->getZExtValue());
   }

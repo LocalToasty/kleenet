@@ -281,10 +281,23 @@ namespace kleenet {
       klee::ObjectState const* const srcOs = rl[0].second;
       unsigned const srcOffset =
         dyn_cast<ConstantExpr>(srcMo->getOffsetExpr(dataSource))->getZExtValue();
-      if (!len)
-        len = srcMo->size; //user didn't provide the length so they want everything
 
-      assert(srcOffset + len <= srcMo->size);
+      return acquireExprRange(out1,out2,sourceState,srcOs,srcOffset,len);
+    }
+
+    size_t acquireExprRange(net::ExData* out1, std::vector<klee::ref<klee::Expr> >* out2, klee::ExecutionState& sourceState, klee::MemoryObject const* const srcMo, /* implies an offset of 0! */ size_t len /*Maybe 0*/) const {
+      klee::ObjectState const* const srcOs = sourceState.addressSpace.findObject(srcMo);
+
+      return acquireExprRange(out1,out2,sourceState,srcOs,0/*!*/,len);
+    }
+
+    // You probably don't want to use this overload directly, it's called from the other ones.
+    // Note that it has one extra paramter, as data cannot be located only with an ObjectState -- we need an additional offset.
+    size_t acquireExprRange(net::ExData* const out1, std::vector<klee::ref<klee::Expr> >* const out2, klee::ExecutionState& sourceState, klee::ObjectState const* const srcOs, size_t const srcOffset, size_t len /*Maybe 0*/) const {
+      if (!len)
+        len = srcOs->size; //user didn't provide the length so they want everything
+
+      assert(srcOffset + len <= srcOs->size);
 
       if (out1)
         out1->reserve(out1->size()+len);
@@ -294,11 +307,10 @@ namespace kleenet {
         klee::ref<Expr> const re = srcOs->read8(srcOffset + i);
         typedef net::util::SharedPtr<net::DataAtom> DA;
         if (out1) {
-          if (isa<ConstantExpr>(re)) {
+          if (isa<ConstantExpr>(re)) // this distinction is made only for the PacketCache (i.e. phony-packet semantics)
             out1->push_back(DA(new ConcreteAtom(dyn_cast<ConstantExpr>(re)->getZExtValue())));
-          } else {
+          else
             out1->push_back(DA(new SymbolicAtom(re)));
-          }
         }
         if (out2)
           out2->push_back(re);

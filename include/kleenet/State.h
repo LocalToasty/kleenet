@@ -10,9 +10,11 @@
 #pragma once
 
 #include "net/BasicState.h"
+#include <string>
 
 namespace klee {
   class ExecutionState;
+  class Array;
 }
 
 namespace kleenet {
@@ -49,6 +51,7 @@ namespace kleenet {
       }
       virtual State* branch() = 0;
       State* forceFork();
+      klee::Array const* makeNewSymbol(std::string, size_t);
       void transferConstraints(State&);
       Executor* getExecutor() const;
       klee::ExecutionState const* executionState() const;

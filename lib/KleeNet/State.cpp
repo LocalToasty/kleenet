@@ -7,6 +7,8 @@
 #include "klee/ExecutionState.h"
 #include "klee_headers/PTree.h"
 #include "klee_headers/Common.h"
+#include "klee_headers/Memory.h"
+#include "klee_headers/MemoryManager.h"
 
 #include <vector>
 #include <iterator>
@@ -54,6 +56,18 @@ void State::transferConstraints(State& onto) {
   } else {
     DD::cout << "bypassing transferConstraints because at least one of the states doesn't have a configuration (i.e. wasn't ever involved in a communication)" << DD::endl;
   }
+}
+
+klee::Array const* State::makeNewSymbol(std::string name, size_t size) {
+  klee::ExecutionState& es = *executionState();
+  klee::MemoryObject const* const mo = es.getExecutor()->memory->allocate(size,false,true,NULL);
+  mo->setName(name);
+  klee::Array const* const array = new klee::Array(name,mo->size);
+  klee::ObjectState* const ose = new klee::ObjectState(mo,array);
+  ose->initializeToZero();
+  es.addressSpace.bindObject(mo,ose);
+  es.addSymbolic(mo,array);
+  return array;
 }
 
 Executor* State::getExecutor() const {

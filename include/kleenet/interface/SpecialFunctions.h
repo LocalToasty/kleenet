@@ -55,7 +55,8 @@ extern "C" {
   ///
   /// \param object - The object to reverse synchronise
   /// \param srcId - The node id of the source node.
-  void kleenet_pull(void volatile *object, int sourceId);
+  void kleenet_reverse_memcpy(void volatile* dest, void volatile *src, size_t n, int sourceId);
+  #define kleenet_pull(ptr,src) kleenet_reverse_memcpy(ptr,ptr,sizeof(*ptr),src)
 
   /// Write n bytes of value c (converted to an unsigned char) to the byte
   /// string dest. The state mapping is performed transparently

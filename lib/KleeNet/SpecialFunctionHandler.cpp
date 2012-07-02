@@ -7,6 +7,7 @@
 #include "ExprBuilder.h"
 #include "kexPPrinter.h"
 #include "ConstraintSet.h"
+#include "ConfigurationData.h"
 
 #include "net/Time.h"
 #include "net/util/SharedPtr.h"
@@ -422,31 +423,59 @@ namespace kleenet {
     main->memoryTransferWrapper(ha.state, ha.arguments[0], main->acquireExprRange(&values, 0, ha.state, ha.arguments[1], len), values, destNode);
   }
 
+  HAND(void,kleenet_reverse_memcpy,4) {
+    Node const srcNode = args[3]->getZExtValue();
+    size_t const len = args[2]->getZExtValue();
 
-  HAND(void,kleenet_pull,2) { // TODO change to four argument version and alias as macro in interface/
-    Node const srcNode = args[1]->getZExtValue();
+    typedef ExprBuilder::RefExpr Expr;
+    typedef net::DEBUG<net::debug::external1> DD;
 
-    std::vector<ExprBuilder::RefExpr> conjunctions;
+    Expr requirements = ExprBuilder::makeFalse();
+    ConfigurationData::configureState(ha.state);
+    klee::Array const* array = ha.state.makeNewSymbol(ha.state.configurationData->self().compileSpecialSymbolName(TransmissionKind::pull),len);
+    Expr accumulation = ExprBuilder::buildCompleteRead(array);
 
     klee::ConstraintManager cm;
     if (net::StateMapper* const sm = executor->kleeNet.getStateMapper()) {
       sm->findTargets(ha.state, srcNode);
       for (net::StateMapper::iterator it = sm->begin(), end = sm->end(); it != end; ++it) {
-        klee::ExecutionState* const es = static_cast<State*>(*it)->executionState();
-        std::vector<ExprBuilder::RefExpr> exprs;
-        main->acquireExprRange(0, &exprs, *es, ha.arguments[0], 0/* figure the length out yourself, please*/);
-        std::vector<ExprBuilder::RefExpr> const constr = ConstraintSet(TransmissionKind::pull,*es,exprs.begin(),exprs.end()).extractFor(ha.state).extractConstraints(ConstraintSetTransfer::FORCEALL);
+        klee::ExecutionState* const sourceState = static_cast<State*>(*it)->executionState();
+        std::vector<Expr> expr;
+        main->acquireExprRange(0, &expr, *sourceState, ha.arguments[1], len); // fills the newly pushed empty vector with our precious data, ... my precious!
+        ConstraintSetTransfer const cst = ConstraintSet(TransmissionKind::pull, *sourceState, expr.begin(), expr.end()).extractFor(ha.state);
+        for (size_t i = 0; i < expr.size(); ++i) {
+          expr[i] = cst.receiverData()[i];
+        }
+        assert(!expr.empty());
+        // the (symbolic) value of the source.
+        Expr value(ExprBuilder::buildEquality(accumulation, ExprBuilder::concat(expr.begin(),expr.end())));
+        DD::cout << "  found new value: " << DD::endl << "> ";
+        pprint(DD(),value,"> ");
+
+        std::vector<ExprBuilder::RefExpr> const constr = cst.extractConstraints(ConstraintSetTransfer::FORCEALL);
         (*it)->incCompletedPullRequests();
-        for (std::vector<ExprBuilder::RefExpr>::const_iterator it = constr.begin(); it != constr.end(); ++it)
-          pprint(net::DEBUG<net::debug::external1>(),*it,". ");
-        conjunctions.push_back(ExprBuilder::conjunction(constr.begin(),constr.end()));
+        // these constraints will have to apply to the value.
+        Expr constraints(ExprBuilder::conjunction(constr.begin(),constr.end()));
+        // if the solver decides to use the value from this state for the symbol, it has to obey the constraints of this state.
+        requirements = ExprBuilder::build<klee::OrExpr>(requirements,ExprBuilder::build<klee::AndExpr>(value,constraints));
+        // note that it will at least have to choose one valuation, in order to satisfy the big-or.
       }
       sm->invalidate();
     }
-    ExprBuilder::RefExpr disjunction = ExprBuilder::disjunction(conjunctions.begin(),conjunctions.end());
 
-    net::DEBUG<net::debug::external1>::cout << "Pulled disjunction of conjunctions: " << net::DEBUG<net::debug::external1>::endl << "> ";
-    pprint(net::DEBUG<net::debug::external1>(),disjunction,"> ");
+    DD::cout << "Pulled REQUIREMENTS: " << DD::endl << "   ";
+    pprint(DD(),requirements,"   ");
+
+    std::pair<klee::MemoryObject const*,size_t> const destMo = main->findDestMo(ha.state,ha.arguments[0]);
+    klee::ObjectState const* oseDest = ha.state.addressSpace.findObject(destMo.first);
+    assert(oseDest && "Destination ObjectState not found.");
+    klee::ObjectState* wosDest = ha.state.addressSpace.getWriteable(destMo.first, oseDest);
+    for (size_t i = 0; i < len; ++i) {
+      pprint(DD(), ExprBuilder::buildRead8(array,i), "           ");
+      wosDest->write(destMo.second + i, ExprBuilder::buildRead8(array,i));
+    }
+
+    ha.state.constraints.addConstraint(requirements);
   }
 
   HAND(void,kleenet_memset,4) {

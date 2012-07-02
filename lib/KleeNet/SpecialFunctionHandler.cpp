@@ -388,24 +388,25 @@ namespace kleenet {
     return len;
   }
 
+  std::pair<klee::MemoryObject const*,size_t> SpecialFunctionHandler::findDestMo(klee::ExecutionState& state, klee::ref<klee::Expr> const& dest) const {
+    klee::ResolutionList rl;
+    state.addressSpace.resolve(state, netEx.solver, dest, rl);
+    assert(rl.size() == 1 && "KleeNet memory operations expressions must resolve to precisely one object");
+
+    return std::make_pair(rl[0].first,dyn_cast<ConstantExpr>(rl[0].first->getOffsetExpr(dest))->getZExtValue());
+  }
+
   void SpecialFunctionHandler::memoryTransferWrapper(klee::ExecutionState& state,
                                                      klee::ref<Expr> dest, size_t destLen,
                                                      ExDataCarrier const& src,
                                                      Node destNode) {
-    // grab the dest's ObjetState and the offset
-    klee::ResolutionList rl;
-    state.addressSpace.resolve(state, netEx.solver, dest, rl);
-    assert(rl.size() == 1 && "kleenet_memcpy/memset dest must resolve to precisely one object");
-
-    klee::MemoryObject const* const destMo = rl[0].first;
-    unsigned const destOffset = dyn_cast<ConstantExpr>(destMo->getOffsetExpr(dest))->getZExtValue();
+    std::pair<klee::MemoryObject const*,size_t> const destMo = findDestMo(state,dest);
 
     // prepare mapping
-    //PacketInfo(uint64_t addr, uint64_t offset, size_t length, klee::MemoryObject const* destMo, net::Node src, net::Node dest);
     kleenet::PacketInfo pi(dyn_cast<ConstantExpr>(dest)->getZExtValue(),
-                           destOffset,
+                           destMo.second,
                            destLen,
-                           destMo,
+                           destMo.first,
                            netEx.kleeNet.getStateNode(state),
                            destNode);
 

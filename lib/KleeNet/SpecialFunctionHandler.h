@@ -5,6 +5,11 @@
 #include "net/Node.h"
 
 #include <vector>
+#include <utility>
+
+namespace klee {
+  class MemoryObject;
+}
 
 namespace kleenet {
   class Executor;
@@ -20,7 +25,10 @@ namespace kleenet {
       // returns the length (equalling `len` iff `len` != 0)
       size_t acquireExprRange(ExDataCarrier* out, std::vector<klee::ref<klee::Expr> >* optionalOut, klee::ExecutionState& sourceState, klee::ref<klee::Expr> dataSource, size_t len /*Maybe 0*/) const;
 
-      void memoryTransferWrapper(klee::ExecutionState &state,
+      // returns the unique memory object and the respective offset
+      std::pair<klee::MemoryObject const*,size_t> findDestMo(klee::ExecutionState&,klee::ref<klee::Expr> const&) const;
+
+      void memoryTransferWrapper(klee::ExecutionState&,
                                  klee::ref<klee::Expr> dest, size_t destLen,
                                  ExDataCarrier const& src,
                                  net::Node destId);

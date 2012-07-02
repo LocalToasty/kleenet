@@ -319,6 +319,58 @@ namespace kleenet {
       return len;
     }
 
+    template <typename SourceDataIdentifier /*something I can pass to acquireExprRange*/>
+    void reverseMemoryTransfer(klee::ExecutionState& state, ExprBuilder::RefExpr destAddr, SourceDataIdentifier sourceDataIdentifier, size_t const len, Node const srcNode) {
+      typedef ExprBuilder::RefExpr Expr;
+
+      Expr requirements = ExprBuilder::makeFalse();
+      ConfigurationData::configureState(state);
+      klee::Array const* array = state.makeNewSymbol(state.configurationData->self().compileSpecialSymbolName(TransmissionKind::pull),len);
+      Expr accumulation = ExprBuilder::buildCompleteRead(array);
+
+      klee::ConstraintManager cm;
+      if (net::StateMapper* const sm = netEx.kleeNet.getStateMapper()) {
+        sm->findTargets(state, srcNode);
+        for (net::StateMapper::iterator it = sm->begin(), end = sm->end(); it != end; ++it) {
+          klee::ExecutionState* const sourceState = static_cast<State*>(*it)->executionState();
+          std::vector<Expr> expr;
+          acquireExprRange(0, &expr, *sourceState, sourceDataIdentifier, len); // fills the newly pushed empty vector with our precious data, ... my precious!
+          ConstraintSetTransfer const cst = ConstraintSet(TransmissionKind::pull, *sourceState, expr.begin(), expr.end()).extractFor(state);
+          for (size_t i = 0; i < expr.size(); ++i) {
+            expr[i] = cst.receiverData()[i];
+          }
+          assert(!expr.empty());
+          // the (symbolic) value of the source.
+          Expr value(ExprBuilder::buildEquality(accumulation, ExprBuilder::concat(expr.begin(),expr.end())));
+          DD::cout << "  found new value: " << DD::endl << "> ";
+          pprint(DD(),value,"> ");
+
+          std::vector<ExprBuilder::RefExpr> const constr = cst.extractConstraints(ConstraintSetTransfer::FORCEALL);
+          (*it)->incCompletedPullRequests();
+          // these constraints will have to apply to the value.
+          Expr constraints(ExprBuilder::conjunction(constr.begin(),constr.end()));
+          // if the solver decides to use the value from this state for the symbol, it has to obey the constraints of this state.
+          requirements = ExprBuilder::build<klee::OrExpr>(requirements,ExprBuilder::build<klee::AndExpr>(value,constraints));
+          // note that it will at least have to choose one valuation, in order to satisfy the big-or.
+        }
+        sm->invalidate();
+      }
+
+      DD::cout << "Pulled REQUIREMENTS: " << DD::endl << "   ";
+      pprint(DD(),requirements,"   ");
+
+      std::pair<klee::MemoryObject const*,size_t> const destMo = findDestMo(state,destAddr);
+      klee::ObjectState const* oseDest = state.addressSpace.findObject(destMo.first);
+      assert(oseDest && "Destination ObjectState not found.");
+      klee::ObjectState* wosDest = state.addressSpace.getWriteable(destMo.first, oseDest);
+      for (size_t i = 0; i < len; ++i) {
+        pprint(DD(), ExprBuilder::buildRead8(array,i), "           ");
+        wosDest->write(destMo.second + i, ExprBuilder::buildRead8(array,i));
+      }
+
+      state.constraints.addConstraint(requirements);
+    }
+
     // returns the unique memory object and the respective offset
     std::pair<klee::MemoryObject const*,size_t> findDestMo(klee::ExecutionState& state, klee::ref<klee::Expr> const& dest) const {
       klee::ResolutionList rl;
@@ -465,57 +517,13 @@ namespace kleenet {
   }
 
   HAND(void,kleenet_reverse_memcpy,4) {
-    Node const srcNode = args[3]->getZExtValue();
+    klee::ExecutionState& state = ha.state;
+    ExprBuilder::RefExpr destAddr = ha.arguments[0];
+    ExprBuilder::RefExpr sourceData = ha.arguments[1];
     size_t const len = args[2]->getZExtValue();
+    Node const srcNode = args[3]->getZExtValue();
 
-    typedef ExprBuilder::RefExpr Expr;
-
-    Expr requirements = ExprBuilder::makeFalse();
-    ConfigurationData::configureState(ha.state);
-    klee::Array const* array = ha.state.makeNewSymbol(ha.state.configurationData->self().compileSpecialSymbolName(TransmissionKind::pull),len);
-    Expr accumulation = ExprBuilder::buildCompleteRead(array);
-
-    klee::ConstraintManager cm;
-    if (net::StateMapper* const sm = executor->kleeNet.getStateMapper()) {
-      sm->findTargets(ha.state, srcNode);
-      for (net::StateMapper::iterator it = sm->begin(), end = sm->end(); it != end; ++it) {
-        klee::ExecutionState* const sourceState = static_cast<State*>(*it)->executionState();
-        std::vector<Expr> expr;
-        main->acquireExprRange(0, &expr, *sourceState, ha.arguments[1], len); // fills the newly pushed empty vector with our precious data, ... my precious!
-        ConstraintSetTransfer const cst = ConstraintSet(TransmissionKind::pull, *sourceState, expr.begin(), expr.end()).extractFor(ha.state);
-        for (size_t i = 0; i < expr.size(); ++i) {
-          expr[i] = cst.receiverData()[i];
-        }
-        assert(!expr.empty());
-        // the (symbolic) value of the source.
-        Expr value(ExprBuilder::buildEquality(accumulation, ExprBuilder::concat(expr.begin(),expr.end())));
-        DD::cout << "  found new value: " << DD::endl << "> ";
-        pprint(DD(),value,"> ");
-
-        std::vector<ExprBuilder::RefExpr> const constr = cst.extractConstraints(ConstraintSetTransfer::FORCEALL);
-        (*it)->incCompletedPullRequests();
-        // these constraints will have to apply to the value.
-        Expr constraints(ExprBuilder::conjunction(constr.begin(),constr.end()));
-        // if the solver decides to use the value from this state for the symbol, it has to obey the constraints of this state.
-        requirements = ExprBuilder::build<klee::OrExpr>(requirements,ExprBuilder::build<klee::AndExpr>(value,constraints));
-        // note that it will at least have to choose one valuation, in order to satisfy the big-or.
-      }
-      sm->invalidate();
-    }
-
-    DD::cout << "Pulled REQUIREMENTS: " << DD::endl << "   ";
-    pprint(DD(),requirements,"   ");
-
-    std::pair<klee::MemoryObject const*,size_t> const destMo = main->findDestMo(ha.state,ha.arguments[0]);
-    klee::ObjectState const* oseDest = ha.state.addressSpace.findObject(destMo.first);
-    assert(oseDest && "Destination ObjectState not found.");
-    klee::ObjectState* wosDest = ha.state.addressSpace.getWriteable(destMo.first, oseDest);
-    for (size_t i = 0; i < len; ++i) {
-      pprint(DD(), ExprBuilder::buildRead8(array,i), "           ");
-      wosDest->write(destMo.second + i, ExprBuilder::buildRead8(array,i));
-    }
-
-    ha.state.constraints.addConstraint(requirements);
+    main->reverseMemoryTransfer(state, destAddr, sourceData, len, srcNode);
   }
 
   HAND(void,kleenet_memset,4) {

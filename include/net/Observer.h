@@ -10,6 +10,7 @@ namespace net {
   template <typename T> class Observer {
     friend class Observable<T>;
     protected:
+      virtual ~Observer() {}
       virtual void notify(Observable<T>* observable) = 0;
       virtual void notifyNew(Observable<T>* observable, Observable<T> const* toldBy) = 0;
       virtual void notifyDie(Observable<T> const* observable) = 0;

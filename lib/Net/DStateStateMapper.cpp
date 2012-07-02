@@ -20,7 +20,7 @@ template <typename Mapper,typename Info,typename T> DStateInformation<Mapper,Inf
   : util::LockableNodeTable<T>(from.size(),from.allowResize), branchTo(this), cluster(new StateCluster(*from.cluster)) {
 }
 template <typename Mapper,typename Info,typename T> DStateInformation<Mapper,Info,T>::DState::~DState() {
-  delete cluster;
+  //delete cluster; <-- the cluster deletes itself once it's empty. Just leaving this here to have that weird feature documented :/
 }
 
 template <typename Mapper,typename Info,typename T> Node const& DStateInformation<Mapper,Info,T>::setNode(Node const& n) {

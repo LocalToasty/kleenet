@@ -40,6 +40,8 @@ namespace net {
     private:
       void depart(MappingInformation* mi);
       void join(MappingInformation* mi);
+    protected:
+      virtual ~StateClusterGate() {}
   };
 
   class StateCluster : public Observable<StateCluster>, public StateClusterGate {

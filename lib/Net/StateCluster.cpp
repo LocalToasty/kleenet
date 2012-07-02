@@ -41,6 +41,9 @@ void StateClusterGate::depart(MappingInformation* mi) {
   StateCluster* const self = static_cast<StateCluster*>(this);
   self->_members.erase(mi);
   self->change();
+  if (self->_members.empty()) {
+    delete this; // XXX this is a terrible idea
+  }
 }
 
 void StateClusterGate::join(MappingInformation* mi) {
@@ -83,6 +86,9 @@ StateCluster::StateCluster(StateCluster const& branchOf)
 StateCluster::~StateCluster() {
   admin->clusterIdGaps.push_back(cluster.id);
   DD::cout << "~StateCluster: " << _cluster.id << DD::endl;
+  if (!_members.empty()) {
+    DD::cout << "Are you completely loco? I still have " << _members.size() << " states!" << DD::endl;
+  }
 }
 
 StateCluster* StateCluster::of(BasicState* state) {

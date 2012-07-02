@@ -250,12 +250,28 @@ namespace kleenet {
     Executor& netEx;
     SfhNodeContainer nodes;
     SpecialFunctionHandler& parent;
+    typedef std::map<std::string,klee::MemoryObject*> KnownGlobals; // FIXME replace this with an efficient Trie
+    KnownGlobals knownGlobals;
+
     SpecialFunctionHandler_impl(SpecialFunctionHandler* parent, Executor& netEx)
       : netEx(netEx)
       , nodes(-1)
       , parent(*parent)
       {
     }
+
+    klee::MemoryObject* operator[](std::string const& key) {
+      if (knownGlobals.size() != netEx.globalObjects.size()) // updating a cache is hard, but hey, so is not using it at all
+        for (std::map<llvm::GlobalValue const*, klee::MemoryObject*>::iterator
+               it = netEx.globalObjects.begin();
+               it != netEx.globalObjects.end(); ++it)
+          knownGlobals[it->first->getName().str()] = it->second;
+      KnownGlobals::iterator location = knownGlobals.find(key);
+      if (location == knownGlobals.end())
+        return NULL;
+      return location->second;
+    }
+
     // returns the length (equalling `len` iff `len` != 0)
     size_t acquireExprRange(net::ExData* out1, std::vector<klee::ref<klee::Expr> >* out2, klee::ExecutionState& sourceState, klee::ref<klee::Expr> dataSource, size_t len /*Maybe 0*/) const {
       klee::ResolutionList rl;

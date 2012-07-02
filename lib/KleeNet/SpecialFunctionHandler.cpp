@@ -422,12 +422,7 @@ namespace kleenet {
     main->memoryTransferWrapper(ha.state, ha.arguments[0], main->acquireExprRange(&values, 0, ha.state, ha.arguments[1], len), values, destNode);
   }
 
-  //HAND(void,kleenet_sync,2) {
-  //  Node const destNode = args[1]->getZExtValue();
 
-  //  ExDataCarrier values;
-  //  main->memoryTransferWrapper(ha.state, ha.arguments[0], main->acquireExprRange(&values, 0, ha.state, ha.arguments[0], 0/* figure the length out yourself, please*/), values, destNode);
-  //}
   HAND(void,kleenet_pull,2) { // TODO change to four argument version and alias as macro in interface/
     Node const srcNode = args[1]->getZExtValue();
 

@@ -198,12 +198,13 @@ CoWInformation::DState::DState(NodeCount nc, bool& allowResize, StateMapper& map
 
 void CoWInformation::DState::plus(CoWInformation* info) {
   assert(info->getNode() != Node::INVALID_NODE);
-  assert(info->sli);
+  assert(!info->sli);
   info->sli = (*this)[info->getNode()].put(info);
 }
 void CoWInformation::DState::minus(CoWInformation* info) {
   assert(this == info->peers && info->getNode() != Node::INVALID_NODE);
-  (*this)[info->getNode()].drop(info->sli);
+  if (info->sli)
+    (*this)[info->getNode()].drop(info->sli);
   info->sli = NULL;
 }
 

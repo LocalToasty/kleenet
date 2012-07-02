@@ -54,6 +54,7 @@ namespace kleenet {
       KleeNet(Executor* executor);
       PacketCache* getPacketCache() const;
       net::StateMapper* getStateMapper() const;
+      TransmitHandler* getTransmitHandler() const;
       static net::Node getStateNode(klee::ExecutionState const*);
       static net::Node getStateNode(klee::ExecutionState const&);
       static void setStateNode(klee::ExecutionState const*,net::Node const&);

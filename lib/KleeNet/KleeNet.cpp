@@ -64,6 +64,12 @@ net::StateMapper* KleeNet::getStateMapper() const {
   }
   return NULL;
 }
+TransmitHandler* KleeNet::getTransmitHandler() const {
+  if (env) {
+    return env->transmitHandler.get();
+  }
+  return NULL;
+}
 
 net::Node KleeNet::getStateNode(klee::ExecutionState const* state) {
   return net::StateMapper::getStateNode(state);

@@ -433,69 +433,25 @@ namespace kleenet {
   }
 
   HAND(void,kleenet_get_global_symbol,4) {
-    Node const dest = args[3]->getZExtValue();
-    assert(dest != executor->kleeNet.getStateNode(ha.state) && "destination node == calling node");
-
+    klee::ExecutionState& state = ha.state;
+    ExprBuilder::RefExpr destAddr = ha.arguments[0];
     size_t const len = args[2]->getZExtValue();
-    assert(len > 0 && "n must be > 0");
+    Node const srcNode = args[3]->getZExtValue();
+    assert(srcNode != executor->kleeNet.getStateNode(ha.state) && "destination node == calling node");
 
-    // grab the source os
-    klee::ResolutionList rl;
-    ha.state.addressSpace.resolve(ha.state, executor->solver, ha.arguments[0], rl);
-    assert(rl.size() == 1 && "kleenet_get_global_symbol: dest must resolve to precisely one object");
-    klee::MemoryObject const* destMo = rl[0].first;
-    assert(!dyn_cast<ConstantExpr>(destMo->getOffsetExpr(ha.arguments[0]))->getZExtValue() && "mo offset must be 0");
-    rl.clear();
+    if (!(0<len && len<(1u<<24))) // XXX arbitrary magic number (this has the reason to detect underflows, if user was brain-dead enough to pass us a negative length)
+      klee::klee_error("Invalid data length for kleenet_get_global_symbol: %u\n",(unsigned)len);
 
-    std::string const symbol = main->readStringAtAddress(ha.state, ha.arguments[1]);
+    std::string const symbolName = main->readStringAtAddress(ha.state, ha.arguments[1]);
 
-    net::StateMapper* const sm = executor->kleeNet.getStateMapper();
+    if (klee::MemoryObject* const srcMo = (*main)[symbolName]) {
+      if (len != srcMo->size)
+        klee::klee_error("Size mismatch in kleenet_get_global_symbol, expected symbol of size %u but found symbol of size %u\n",(unsigned)len,(unsigned)(srcMo->size));
 
-    // traverse global symbols
-    for (std::map<const llvm::GlobalValue*, klee::MemoryObject*>::iterator
-           it = executor->globalObjects.begin(),
-           ite = executor->globalObjects.end(); it != ite; ++it) {
-      // symbol found
-      if (it->first->getName().str() == symbol) {
-        assert(len == it->second->size && "size mismatch");
-
-        std::set<Node> tmpSet;
-        tmpSet.insert(dest);
-        std::vector<net::BasicState*> siblings;
-        /* XXX
-           Why are we exploding in a logically non-mutating get request?
-           Me thinks we have to perform some sciencing here ...
-         */
-        sm->explode(&ha.state, sm->nodes(), tmpSet, &siblings);
-        siblings.push_back(&ha.state);
-        for (std::vector<net::BasicState*>::iterator sit = siblings.begin(),
-            sie = siblings.end(); sit != sie; ++sit) {
-          klee::ExecutionState* siblingEs = static_cast<klee::ExecutionState*>(*sit);
-          sm->findTargets(*siblingEs, dest);
-          net::StateMapper::iterator smit = sm->begin();
-          assert(smit != sm->end() && "No states available");
-          klee::ExecutionState* destEs = static_cast<klee::ExecutionState*>(*smit);
-          // src data
-          klee::ObjectState const* srcOs = destEs->addressSpace.findObject(it->second);
-          // dest area
-          klee::ObjectState const* destOs = siblingEs->addressSpace.findObject(destMo);
-          klee::ObjectState* wos = siblingEs->addressSpace.getWriteable(destMo, destOs);
-          // memcpy
-          for (unsigned i = 0; i < len; i++) {
-            wos->write(i, srcOs->read8(i));
-          }
-          // merge with destination ha.state's constraints
-          siblingEs->transferConstraints(*destEs);
-          destEs->transferConstraints(*siblingEs);
-          assert(++smit == sm->end() && "More than one ha.state on dest node");
-          // invalidate mapping
-          sm->invalidate();
-        }
-        return;
-      }
+      main->reverseMemoryTransfer(state, destAddr, srcMo, len, srcNode); // <- main party here
+    } else {
+      klee::klee_error("Couldn't find symbol of name '%s' in kleenet_get_global_symbol.",symbolName.c_str());
     }
-    // XXX no symbol found, aborting
-    assert(0 && "symbol not found");
   }
 
 

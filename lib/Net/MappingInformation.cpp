@@ -25,6 +25,7 @@ MappingInformation::MappingInformation(MappingInformation const& from)
   , _node(from._node) {
   from.assimilate(this);
   DD::cout << "[" << this << "] MappingInformation(MappingInformation const&) // node = " << _node.id << DD::endl;
+  cluster->join(this);
 }
 MappingInformation::~MappingInformation() {
   DD::cout << "[" << this << "] ~MappingInformation() // node = " << _node.id << ", state = " << getState() << DD::endl;

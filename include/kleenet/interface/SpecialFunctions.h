@@ -48,7 +48,7 @@ extern "C" {
   ///
   /// \param ptr  - The object to synchronise
   /// \param dest - The node id of the destination node.
-  #define kleenet_sync(ptr,dest) kleeney_memcpy(ptr,ptr,sizeof(*ptr),dest)
+  #define kleenet_sync(ptr,dest) kleenet_memcpy(ptr,ptr,sizeof(*ptr),dest)
 
   /// No-mapping data transmission operation.
   /// Writes a disjunction of all solutions of the targets into the object.

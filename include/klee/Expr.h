@@ -13,6 +13,8 @@
 #include "klee/util/Bits.h"
 #include "klee/util/Ref.h"
 
+#include "kleenet/BaseArray.h"
+
 #include "llvm/ADT/APInt.h"
 #include "llvm/ADT/APFloat.h"
 #include "llvm/ADT/DenseSet.h"
@@ -569,7 +571,7 @@ private:
   unsigned computeHash();
 };
 
-class Array {
+class Array : public kleenet::BaseArray {
 public:
   const std::string name;
   // FIXME: Not 64-bit clean.
@@ -606,10 +608,7 @@ public:
              "Invalid initial constant value!");
 #endif
   }
-  // KleeNet patch: Array is extended in the kleenet:: module to efficiently handle transmissions,
-  // and whoever cares to delete this, will do this via an klee::Array* handle. So we need the dtor to be virtual.
-  virtual ~Array();
-  virtual bool isBaseArray() const {return true;} // KleeNet-only
+  ~Array();
 
   bool isSymbolicArray() const { return constantValues.empty(); }
   bool isConstantArray() const { return !isSymbolicArray(); }

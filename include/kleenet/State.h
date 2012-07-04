@@ -52,7 +52,7 @@ namespace kleenet {
       virtual State* branch() = 0;
       State* forceFork();
       klee::Array const* makeNewSymbol(std::string, size_t);
-      void transferConstraints(State&);
+      bool transferConstraints(State&);
       Executor* getExecutor() const;
       klee::ExecutionState const* executionState() const;
       klee::ExecutionState* executionState();

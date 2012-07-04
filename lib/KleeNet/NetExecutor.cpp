@@ -136,6 +136,11 @@ Executor::Executor(const InterpreterOptions &opts,
   kleenet::searcherautorun::SearcherAutoRun::linkme(); // stupid linker!
 }
 
+klee::TimingSolver* Executor::getTimingSolver() {
+  return this->solver;
+}
+
+
 Searcher* Executor::getNetSearcher() const {
   return netSearcher;
 }

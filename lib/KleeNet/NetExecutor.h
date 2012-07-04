@@ -24,6 +24,7 @@ namespace klee {
   class ExecutionState;
   class SpecialFunctionHandler;
   class PTree;
+  class TimingSolver;
 }
 
 namespace kleenet {
@@ -35,6 +36,7 @@ namespace kleenet {
     private:
       void addedState(klee::ExecutionState*);
       klee::PTree* getPTree() const;
+      klee::TimingSolver* getTimingSolver();
     protected:
       KleeNet kleenet;
       // this is the same handler as klee::Executor::interpreterHandler but with correct type

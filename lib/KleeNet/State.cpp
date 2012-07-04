@@ -10,6 +10,7 @@
 #include "klee_headers/Common.h"
 #include "klee_headers/Memory.h"
 #include "klee_headers/MemoryManager.h"
+#include "klee_headers/TimingSolver.h"
 
 #include <vector>
 #include <iterator>
@@ -54,16 +55,21 @@ bool State::transferConstraints(State& onto) {
       DD::cout << " . simplified to: " << DD::endl;
       klee::ref<klee::Expr> simplified = onto.executionState()->constraints.simplifyExpr(*it);
       DD::cout << " .   # "; pprint(DD(), simplified, " .   # ");
-      if (simplified->getKind() == klee::Expr::Constant) {
-        if (llvm::cast<klee::ConstantExpr>(simplified)->isTrue()) {
+      klee::Solver::Validity validity;
+      bool success = executor->getTimingSolver()->evaluate(*(onto.executionState()),simplified,validity);
+      assert(success && "Unhandled solver error");
+      switch (validity) {
+        case klee::Solver::True:
           DD::cout << " . Ignoring this constraint, because it's already given by the current constraint set." << DD::endl;
-        } else {
-          DD::cout << " . This constraints is incompatible with the current constraint set. This is a false positive." << DD::endl;
+          break;
+        case klee::Solver::False:
+          DD::cout << " . This constraint is incompatible with the current constraint set. This is a false positive." << DD::endl;
           DD::cout << "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~" << DD::endl;
           return false;
-        }
+        case klee::Solver::Unknown:
+          onto.executionState()->constraints.addConstraint(simplified);
+          break;
       }
-      onto.executionState()->constraints.addConstraint(simplified);
       DD::cout << "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~" << DD::endl;
     }
 

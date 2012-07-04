@@ -12,6 +12,8 @@
 #include "klee_headers/MemoryManager.h"
 #include "klee_headers/TimingSolver.h"
 
+#include "llvm/Support/CommandLine.h"
+
 #include <vector>
 #include <iterator>
 
@@ -19,6 +21,14 @@
 #include "kexPPrinter.h"
 
 #define DD net::DEBUG<net::debug::external1>
+
+namespace {
+  llvm::cl::opt<bool>
+  addExtraPacketSymbols("sde-add-packet-symbols"
+    , llvm::cl::desc("If you activate this option you will see the actual packet data that travelled through the virtual wire as individual symbols. Default: off.")
+  );
+
+}
 
 using namespace kleenet;
 
@@ -82,14 +92,16 @@ bool State::transferConstraints(State& onto) {
 }
 
 klee::Array const* State::makeNewSymbol(std::string name, size_t size) {
-  klee::ExecutionState& es = *executionState();
-  klee::MemoryObject const* const mo = es.getExecutor()->memory->allocate(size,false,true,NULL);
-  mo->setName(name);
-  klee::Array const* const array = new klee::Array(name,mo->size);
-  klee::ObjectState* const ose = new klee::ObjectState(mo,array);
-  ose->initializeToZero();
-  es.addressSpace.bindObject(mo,ose);
-  es.addSymbolic(mo,array);
+  klee::Array const* const array = new klee::Array(name,size);
+  if (addExtraPacketSymbols) {
+    klee::ExecutionState& es = *executionState();
+    klee::MemoryObject const* const mo = es.getExecutor()->memory->allocate(size,false,true,NULL);
+    mo->setName(name);
+    klee::ObjectState* const ose = new klee::ObjectState(mo,array);
+    ose->initializeToZero();
+    es.addressSpace.bindObject(mo,ose);
+    es.addSymbolic(mo,array);
+  }
   return array;
 }
 

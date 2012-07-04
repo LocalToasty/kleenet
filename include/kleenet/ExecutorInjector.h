@@ -35,6 +35,8 @@ namespace kleenet {
       virtual void terminateStateEarly(klee::ExecutionState&, llvm::Twine const&) = 0;
       // call exit handler and terminate state
       virtual void terminateStateOnExit(klee::ExecutionState&) = 0;
+      // call exit handler and terminate state
+      virtual void terminateStateOnError(klee::ExecutionState&, llvm::Twine const&, char const*, llvm::Twine const&) = 0;
       // KleeNet extension: we inject our own special-function-handlers by overriding this.
       virtual klee::SpecialFunctionHandler* newSpecialFunctionHandler() = 0;
       // KleeNet extension: we inject our own searchers by overriding this.

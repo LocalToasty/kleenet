@@ -42,13 +42,14 @@ State* State::forceFork() {
 }
 
 bool State::transferConstraints(State& onto) {
+  bool isFeasible = true; // we are gullible sons of *******
   if (configurationData && onto.configurationData) {
     std::vector<klee::ref<klee::Expr> > constraints =
       ConstraintSet(TransmissionKind::merge,configurationData->self()).extractFor(onto.configurationData->self()).extractConstraints(ConstraintSetTransfer::FORCEALL);
 
     DD::cout << "ConstraintSet:" << DD::endl << "  "; pprint(DD(), onto.executionState()->constraints, "  ");
 
-    for (std::vector<klee::ref<klee::Expr> >::const_iterator it = constraints.begin(), end = constraints.end(); it != end; ++it) {
+    for (std::vector<klee::ref<klee::Expr> >::const_iterator it = constraints.begin(), end = constraints.end(); isFeasible && it != end; ++it) {
       DD::cout << "________________________________________________________________________________" << DD::endl;
       DD::cout << " . I got a constraint to transfer: " << DD::endl;
       DD::cout << " .   # "; pprint(DD(), *it, " .   # ");
@@ -64,8 +65,8 @@ bool State::transferConstraints(State& onto) {
           break;
         case klee::Solver::False:
           DD::cout << " . This constraint is incompatible with the current constraint set. This is a false positive." << DD::endl;
-          DD::cout << "~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~" << DD::endl;
-          return false;
+          isFeasible = false;
+          break;
         case klee::Solver::Unknown:
           onto.executionState()->constraints.addConstraint(simplified);
           break;
@@ -77,7 +78,7 @@ bool State::transferConstraints(State& onto) {
   } else {
     DD::cout << "bypassing transferConstraints because at least one of the states doesn't have a configuration (i.e. wasn't ever involved in a communication)" << DD::endl;
   }
-  return true;
+  return isFeasible;
 }
 
 klee::Array const* State::makeNewSymbol(std::string name, size_t size) {

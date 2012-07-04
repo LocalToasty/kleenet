@@ -16,7 +16,7 @@
 
 #include <net/util/debug.h>
 
-#define DD net::DEBUG<net::debug::external2>
+#define DD net::DEBUG<net::debug::external1>
 
 namespace klee {
   class ObjectState;
@@ -74,7 +74,11 @@ namespace kleenet {
     protected:
       NetExTHnd(Executor* e) : e(e) {
       }
-      virtual void term(klee::ExecutionState&) const = 0;
+      virtual void term(klee::ExecutionState& state) const {
+        DD::cout << "[NetExTHnd] term(" << &state << ") {" << DD::endl;
+        getExecutor()->terminateState_klee(state);
+        DD::cout << "[NetExTHnd] } term(" << &state << ")" << DD::endl;
+      }
       Executor* getExecutor() const {
         return e;
       }
@@ -89,20 +93,23 @@ namespace kleenet {
         term(state);
       }
       void operator()(klee::ExecutionState& state, std::vector<klee::ExecutionState*> const& appendix) const {
-        for (std::vector<klee::ExecutionState*>::const_iterator it(appendix.begin()), end(appendix.end()); it != end; ++it) {
-          (*it)->transferConstraints(state);
+        bool feasible = true;
+        for (std::vector<klee::ExecutionState*>::const_iterator it(appendix.begin()), end(appendix.end()); feasible && it != end; ++it) {
+          feasible = (*it)->transferConstraints(state);
         }
-        for (std::vector<klee::ExecutionState*>::const_iterator it(appendix.begin()), end(appendix.end()); it != end; ++it) {
-          state.transferConstraints(**it);
+        for (std::vector<klee::ExecutionState*>::const_iterator it(appendix.begin()), end(appendix.end()); feasible && it != end; ++it) {
+          feasible = state.transferConstraints(**it);
         }
-        if (!appendix.empty())
+        if (feasible && !appendix.empty())
           e->netInterpreterHandler->incDScenariosExplored();
-        (*this)(state);
+        NetExTHnd silentHandler(e);
+        NetExTHnd const& useHandler = feasible?*this:silentHandler;
+        useHandler(state);
         bool generateTestCases = true;
         if (!silent()) {
           switch (distributedTerminateBehaviour) {
             case DTB_uniformTestCase:
-              std::for_each<std::vector<klee::ExecutionState*>::const_iterator,NetExTHnd const&>(appendix.begin(),appendix.end(),*this);
+              std::for_each<std::vector<klee::ExecutionState*>::const_iterator,NetExTHnd const&>(appendix.begin(),appendix.end(),useHandler);
               break;
             case DTB_singleTestCase:
               generateTestCases = false;

@@ -3,6 +3,7 @@
 #include "llvm/Support/CommandLine.h"
 
 #include "SpecialFunctionHandler.h" // the KleeNet version! It enhances the KLEE version
+#include "ConfigurationData.h"
 #include "kleenet/Searcher.h"
 #include "kleenet/CustomSearcherFactory.h"
 
@@ -16,7 +17,7 @@
 
 #include <net/util/debug.h>
 
-#define DD net::DEBUG<net::debug::external1>
+typedef net::DEBUG<net::debug::term> DD;
 
 namespace klee {
   class ObjectState;
@@ -247,11 +248,19 @@ void Executor::terminateStateOnError(klee::ExecutionState& state,
     TSoE(Executor* e, llvm::Twine const& messaget, char const* suffix, llvm::Twine const& info)
       : NetExTHnd(e), messaget(messaget), suffix(suffix), info(info) {}
     void term(klee::ExecutionState& state) const {
-      DD::cout << "[TSoError] term(" << &state << ") {" << DD::endl;
-      getExecutor()->terminateStateOnError_klee(state,messaget,suffix,info);
-      DD::cout << "[TSoError] } term(" << &state << ")" << DD::endl;
+      if (state.configurationData && (state.configurationData->self().flags & StateFlags::ERROR)) {
+        DD::cout << "[TSoError] term(" << &state << ") /* error condition */ {" << DD::endl;
+        getExecutor()->terminateStateOnError_klee(state,messaget,suffix,info);
+        DD::cout << "[TSoError] } term(" << &state << ")" << DD::endl;
+      } else {
+        DD::cout << "[TSoError] term(" << &state << ") /* other (early) */ {" << DD::endl;
+        getExecutor()->terminateStateEarly_klee(state,llvm::Twine("DScenario termination because of local error: ") + messaget);
+        DD::cout << "[TSoError] } term(" << &state << ")" << DD::endl;
+      }
     }
   };
+  ConfigurationData::configureState(state);
+  state.configurationData->self().flags |= StateFlags::ERROR;
   TSoE hnd(this,messaget,suffix,info);
   DD::cout << "[NetExecutor::terminateStateOnError] asking KleeNet to terminateCluster of " << (&state) << " " << DD::endl;
   kleenet.terminateCluster(state,hnd);

@@ -73,7 +73,11 @@ namespace net {
 
       /// If paranoid explosions are enabled, the explode method will perform a
       /// consistency check after exploding a state.
+#ifdef NDEBUG
       static bool const PARANOID_EXPLOSIONS = false;
+#else
+      static bool const PARANOID_EXPLOSIONS = true;
+#endif
       bool paranoidExplosionsActive() const;
       /// A log where newly created states are protocolled, you have to subscribe to it.
       std::auto_ptr<SmStateLogger> const stateLogger;

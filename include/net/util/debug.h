@@ -7,6 +7,7 @@
 #define ND_FLAGS_searchers ((1u<<3))       /*debugging searchers*/
 #define ND_FLAGS_external1 ((1u<<4))       /*debugging external module (1)*/
 #define ND_FLAGS_external2 ((1u<<5))       /*debugging external module (2)*/
+#define ND_FLAGS_term      ((1u<<6))       /*debugging external module (2)*/
 #define ND_FLAGS_all       ((1u<<15)-1)    /*everything!*/
 
 #define ND_MAKEFLAG(what) what = ND_FLAGS_##what,
@@ -20,13 +21,14 @@ namespace net {
       ND_MAKEFLAG(searchers)
       ND_MAKEFLAG(external1)
       ND_MAKEFLAG(external2)
+      ND_MAKEFLAG(term)
       ND_MAKEFLAG(all)
       none = 0
     };
   }
 }
 
-#define ENABLE_DEBUG (ND_FLAGS_slack | ND_FLAGS_external1)
+#define ENABLE_DEBUG (ND_FLAGS_term)
 
 #undef ND_MAKEFLAG
 

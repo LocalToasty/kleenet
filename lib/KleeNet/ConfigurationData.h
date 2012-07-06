@@ -81,12 +81,21 @@ namespace kleenet {
 
   class SenderTxData;
 
+  struct StateFlags {
+    enum Enum {
+      NONE = 0u,
+      ERROR = (1u << 0)
+    };
+    typedef unsigned BitSet;
+  };
+
   class ConfigurationData : public ConfigurationDataBase { // constant-time construction (but sizeable number of mallocs)
     public:
       klee::ExecutionState& forState;
       ConstraintsGraph cg;
       StateDistSymbols distSymbols;
       typedef std::vector<klee::ref<klee::Expr> > ConList;
+      StateFlags::BitSet flags;
     private:
       SenderTxData* txData;
       size_t merges;

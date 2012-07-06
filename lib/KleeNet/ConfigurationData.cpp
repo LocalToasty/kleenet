@@ -235,6 +235,7 @@ ConfigurationData::ConfigurationData(klee::ExecutionState& state, net::Node src)
   : forState(state)
   , cg(state.constraints)
   , distSymbols(src)
+  , flags(StateFlags::NONE)
   , txData(0)
   , merges(0)
   {
@@ -243,6 +244,7 @@ ConfigurationData::ConfigurationData(ConfigurationData const& from, klee::Execut
   : forState(*state)
   , cg(static_cast<klee::ExecutionState*>(state)->constraints) // XXX dangerous upcast because ES may not exist yet, but cg only stores the reference, so cross your fingers XXX
   , distSymbols(from.distSymbols) // !
+  , flags(from.flags)
   , txData(0)
   , merges(from.merges)
   {

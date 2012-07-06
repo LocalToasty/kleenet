@@ -13,7 +13,7 @@
 
 #include "net/util/debug.h"
 
-#define DD DEBUG<debug::mapping>
+typedef net::DEBUG<net::debug::mapping> DD;
 
 namespace net {
 
@@ -419,6 +419,7 @@ void StateMapper::setNodeCount(unsigned nodeCount) {
 
 bool StateMapper::terminateCluster(BasicState& state, TerminateStateHandler const& terminate) {
   MappingInformation* const mi = MappingInformation::retrieveDependant(&state);
+  typedef net::DEBUG<net::debug::term> DD;
   DD::cout << "[StateMapper::terminateCluster] Terminating Cluster (SM) on pivot state " << &state << " with MI: " << mi << DD::endl;
   std::vector<BasicState*> targets;
   std::vector<BasicState*> siblings;

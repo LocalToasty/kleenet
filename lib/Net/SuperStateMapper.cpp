@@ -225,11 +225,7 @@ Node const& SuperInformation::setNode(Node const& n) {
 
 void SuperStateMapper::_remove(const std::set<BasicState*> &remstates) {
   DD::cout << "Removing " << remstates.size() << " states from Super Mapper" << DD::endl;
-  //for (std::set<BasicState*>::iterator i = remstates.begin(),
-  //        e = remstates.end(); i != e; ++i) {
-  //  DD::cout << "  - " << *i << DD::endl;
-  //}
-  if (!remstates.size())
+  if (remstates.empty())
     return;
   std::set<DState*> ds;
   for (std::set<BasicState*>::const_iterator i = remstates.begin(),

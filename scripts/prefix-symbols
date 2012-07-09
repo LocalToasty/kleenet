@@ -7,5 +7,14 @@ if [[ "$unamestr" == 'Darwin' ]]; then
   ext="dylib"
 fi
 
-$LLVM_HOME/Release/bin/opt -load $KLEE/Release+Asserts/lib/prefix-symbols.$ext --llvm-prefix-symbols $@
+if ! which llvm-ld > /dev/null 2>/dev/null; then
+  echo "Error, LLVM bin dir not in path." 1>&2
+  exit 1
+fi
 
+if ! which klee > /dev/null 2>/dev/null; then
+  echo "Error, KLEE bin dir not in path." 1>&2
+  exit 1
+fi
+
+$(dirname "$(which llvm-ld)")/opt -load $(dirname "$(which klee)")/../lib/prefix-symbols.$ext --llvm-prefix-symbols $@

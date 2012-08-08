@@ -22,8 +22,8 @@ namespace net {
       bool supportsPhonyPackets() const;
       BasicState* selectState();
       bool empty() const;
-      void add(ConstIteratable<BasicState*> const&, ConstIteratable<BasicState*> const&);
-      void remove(ConstIteratable<BasicState*> const&, ConstIteratable<BasicState*> const&);
+      void operator+=(BasicState*);
+      void operator-=(BasicState*);
       Time getStateTime(BasicState*) const;
   };
 }

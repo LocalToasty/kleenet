@@ -118,30 +118,26 @@ void LockStepSearcher::barrier(BasicState* state) {
 bool LockStepSearcher::empty() const {
   return lsih.getGovernedStates();
 }
-void LockStepSearcher::add(ConstIteratable<BasicState*> const& begin, ConstIteratable<BasicState*> const& end) {
-  for (ConstIteratorHolder<BasicState*> it = begin; it != end; ++it) {
-    lsih.equipState(*it);
-    lsih.stateInfo(*it)->slot = lsih.states.size();
-    if (lsih.stateInfo(*it)->blocked)
-      lsih.blockedStates++;
-    LockStepInformationHandler::States::difference_type const current = lsih.next - lsih.states.begin();
-    lsih.states.push_back(*it); // potentially invalidates iterators!
-    lsih.next = lsih.states.begin() + current;
-    lsih.end = lsih.states.end();
-  }
+void LockStepSearcher::operator+=(BasicState* state) {
+  lsih.equipState(state);
+  lsih.stateInfo(state)->slot = lsih.states.size();
+  if (lsih.stateInfo(state)->blocked)
+    lsih.blockedStates++;
+  LockStepInformationHandler::States::difference_type const current = lsih.next - lsih.states.begin();
+  lsih.states.push_back(state); // potentially invalidates iterators!
+  lsih.next = lsih.states.begin() + current;
+  lsih.end = lsih.states.end();
 }
-void LockStepSearcher::remove(ConstIteratable<BasicState*> const& begin, ConstIteratable<BasicState*> const& end) {
-  for (ConstIteratorHolder<BasicState*> it = begin; it != end; ++it) {
-    if (lsih.stateInfo(*it)) {
-      assert(lsih.stateInfo(*it)->slot < lsih.states.size());
-      lsih.unblock(lsih.stateInfo(*it));
-      BasicState*& sl = lsih.states[lsih.stateInfo(*it)->slot];
-      assert(sl);
-      assert(lsih.stateInfo(*it) == lsih.stateInfo(sl));
-      lsih.releaseState(sl);
-      sl = NULL;
-      lsih.nullSlots++;
-    }
+void LockStepSearcher::operator-=(BasicState* state) {
+  if (lsih.stateInfo(state)) {
+    assert(lsih.stateInfo(state)->slot < lsih.states.size());
+    lsih.unblock(lsih.stateInfo(state));
+    BasicState*& sl = lsih.states[lsih.stateInfo(state)->slot];
+    assert(sl);
+    assert(lsih.stateInfo(state) == lsih.stateInfo(sl));
+    lsih.releaseState(sl);
+    sl = NULL;
+    lsih.nullSlots++;
   }
 }
 BasicState* LockStepSearcher::selectState() {

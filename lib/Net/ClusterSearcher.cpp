@@ -71,67 +71,38 @@ void ClusterSearcher::yieldState(BasicState* state) {
   }
 }
 
-void ClusterSearcher::add(ConstIteratable<BasicState*> const& begin, ConstIteratable<BasicState*> const& end) {
-  typedef std::map<SearcherP,std::vector<BasicState*> > Cache;
-  Cache cache;
+void ClusterSearcher::operator+=(BasicState* state) {
+  cih->equipState(state);
+  StateCluster* c = StateCluster::of(state);
+  if (c) {
+    SearcherP& sr = internalSearchers[c];
+    if (!sr) {
+      // hey we got a new Cluster to govern, let's get us a new Low-level searcher slave
+      sr = newInternalSearcher();
+      assert(sr);
+      cih->stateInfo(state)->location = c;
+      *strategy += c;
+    }
+    typedef net::SingletonIterator<net::BasicState*> It;
+    sr->add(It(&state),It());
+  }
+  // else: ignore clusterless freak
+}
 
-  for (ConstIteratorHolder<BasicState*> it = begin; it != end; ++it) {
-    cih->equipState(*it);
-    StateCluster* c = StateCluster::of(*it);
-    if (c) {
+void ClusterSearcher::operator-=(BasicState* state) {
+  if (cih->stateInfo(state)) {
+    if (StateCluster* const c = cih->stateInfo(state)->location) {
       SearcherP& sr = internalSearchers[c];
-      if (!sr) {
-        // hey we got a new Cluster to govern, let's get us a new Low-level searcher slave
-        sr = newInternalSearcher();
-        assert(sr);
-        cih->stateInfo(*it)->location = c;
-        *strategy += c;
+      assert(sr);
+      typedef net::SingletonIterator<net::BasicState*> It;
+      sr->remove(It(&state),It());
+      if (sr->empty()) {
+        *strategy -= c;
+        internalSearchers.erase(c);
       }
-      // The following, commented out, version is the straight-forward
-      // method to add the new states to our slaves. However, our slaves
-      // may be able to perform mass add significantly better than many
-      // single add operations (think of vector resizing).
-      //typedef net::SingletonIterator<net::BasicState*> It;
-      //sr->add(It(&*it),It());
-      cache[sr].push_back(*it);
     }
     // else: ignore clusterless freak
-  }
-
-  for (Cache::const_iterator it = cache.begin(), en = cache.end(); it != en; ++it) {
-    it->first->add(
-      StdIteratorFactory<BasicState*>::build(it->second.begin())
-    , StdIteratorFactory<BasicState*>::build(it->second.end())
-    );
-  }
-}
-void ClusterSearcher::remove(ConstIteratable<BasicState*> const& begin, ConstIteratable<BasicState*> const& end) {
-  typedef std::map<SearcherP,std::pair<StateCluster*,std::vector<BasicState*> > > Cache;
-  Cache cache;
-
-  for (ConstIteratorHolder<BasicState*> it = begin; it != end; ++it) {
-    if (cih->stateInfo(*it)) {
-      StateCluster* const c = cih->stateInfo(*it)->location;
-      if (c) {
-        SearcherP& sr = internalSearchers[c];
-        assert(sr);
-        cache[sr].first = c;
-        cache[sr].second.push_back(*it);
-      }
-      // else: ignore clusterless freak
-      cih->releaseState(*it);
-    }
-  }
-
-  for (Cache::const_iterator it = cache.begin(), en = cache.end(); it != en; ++it) {
-    it->first->remove(
-      StdIteratorFactory<BasicState*>::build(it->second.second.begin())
-    , StdIteratorFactory<BasicState*>::build(it->second.second.end())
-    );
-    if (it->first->empty()) {
-      *strategy -= it->second.first;
-      internalSearchers.erase(it->second.first);
-    }
+    cih->releaseState(state);
   }
 }
 
@@ -144,8 +115,8 @@ void ClusterSearcher::notify(Observable<MappingInformation>* subject) {
   StateCluster* const newLocation = StateCluster::of(state);
   if (ci->location != newLocation) {
     typedef net::SingletonIterator<net::BasicState*> It;
-    remove(It(&state),It());
-    add(It(&state),It());
+    this->remove(It(&state),It());
+    this->add(It(&state),It());
   }
 }
 

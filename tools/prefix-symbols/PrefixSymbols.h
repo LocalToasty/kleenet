@@ -17,7 +17,11 @@ namespace prefix_symbols {
     typedef char ID_t;
 #endif
     static ID_t ID;
+#if LLVM_VERSION_CODE <= LLVM_VERSION(2,7)
+    PrefixSymbols() : llvm::FunctionPass(&ID) {};
+#else
     PrefixSymbols() : llvm::FunctionPass(ID) {};
+#endif
     virtual bool doInitialization(llvm::Module &M);
     virtual bool runOnFunction(llvm::Function &F);
     virtual bool doFinalization(llvm::Module &M);

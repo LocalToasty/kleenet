@@ -1488,31 +1488,31 @@ int main(int argc, char **argv, char **envp) {
     *theStatisticManager->getStatisticByName("Forks");
 
   handler->getInfoStream() 
-    << "KLEE: done: explored paths = " << 1 + forks << "\n";
+    << "KleeNet: done: explored paths = " << 1 + forks << "\n";
 
   // Write some extra information in the info file which users won't
   // necessarily care about or understand.
   if (queries)
     handler->getInfoStream() 
-      << "KLEE: done: avg. constructs per query = " 
+      << "KleeNet: done: avg. constructs per query = " 
                              << queryConstructs / queries << "\n";  
   handler->getInfoStream() 
-    << "KLEE: done: total queries = " << queries << "\n"
-    << "KLEE: done: valid queries = " << queriesValid << "\n"
-    << "KLEE: done: invalid queries = " << queriesInvalid << "\n"
-    << "KLEE: done: query cex = " << queryCounterexamples << "\n";
+    << "KleeNet: done: total queries = " << queries << "\n"
+    << "KleeNet: done: valid queries = " << queriesValid << "\n"
+    << "KleeNet: done: invalid queries = " << queriesInvalid << "\n"
+    << "KleeNet: done: query cex = " << queryCounterexamples << "\n";
 
   std::stringstream stats;
   stats << "\n";
-  stats << "KLEE: done: total instructions = " 
+  stats << "KleeNet: done: total instructions = " 
         << instructions << "\n";
-  stats << "KLEE: done: completed paths = " 
+  stats << "KleeNet: done: completed paths = " 
         << handler->getNumPathsExplored() << "\n";
-  stats << "KLEE: done: generated tests = " 
+  stats << "KleeNet: done: generated tests = " 
         << handler->getNumTestCases() << "\n";
-  stats << "KLEE: done: explored dscenarios = "
+  stats << "KleeNet: done: explored dscenarios = "
         << handler->getNumDScenariosExplored() << "\n";
-  stats << "KLEE: done: explored clusters = "
+  stats << "KleeNet: done: explored clusters = "
         << handler->getNumClustersExplored() << "\n";
   std::cerr << stats.str();
   handler->getInfoStream() << stats.str();

@@ -20,6 +20,10 @@
 
 #include "kleenet/KleeNet.h"
 
+#include <vector>
+#include <utility> // pair
+#include <set>
+
 namespace klee {
   class ExecutionState;
   class SpecialFunctionHandler;
@@ -33,10 +37,20 @@ namespace kleenet {
     friend class NetExTHnd;
     friend class State;
     friend class KleeNet;
+    public:
+      struct StateCondition {
+        enum Enum {
+          invalid = 0, // exceptional condition
+          removed = -2,
+          added = 2,
+          active = 1 // normal condition
+        };
+      };
     private:
       void addedState(klee::ExecutionState*);
       klee::PTree* getPTree() const;
       klee::TimingSolver* getTimingSolver();
+      std::vector<std::pair<std::set<klee::ExecutionState*>*,StateCondition::Enum> > conditionals;
     protected:
       KleeNet kleenet;
       // this is the same handler as klee::Executor::interpreterHandler but with correct type
@@ -51,6 +65,7 @@ namespace kleenet {
       using klee::Executor::solver;
       using klee::Executor::globalObjects;
       using klee::Executor::memory;
+      StateCondition::Enum stateCondition(klee::ExecutionState*) const;
 
       KleeNet const& kleeNet;
       Searcher* getNetSearcher() const;

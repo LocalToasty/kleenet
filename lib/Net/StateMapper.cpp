@@ -418,9 +418,14 @@ void StateMapper::setNodeCount(unsigned nodeCount) {
 }
 
 bool StateMapper::terminateCluster(BasicState& state, TerminateStateHandler const& terminate) {
+  static unsigned depth = 0;
+  depth++;
   MappingInformation* const mi = MappingInformation::retrieveDependant(&state);
   typedef net::DEBUG<net::debug::term> DD;
-  DD::cout << "[StateMapper::terminateCluster] Terminating Cluster (SM) on pivot state " << &state << " with MI: " << mi << DD::endl;
+  DD::cout << "[StateMapper::terminateCluster] (" << depth << ") Terminating Cluster (SM) on pivot state " << &state << " with MI: " << mi << ".";
+  if (StateCluster* const sc = mi?(mi->getCluster()):0)
+    DD::cout << " Cluster information: id=" << (sc->cluster.id) << ", size=" << (sc->members.size());
+  DD::cout << DD::endl;
   std::vector<BasicState*> targets;
   std::vector<BasicState*> siblings;
 
@@ -428,7 +433,7 @@ bool StateMapper::terminateCluster(BasicState& state, TerminateStateHandler cons
 
   if (knownState) {
     explode(&state, &siblings);
-    DD::cout << "[StateMapper::terminateCluster]   explosion yielded " << siblings.size() << " siblings" << DD::endl;
+    DD::cout << "[StateMapper::terminateCluster] (" << depth << ")   explosion yielded " << siblings.size() << " siblings" << DD::endl;
     // NOTE: updateStates() is NOT required, because we don't examine any of the engine's data structures
     // anyway (let alone have to inform the searcher)
     // also, everything is faster if the states can be immediately dispatched!
@@ -452,15 +457,17 @@ bool StateMapper::terminateCluster(BasicState& state, TerminateStateHandler cons
   // remove dscenario from the mapper
   remove(&state);
   // finally, terminate all involved states (state + targets)
-  DD::cout << "[StateMapper::terminateCluster]     now invoking the callers functor to indicate that we're done with BasicState " << (&state) << " and its " << targets.size() << " targets" << DD::endl;
+  DD::cout << "[StateMapper::terminateCluster] (" << depth << ")     now invoking the callers functor to indicate that we're done with BasicState " << (&state) << " and its " << targets.size() << " targets" << DD::endl;
   terminate(state,targets);
   // terminate siblings' dscenarios recursively if any
   for (std::vector<BasicState*>::iterator it = siblings.begin(), ie = siblings.end(); it != ie; ++it) {
     if (*it != &state)
       if (terminateCluster(**it, terminate))
-        DD::cout << "[StateMapper::terminateCluster]     ... nope, we're not. We're ignoring it as it was nested." << DD::endl;
+        DD::cout << "[StateMapper::terminateCluster] (" << depth << ")     ... nope, we're not. We're ignoring it as it was nested." << DD::endl;
   }
   if (knownState)
-    DD::cout << "[StateMapper::terminateCluster]     counting this state" << DD::endl;
+    DD::cout << "[StateMapper::terminateCluster] (" << depth << ")     counting this state" << DD::endl;
+  DD::cout << "[StateMapper::terminateCluster] (" << depth << ") ." << DD::endl << DD::endl;
+  depth--;
   return knownState;
 }

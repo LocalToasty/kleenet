@@ -36,46 +36,44 @@ extern "C" {
     char* err;
   } KnTest;
 
-#ifdef __cplusplus
-}
-#endif
+  static KnTest* static_cast_KnTest(KTest* ktest) {
+    return ktest?((KnTest*)(((char*)ktest) - offsetof(KnTest,parent))):0;
+  }
+  static KnTest const* static_cast_KnTest_const(KTest const* ktest) {
+    return ktest?((KnTest const*)(((char const*)ktest) - offsetof(KnTest,parent))):0;
+  }
 
-static KnTest* static_cast_KnTest(KTest* ktest) {
-  return ktest?((KnTest*)(((char*)ktest) - offsetof(KnTest,parent))):0;
-}
-static KnTest const* static_cast_KnTest_const(KTest const* ktest) {
-  return ktest?((KnTest const*)(((char const*)ktest) - offsetof(KnTest,parent))):0;
-}
-
-static KTest* static_cast_KTest(KnTest* kntest) {
-  return kntest?(&(kntest->parent)):0;
-}
+  static KTest* static_cast_KTest(KnTest* kntest) {
+    return kntest?(&(kntest->parent)):0;
+  }
 // not used => nasty warning :(
 //static KTest const* static_cast_KTest_const(KnTest const* kntest) {
 //  return kntest?(&(kntest->parent)):0;
 //}
 
-unsigned knTest_get_nodeId(KTest const* ktest) {
-  return static_cast_KnTest_const(ktest)->nodeId;
-}
-unsigned knTest_get_dscenarioId(KTest const* ktest) {
-  return static_cast_KnTest_const(ktest)->dscenarioId;
-}
-char const* knTest_get_err(KTest const* ktest) {
-  return static_cast_KnTest_const(ktest)->err;
-}
+  unsigned knTest_get_nodeId(KTest const* ktest) {
+    return static_cast_KnTest_const(ktest)->nodeId;
+  }
+  unsigned knTest_get_dscenarioId(KTest const* ktest) {
+    return static_cast_KnTest_const(ktest)->dscenarioId;
+  }
+  char const* knTest_get_err(KTest const* ktest) {
+    return static_cast_KnTest_const(ktest)->err;
+  }
 
-void knTest_set_nodeId(KTest* ktest, unsigned n) {
-  static_cast_KnTest(ktest)->nodeId = n;
+  void knTest_set_nodeId(KTest* ktest, unsigned n) {
+    static_cast_KnTest(ktest)->nodeId = n;
+  }
+  void knTest_set_dscenarioId(KTest* ktest, unsigned d) {
+    static_cast_KnTest(ktest)->dscenarioId = d;
+  }
+  void knTest_set_err(KTest* ktest, char* e) {
+    static_cast_KnTest(ktest)->err = e;
+  }
+
+#ifdef __cplusplus
 }
-void knTest_set_dscenarioId(KTest* ktest, unsigned d) {
-  static_cast_KnTest(ktest)->dscenarioId = d;
-}
-void knTest_set_err(KTest* ktest, char const* e) {
-  char** const dest = &(static_cast_KnTest(ktest)->err);
-  *dest = (char*)malloc(strlen(e)+1);
-  strcpy(*dest,e);
-}
+#endif
 
 /***/
 

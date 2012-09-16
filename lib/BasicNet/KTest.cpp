@@ -12,6 +12,7 @@
 #include <stdlib.h>
 #include <string.h>
 #include <stdio.h>
+#include <stddef.h>
 
 // 1..29999 are KLEE versions
 // 30700..30799 are KleeNet Versions
@@ -40,10 +41,10 @@ extern "C" {
 #endif
 
 static KnTest* static_cast_KnTest(KTest* ktest) {
-  return ktest?((KnTest*)(((unsigned long long)(void*)ktest) - (unsigned long long)((void*)(&(((KnTest*)0)->parent))))):0;
+  return ktest?((KnTest*)(((char*)ktest) - offsetof(KnTest,parent))):0;
 }
 static KnTest const* static_cast_KnTest_const(KTest const* ktest) {
-  return ktest?((KnTest const*)(((unsigned long long)(void const*)ktest) - (unsigned long long)((void*)(&(((KnTest*)0)->parent))))):0;
+  return ktest?((KnTest const*)(((char const*)ktest) - offsetof(KnTest,parent))):0;
 }
 
 static KTest* static_cast_KTest(KnTest* kntest) {

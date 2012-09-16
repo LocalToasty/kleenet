@@ -15,12 +15,12 @@ LEVEL=..
 #
 # List all of the subdirectories that we will compile.
 #
-PARALLEL_DIRS=klee kleenet kleaver ktest-tool gen-random-bout klee-stats prefix-symbols
+PARALLEL_DIRS=klee kleenet kleaver ktest-tool kntest-tool gen-random-bout klee-stats prefix-symbols
 
 include $(LEVEL)/Makefile.config
 
 ifeq ($(ENABLE_POSIX_RUNTIME),1)
-PARALLEL_DIRS += klee-replay
+PARALLEL_DIRS += klee-replay kleenet-replay
 endif
 
 include $(LEVEL)/Makefile.common

@@ -442,7 +442,7 @@ void KleeHandler::processTestCase(const ExecutionState &state,
         std::copy(out[i].second.begin(), out[i].second.end(), o->bytes);
       }
 
-      knTest_set_nodeId(&b, kleenet::KleeNet::getStateNode(state).id);
+      knTest_set_nodeId(&b, state.persistent.node.id);
       knTest_set_dscenarioId(&b, m_dscenariosExplored);
       std::string tmp = "no error";
       if (errorMessage && errorSuffix) {

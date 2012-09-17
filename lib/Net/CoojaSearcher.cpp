@@ -64,17 +64,18 @@ bool CoojaSearcher::removeState(BasicState* state) {
   CoojaInformation* schInfo = cih.stateInfo(state);
   bool const result = schInfo->isScheduled();
   if (result) {
+    bool needCommit = false;
     CalQueue::iterator it = calQueue.find(*(schInfo->scheduledTime.begin()));
     if (it != calQueue.end()) {
       it->second.removeState(state);
       if (it->second.empty()) {
-        if (it == calQueue.begin() && packetCache) {
-          packetCache->commitMappings();
-        }
+        needCommit = (it == calQueue.begin()) && packetCache;
         calQueue.erase(it);
       }
     }
     schInfo->scheduledTime.erase(schInfo->scheduledTime.begin());
+    if (needCommit)
+      packetCache->commitMappings();
   }
   return result;
 }

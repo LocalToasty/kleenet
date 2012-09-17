@@ -79,29 +79,25 @@ bool CoojaSearcher::removeState(BasicState* state) {
   return result;
 }
 
-void CoojaSearcher::add(ConstIteratable<BasicState*> const& begin, ConstIteratable<BasicState*> const& end) {
-  for (ConstIteratorHolder<BasicState*> it = begin; it != end; ++it) {
-    cih.equipState(*it);
-    CoojaInformation* const schInfo = cih.stateInfo(*it);
-    assert(!schInfo->isScheduled() && "Newly added state is already scheduled? How?");
-    // if we are forked from another state, we have to mirror its schedule times, otherwise we will have too bootstrap
-    if (schInfo->danglingTimes.empty()) {
-      DD::cout << DD::endl << "New State: NO DANGLING EVENTS" << DD::endl;
-      scheduleStateAt(*it, schInfo->virtualTime, EK_Normal);
-    } else {
-      DD::cout << DD::endl << "New State: " << schInfo->danglingTimes.size() << " DANGLING EVENTS" << DD::endl;
-      for (std::set<Time>::const_iterator tm = schInfo->danglingTimes.begin(), tmEnd = schInfo->danglingTimes.end(); tm != tmEnd; ++tm) {
-        scheduleStateAt(*it, *tm, EK_Normal);
-      }
-      schInfo->danglingTimes.clear();
+void CoojaSearcher::operator+=(BasicState* state) {
+  cih.equipState(state);
+  CoojaInformation* const schInfo = cih.stateInfo(state);
+  assert(!schInfo->isScheduled() && "Newly added state is already scheduled? How?");
+  // if we are forked from another state, we have to mirror its schedule times, otherwise we will have to bootstrap
+  if (schInfo->danglingTimes.empty()) {
+    DD::cout << DD::endl << "New State: NO DANGLING EVENTS" << DD::endl;
+    scheduleStateAt(state, schInfo->virtualTime, EK_Normal);
+  } else {
+    DD::cout << DD::endl << "New State: " << schInfo->danglingTimes.size() << " DANGLING EVENTS" << DD::endl;
+    for (std::set<Time>::const_iterator tm = schInfo->danglingTimes.begin(), tmEnd = schInfo->danglingTimes.end(); tm != tmEnd; ++tm) {
+      scheduleStateAt(state, *tm, EK_Normal);
     }
+    schInfo->danglingTimes.clear();
   }
 }
 
-void CoojaSearcher::remove(ConstIteratable<BasicState*> const& begin, ConstIteratable<BasicState*> const& end) {
-  for (ConstIteratorHolder<BasicState*> it = begin; it != end; ++it) {
-    removeState(*it);
-  }
+void CoojaSearcher::operator-=(BasicState* state) {
+  removeState(state);
 }
 
 void CoojaSearcher::scheduleStateAt(BasicState* state, Time time, EventKind ekind) {

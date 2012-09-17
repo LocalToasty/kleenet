@@ -39,8 +39,8 @@ namespace net {
       explicit ClusterSearcher(util::SharedPtr<SearcherStrategy> strategy);
       virtual ~ClusterSearcher();
       bool empty() const;
-      void add(ConstIteratable<BasicState*> const&, ConstIteratable<BasicState*> const&);
-      void remove(ConstIteratable<BasicState*> const&, ConstIteratable<BasicState*> const&);
+      void operator+=(BasicState*);
+      void operator-=(BasicState*);
       BasicState* selectState();
       Time getStateTime(BasicState*) const;
       void scheduleStateAt(BasicState*, Time, EventKind);

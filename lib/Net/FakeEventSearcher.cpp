@@ -31,12 +31,14 @@ bool FakeEventSearcher::empty() const {
   return trueSearcher->empty();
 }
 
-void FakeEventSearcher::add(ConstIteratable<BasicState*> const& begin, ConstIteratable<BasicState*> const& end) {
-  trueSearcher->add(begin,end);
+void FakeEventSearcher::operator+=(BasicState* state) {
+  typedef net::SingletonIterator<net::BasicState*> It;
+  trueSearcher->add(It(&state),It());
 }
 
-void FakeEventSearcher::remove(ConstIteratable<BasicState*> const& begin, ConstIteratable<BasicState*> const& end) {
-  trueSearcher->remove(begin,end);
+void FakeEventSearcher::operator-=(BasicState* state) {
+  typedef net::SingletonIterator<net::BasicState*> It;
+  trueSearcher->remove(It(&state),It());
 }
 
 BasicState* FakeEventSearcher::selectState() {

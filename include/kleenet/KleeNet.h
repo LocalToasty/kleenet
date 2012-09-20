@@ -57,8 +57,8 @@ namespace kleenet {
       TransmitHandler* getTransmitHandler() const;
       static net::Node getStateNode(klee::ExecutionState const*);
       static net::Node getStateNode(klee::ExecutionState const&);
-      static void setStateNode(klee::ExecutionState const*,net::Node const&);
-      static void setStateNode(klee::ExecutionState const&,net::Node const&);
+      static void setStateNode(klee::ExecutionState*,net::Node const&);
+      static void setStateNode(klee::ExecutionState&,net::Node const&);
       void registerSearcher(Searcher*); // Called by kleenet::Searcher. Do not call otherwise!!!
       void memTxRequest(klee::ExecutionState&, PacketInfo const&, net::ExData const&) const;
       struct TerminateStateHandler {

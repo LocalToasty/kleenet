@@ -88,10 +88,11 @@ namespace kleenet {
       }
     public:
       inline void operator()(klee::ExecutionState* state) const {
-        term(*state);
+        (*this)(*state);
       }
       inline void operator()(klee::ExecutionState& state) const {
-        term(state);
+        if (e->stateCondition(&state) > 0)
+          term(state);
       }
       void operator()(klee::ExecutionState& state, std::vector<klee::ExecutionState*> const& appendix) const {
         bool feasible = true;
@@ -142,6 +143,19 @@ Executor::Executor(const InterpreterOptions &opts,
   , netSearcher(NULL)
   , kleeNet(kleenet) {
   kleenet::searcherautorun::SearcherAutoRun::linkme(); // stupid linker!
+  conditionals.reserve(3);
+  conditionals.push_back(std::make_pair(&removedStates,StateCondition::removed));
+  conditionals.push_back(std::make_pair(&states,StateCondition::active));
+  conditionals.push_back(std::make_pair(&addedStates,StateCondition::added));
+}
+
+Executor::StateCondition::Enum Executor::stateCondition(klee::ExecutionState* es) const {
+  typedef std::vector<std::pair<std::set<klee::ExecutionState*>*,StateCondition::Enum> > Conditionals;
+  for (Conditionals::const_iterator it = conditionals.begin(), end = conditionals.end(); it != end; ++it) {
+    if (it->first->find(es) != it->first->end())
+      return it->second;
+  }
+  return StateCondition::invalid;
 }
 
 klee::TimingSolver* Executor::getTimingSolver() {

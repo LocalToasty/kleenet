@@ -1,4 +1,4 @@
-#===-- lib/Makefile ----------------------------------------*- Makefile -*--===#
+#===-- tools/klee-replay/Makefile --------------------------*- Makefile -*--===#
 #
 #                     The KLEE Symbolic Virtual Machine
 #
@@ -7,8 +7,13 @@
 #
 #===------------------------------------------------------------------------===#
 
-LEVEL=..
+LEVEL=../..
+TOOLNAME = kleenet-replay
 
-PARALLEL_DIRS=BasicNet Basic Support Expr Solver Module Core KleeNetStub KleeNet Net
+USEDLIBS = kleeNetBasic.a
+LINK_COMPONENTS = 
+NO_PEDANTIC=1
 
 include $(LEVEL)/Makefile.common
+
+LIBS += -lutil

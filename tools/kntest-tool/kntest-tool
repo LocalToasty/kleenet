@@ -1,0 +1,199 @@
+#!/usr/bin/env python
+
+try:
+    import json
+except ImportError:
+    import simplejson as json
+
+import os
+import struct
+import sys
+
+version_no=3
+
+class KTestError(Exception):
+    pass
+
+class KTest:
+    @staticmethod
+    def fromfile(path):
+        if not os.path.exists(path):
+            print "ERROR: file %s not found" % (path)
+            sys.exit(1)
+
+        f = open(path,'rb')
+        hdr = f.read(5)
+        if len(hdr)!=5 or (hdr!='KTEST' and hdr != "BOUT\n"):
+            raise KTestError,'unrecognized file'
+        version, = struct.unpack('>i', f.read(4))
+        if version > version_no:
+            raise KTestError,'unrecognized version'
+        numArgs, = struct.unpack('>i', f.read(4))
+        args = []
+        for i in range(numArgs):
+            size, = struct.unpack('>i', f.read(4))
+            args.append(f.read(size))
+
+        if version >= 2:
+            symArgvs, = struct.unpack('>i', f.read(4))
+            symArgvLen, = struct.unpack('>i', f.read(4))
+        else:
+            symArgvs = 0
+            symArgvLen = 0
+
+        numObjects, = struct.unpack('>i', f.read(4))
+        objects = []
+        for i in range(numObjects):
+            size, = struct.unpack('>i', f.read(4))
+            name = f.read(size)
+            size, = struct.unpack('>i', f.read(4))
+            bytes = f.read(size)
+            objects.append( (name,bytes) )
+
+        try:
+            nodeId, = struct.unpack('>i', f.read(4))
+            dscenarioId, = struct.unpack('>i', f.read(4))
+        except:
+            nodeId = ''
+            dscenarioId = ''
+        try:
+            size, = struct.unpack('>i', f.read(4))
+            errMsg = f.read(size)
+        except:
+            errMsg = 'no error'
+
+        # Create an instance
+        b = KTest(version, args, symArgvs, symArgvLen,
+                  objects, nodeId, dscenarioId, errMsg)
+        # Augment with extra filename field
+        b.filename = path
+        return b
+
+    def __init__(self, version, args, symArgvs, symArgvLen,
+                 objects, nodeId, dscenarioId, errMsg):
+        self.version = version
+        self.symArgvs = symArgvs
+        self.symArgvLen = symArgvLen
+        self.args = args
+        self.objects = objects
+        self.nodeId = nodeId
+        self.dscenarioId = dscenarioId
+        if errMsg != 'no error':
+          self.hasErr = 1
+        else:
+          self.hasErr = 0
+        self.errMsg = errMsg
+
+        # add a field that represents the name of the program used to
+        # generate this .ktest file:
+        program_full_path = self.args[0]
+        program_name = os.path.basename(program_full_path)
+        # sometimes program names end in .bc, so strip them
+        if program_name.endswith('.bc'):
+          program_name = program_name[:-3]
+        self.programName = program_name
+
+def trimZeros(str):
+    for i in range(len(str))[::-1]:
+        if str[i] != '\x00':
+            return str[:i+1]
+    return ''
+
+def main(args):
+    from optparse import OptionParser
+    op = OptionParser("usage: %prog [options] files")
+    op.add_option('','--trim-zeros', dest='trimZeros', action='store_true',
+                  default=False,
+                  help='trim trailing zeros')
+    op.add_option('','--node', dest='nodeId', type='int', default=-1,
+                  help='print specific node test cases only')
+    op.add_option('','--dscenario', dest='dscenarioId', type='int', default=-1,
+                  help='print specific dscenario test cases only')
+    op.add_option('','--write-error', dest='writeError', action='store_true',
+                  help='print only test cases with errors')
+    op.add_option('','--write-ints', dest='writeInts', action='store_true',
+                  default=False,
+                  help='convert 4-byte sequences to integers')
+    op.add_option('','--write-json', dest='writeJson', action='store_true',
+                  default=False,
+                  help='export ktest to JSON format')
+    op.add_option('','--omit-size', dest='omitSize', action='store_true',
+                  default=False,
+                  help='do not show object sizes')
+
+    opts,args = op.parse_args()
+    if not args:
+        op.error("incorrect number of arguments")
+
+    for file in args:
+        b = KTest.fromfile(file)
+        if opts.nodeId == -1 and opts.dscenarioId == -1:
+            pass
+        elif opts.nodeId != -1 and opts.dscenarioId == -1:
+            if opts.nodeId == b.nodeId:
+                pass
+            else:
+                continue
+        elif opts.nodeId == -1 and opts.dscenarioId != -1:
+            if opts.dscenarioId == b.dscenarioId:
+                pass
+            else:
+                continue
+        elif opts.nodeId != -1 and opts.dscenarioId != -1:
+            if opts.nodeId == b.nodeId and opts.dscenarioId == b.dscenarioId:
+                pass
+            else:
+                continue
+        else:
+            continue
+
+        if opts.writeError:
+            if b.hasErr:
+              pass
+            else:
+              continue
+
+        if opts.writeJson:
+          ktest = {}
+          ktest['ktest file'] = file
+          ktest['args'] = b.args
+          ktest['num objects'] = len(b.objects)
+          ktest['objects'] = []
+          for (name,data) in b.objects:
+              ktest['objects'].append([name, len(data), data])
+          ktest['node'] = b.nodeId
+          ktest['dscenario'] = b.dscenarioId
+          if b.hasErr:
+              ktest['hasErr'] = True
+          else:
+              ktest['hasErr'] = False
+          ktest['error'] = b.errMsg
+          print json.dumps(ktest, encoding="latin-1", indent=2)
+          continue
+
+
+        print 'ktest file : %r' % file
+        print 'args       : %r' % b.args
+        print 'num objects: %r' % len(b.objects)
+        for i,(name,data) in enumerate(b.objects):
+            if opts.trimZeros:
+                str = trimZeros(data)
+            else:
+                str = data
+
+            print 'object %4d: name: %r' % (i, name)
+            if not opts.omitSize:
+                print 'object %4d: size: %r' % (i, len(data))
+            if opts.writeInts and len(data) == 4:
+                print 'object %4d: data: %r' % (i, struct.unpack('i',str)[0])
+            else:
+                print 'object %4d: data: %r' % (i, str)
+        print 'node       : %r' % b.nodeId
+        print 'dscenario  : %r' % b.dscenarioId
+        if b.hasErr == 1:
+            print 'error      :', b.errMsg
+        if file != args[-1]:
+            print
+
+if __name__=='__main__':
+    main(sys.argv)

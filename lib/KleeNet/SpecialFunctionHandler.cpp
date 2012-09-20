@@ -11,10 +11,13 @@
 
 #include "net/Node.h"
 #include "net/Time.h"
-#include "net/util/SharedPtr.h"
 #include "net/StateMapper.h"
 #include "net/DataAtom.h"
+#include "net/PacketCache.h"
 #include "net/EventSearcher.h"
+
+#include "net/util/SharedPtr.h"
+#include "net/util/Functor.h"
 
 #include "klee/util/Ref.h"
 #include "klee/util/ExprPPrinter.h"
@@ -529,22 +532,43 @@ namespace kleenet {
   }
 
   HAND(void,kleenet_wakeup_dest_states,1) {
+    struct WakeupFunctor : net::util::DynamicFunctor<net::Node> {
+      net::StateMapper* sm;
+      net::EventSearcher* ev;
+      klee::ExecutionState& es;
+      net::Node dest;
+      WakeupFunctor(net::StateMapper* sm, net::EventSearcher* ev, klee::ExecutionState& es, net::Node dest)
+        : sm(sm), ev(ev), es(es), dest(dest) {}
+      void operator()(net::Node d) const {
+        if (ev && (d == dest)) {
+          sm->map(es, dest);
+          sm->findTargets(es, dest);
+          std::vector<net::BasicState*> targets(sm->begin(),sm->end());
+          sm->invalidate();
+          for (net::StateMapper::iterator it = targets.begin(), end = targets.end(); it != end; ++it) {
+            net::BasicState *bs = *it;
+            // schedule immediate wakeup
+            ev->scheduleStateAt(bs, ev->lowerBound());
+          }
+        }
+      }
+    };
     net::EventSearcher* const ev = executor->getNetSearcher()->netSearcher()->toEventSearcher();
     if (ev) { // hey, we do have an event-capable searcher :)
       Node const dest = args[0]->getZExtValue();
 
       net::StateMapper* const sm = executor->kleeNet.getStateMapper();
       // call mapping
-      sm->map(ha.state, dest);
-      sm->findTargets(ha.state, dest);
-      for (net::StateMapper::iterator it = sm->begin(), end = sm->end(); it != end; ++it) {
-        net::BasicState *bs = *it;
-        // schedule immediate wakeup
-        //assert(es->schedulingInformation.isScheduled);
-        ev->scheduleStateAt(bs, ev->getStateTime(&ha.state));
+      if (net::PacketCacheBase* pc = executor->kleeNet.getPacketCache()) {
+        net::util::SharedPtr<net::util::DynamicFunctor<net::Node> > action(new WakeupFunctor(sm,ev,ha.state,dest));
+        if (true) {
+          pc->onCommitDo(action);
+        } else {
+          // The following line is for testing only, it will IMMEDIATELY invoke the WakeupFunctor.
+          // Change `true` to `false` above.
+          (*action)(dest);
+        }
       }
-      // invalidate found states
-      sm->invalidate();
     }
   }
 

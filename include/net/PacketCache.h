@@ -85,10 +85,11 @@ namespace net {
               transmitHandler.handleTransmission(pi, sender, receiver, data);
             }
         };
-        for (typename Packets::iterator i = packets.begin(), e = packets.end(); i != e; ++i) {
+        Packets buffer; // recursion invalidates iterators. EVIL STUFF!
+        buffer.swap(packets);
+        for (typename Packets::iterator i = buffer.begin(), e = buffer.end(); i != e; ++i) {
           PacketCacheBase::commitMappings(static_cast<Node>(i->first),i->second,PiTransmitter(transmitHandler,i->first));
         }
-        packets.clear();
       }
   };
 }

@@ -77,10 +77,14 @@ net::Node KleeNet::getStateNode(klee::ExecutionState const* state) {
 net::Node KleeNet::getStateNode(klee::ExecutionState const& state) {
   return getStateNode(&state);
 }
-void KleeNet::setStateNode(klee::ExecutionState const* state, net::Node const& n) {
+void KleeNet::setStateNode(klee::ExecutionState* state, net::Node const& n) {
   net::StateMapper::setStateNode(state,n);
+  if (state) {
+    // We cannot simply set the state->persistent.node to n, as we don't know if the StateMapper will succeed.
+    state->persistent.node = getStateNode(state);
+  }
 }
-void KleeNet::setStateNode(klee::ExecutionState const& state, net::Node const& n) {
+void KleeNet::setStateNode(klee::ExecutionState& state, net::Node const& n) {
   setStateNode(&state,n);
 }
 

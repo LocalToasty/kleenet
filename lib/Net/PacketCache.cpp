@@ -4,7 +4,11 @@
 #include "net/BasicState.h"
 #include "MappingInformation.h"
 
+#include "net/util/debug.h"
+
 using namespace net;
+
+typedef DEBUG<debug::mapping> DD;
 
 
 PacketCacheBase::StateTrie::StateTrie()
@@ -15,6 +19,10 @@ PacketCacheBase::StateTrie::Tree::size_type PacketCacheBase::StateTrie::size() c
   return tree.size();
 }
 
+void PacketCacheBase::onCommitDo(util::SharedPtr<util::DynamicFunctor<Node> > f) {
+  commitHooks.push_back(f);
+}
+
 unsigned PacketCacheBase::StateTrie::insert(ExData::const_iterator begin, ExData::const_iterator end, BasicState* s) {
   unsigned d;
   if (begin == end) {
@@ -23,6 +31,7 @@ unsigned PacketCacheBase::StateTrie::insert(ExData::const_iterator begin, ExData
   } else {
     ExData::const_iterator next = begin;
     ++next;
+    assert(util::SharedPtr<DataAtom>(*begin) && "Null ptr in packet string when writing.");
     d = 1+tree[*begin].insert(next,end,s); // implicit StateTrie construction!
   }
   if (d > depth)
@@ -44,6 +53,7 @@ void PacketCacheBase::StateTrie::unfoldWith(ExData::iterator it, unsigned remain
     ++next;
     for (Tree::const_iterator i = tree.begin(), e = tree.end(); i != e; ++i) {
       *it = i->first;
+      assert(util::SharedPtr<DataAtom>(*it) && "Null ptr in packet string when reading.");
       i->second.unfoldWith(next,remainingDepth-1,exData,func);
     }
   }
@@ -82,16 +92,21 @@ void PacketCacheBase::commitMappings(Node dest, StateTrie const& st, Transmitter
         stateMapper.map(states, dest);
         for (std::set<BasicState*>::const_iterator sender = states.begin(), end = states.end(); sender != end; ++sender) {
           stateMapper.findTargets(*sender, dest);
-          for (StateMapper::iterator recv = stateMapper.begin(), recvEnd = stateMapper.end(); recv != recvEnd; ++recv) {
-            transmitter(*sender,*recv,exData);
-            //transmitHandler.handleTransmission(pi, *sender, *recv, exData);
-          }
+          std::vector<BasicState*> targets(stateMapper.begin(),stateMapper.end());
           stateMapper.invalidate();
+          for (std::vector<BasicState*>::iterator recv = targets.begin(), recvEnd = targets.end(); recv != recvEnd; ++recv) {
+            transmitter(*sender,*recv,exData);
+          }
           (*sender)->incCompletedTransmissions();
         }
       }
   };
   st.call(Tx(stateMapper,dest,transmitter));
+  std::vector<util::SharedPtr<util::DynamicFunctor<Node> > > temp;
+  temp.swap(commitHooks);
+  for (std::vector<util::SharedPtr<util::DynamicFunctor<Node> > >::iterator it = temp.begin(), end = temp.end(); it != end; ++it) {
+    (**it)(dest);
+  }
 }
 
 void PacketCacheBase::cacheMapping(BasicState* s, StateTrie& location, ExData const& data) {

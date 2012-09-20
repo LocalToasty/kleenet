@@ -4,6 +4,9 @@
 #include "net/DataAtom.h"
 #include "net/TransmitHandler.h"
 
+#include "net/util/Functor.h"
+#include "net/util/SharedPtr.h"
+
 #include <map>
 #include <set>
 #include <vector>
@@ -20,6 +23,7 @@ namespace net {
     template <typename PacketInfo> friend class PacketCache;
     private:
       StateMapper& stateMapper;
+      std::vector<util::SharedPtr<util::DynamicFunctor<Node> > > commitHooks;
     protected:
       class StateTrie {
         private:
@@ -49,6 +53,7 @@ namespace net {
     public:
       PacketCacheBase(StateMapper& mapper);
       virtual void commitMappings() = 0;
+      void onCommitDo(util::SharedPtr<util::DynamicFunctor<Node> >);
   };
 
   /* NOTE: PacketInfo must be default convertible to Node. And that Node must be the destination! */
@@ -80,10 +85,11 @@ namespace net {
               transmitHandler.handleTransmission(pi, sender, receiver, data);
             }
         };
-        for (typename Packets::iterator i = packets.begin(), e = packets.end(); i != e; ++i) {
+        Packets buffer; // recursion invalidates iterators. EVIL STUFF!
+        buffer.swap(packets);
+        for (typename Packets::iterator i = buffer.begin(), e = buffer.end(); i != e; ++i) {
           PacketCacheBase::commitMappings(static_cast<Node>(i->first),i->second,PiTransmitter(transmitHandler,i->first));
         }
-        packets.clear();
       }
   };
 }

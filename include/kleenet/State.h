@@ -12,6 +12,8 @@
 #include "net/BasicState.h"
 #include <string>
 
+#include "PersistentStateData.h"
+
 namespace klee {
   class ExecutionState;
   class Array;
@@ -42,9 +44,15 @@ namespace kleenet {
     private:
       Executor* executor;
     public:
+      PersistentStateData persistent;
       ConfigurationDataBase* configurationData;
-      State() : net::BasicState(), executor(0), configurationData(0) {}
-      State(State const& from) : net::BasicState(from), executor(from.executor), configurationData(ConfigurationDataBase::attemptFork(from.configurationData,this)) {}
+      State()
+        : net::BasicState(), executor(0), persistent(), configurationData(0) {}
+      State(State const& from)
+        : net::BasicState(from)
+        , executor(from.executor)
+        , persistent(from.persistent)
+        , configurationData(ConfigurationDataBase::attemptFork(from.configurationData,this)) {}
       ~State() {
         if (configurationData)
           delete configurationData;

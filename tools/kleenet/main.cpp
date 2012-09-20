@@ -14,6 +14,8 @@
 #include "kleenet/NetInterpreter.h"
 #include "kleenet/NetExecutorBuilder.h"
 #include "kleenet/KleeNet.h"
+#include "kleenet/KnTest.h"
+#include "net/Node.h"
 
 #include "klee/ExecutionState.h"
 #include "klee/Expr.h"
@@ -423,7 +425,7 @@ void KleeHandler::processTestCase(const ExecutionState &state,
     unsigned id = ++m_testIndex;
 
     if (success) {
-      KTest b;      
+      KTest b;
       b.numArgs = m_argc;
       b.args = m_argv;
       b.symArgvs = 0;
@@ -439,17 +441,16 @@ void KleeHandler::processTestCase(const ExecutionState &state,
         assert(o->bytes);
         std::copy(out[i].second.begin(), out[i].second.end(), o->bytes);
       }
-      // We have to see if and how we can extend ktest-tool for KleeNet.
-      // TODO: KTest b.nodeId = state.mappingInformation->node.id;
-      // TODO: KTest b.dscenarioId = m_dscenariosExplored;
 
-      // TODO: KTest std::string tmp = "no error";
-      // TODO: KTest if (errorMessage && errorSuffix) {
-      // TODO: KTest   tmp = std::string(errorMessage);
-      // TODO: KTest   tmp = tmp.substr(0, tmp.find("\n"));
-      // TODO: KTest }
-      // TODO: KTest b.err = const_cast<char*>(tmp.c_str());
-      
+      knTest_set_nodeId(&b, state.persistent.node.id);
+      knTest_set_dscenarioId(&b, m_dscenariosExplored);
+      std::string tmp = "no error";
+      if (errorMessage && errorSuffix) {
+        tmp = std::string(errorMessage);
+        tmp = tmp.substr(0, tmp.find("\n"));
+      }
+      knTest_set_err(&b, const_cast<char*>(tmp.c_str()));
+
       if (!kTest_toFile(&b, getTestFilename("ktest", id).c_str())) {
         klee_warning("unable to write output test case, losing it");
       }

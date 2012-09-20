@@ -5,18 +5,6 @@ using namespace net;
 const Node Node::FIRST_NODE = 1; // TODO: change to 0
 const Node Node::INVALID_NODE = -1;
 
-Node::Node()
-  : id(INVALID_NODE.id) {
-}
-
-Node::Node(NodeId id)
-  : id(id) {
-}
-
-Node Node::operator=(NodeId _id) {
-  return id = _id;
-}
-
 Node Node::operator++() {
   return ++id;
 }

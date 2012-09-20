@@ -20,10 +20,23 @@ namespace net {
     // That is, these are times the state thinks it is scheduled,
     // but that it has not yet been to in our data structures.
     std::set<Time> danglingTimes;
+    bool isDangling;
     Time scheduledBootTime;
-    CoojaInformation() : SchedulingInformation<CoojaInformation>(), scheduledTime(), scheduledBootTime(0) {
+    CoojaInformation()
+      : SchedulingInformation<CoojaInformation>()
+      , scheduledTime()
+      , danglingTimes()
+      , isDangling(true)
+      , scheduledBootTime(0)
+      {
     }
-    CoojaInformation(CoojaInformation const& from) : SchedulingInformation<CoojaInformation>(from), scheduledTime(), danglingTimes(from.scheduledTime), scheduledBootTime(from.scheduledBootTime) {
+    CoojaInformation(CoojaInformation const& from)
+      : SchedulingInformation<CoojaInformation>(from)
+      , scheduledTime()
+      , danglingTimes(from.scheduledTime)
+      , isDangling(true)
+      , scheduledBootTime(from.scheduledBootTime)
+      {
     }
     bool isScheduled() {
       return !scheduledTime.empty();
@@ -83,55 +96,60 @@ bool CoojaSearcher::removeState(BasicState* state) {
 void CoojaSearcher::operator+=(BasicState* state) {
   cih.equipState(state);
   CoojaInformation* const schInfo = cih.stateInfo(state);
+  assert(schInfo->isDangling && "Cannot add already known states.");
   assert(!schInfo->isScheduled() && "Newly added state is already scheduled? How?");
   // if we are forked from another state, we have to mirror its schedule times, otherwise we will have to bootstrap
+  schInfo->isDangling = false;
   if (schInfo->danglingTimes.empty()) {
     DD::cout << DD::endl << "New State: NO DANGLING EVENTS" << DD::endl;
     scheduleStateAt(state, schInfo->virtualTime, EK_Normal);
   } else {
     DD::cout << DD::endl << "New State: " << schInfo->danglingTimes.size() << " DANGLING EVENTS" << DD::endl;
-    for (std::set<Time>::const_iterator tm = schInfo->danglingTimes.begin(), tmEnd = schInfo->danglingTimes.end(); tm != tmEnd; ++tm) {
+    std::set<Time> d;
+    d.swap(schInfo->danglingTimes);
+    for (std::set<Time>::const_iterator tm = d.begin(), tmEnd = d.end(); tm != tmEnd; ++tm) {
       scheduleStateAt(state, *tm, EK_Normal);
     }
-    schInfo->danglingTimes.clear();
   }
 }
 
 void CoojaSearcher::operator-=(BasicState* state) {
   removeState(state);
+  cih.stateInfo(state)->isDangling = true;
 }
 
 void CoojaSearcher::scheduleStateAt(BasicState* state, Time time, EventKind ekind) {
   CoojaInformation* schedInfo = cih.stateInfo(state);
-  DD::cout << "Schedule request (type " << ekind << ") for state " << state << " at time " << time << DD::endl;
+  DD::cout << "Schedule request (type " << ekind << ") for state " << state << " with SI " << schedInfo << " at time " << time << " [" << (schedInfo->isDangling?"IS DANGLING":"not dangling") << "]" << DD::endl;
   DD::cout << "Queue Size before scheduling " << calQueue.size() << DD::endl;
   if (ekind == EK_Boot) {
     schedInfo->scheduledBootTime = time;
     while (removeState(state)){}
-    //schedInfo->scheduledTime.insert(0); // XXX do we still need this? if so, why?
-    //calQueue[0].pushBack(state);
   }
-  if (schedInfo->isScheduled()) {
-    // FIXME FIXME FIXME: Generate Error/Testcase if we schedule an event in the past (unless we havn't been booted yet)
-    if (schedInfo->scheduledBootTime > time || schedInfo->virtualTime >= time) {
-    //if (schedInfo->scheduledBootTime > time || schedInfo->virtualTime > time) {
-      // ignore wakeup request; XXX: Why are we doing this again?
-      DD::cout << "  ignoring schedule request at " << time << "! Reason: boot-time " << schedInfo->scheduledBootTime << ", virtual-time " << schedInfo->virtualTime << DD::endl;
-      return;
+  if (schedInfo->isDangling) {
+    schedInfo->danglingTimes.insert(time);
+  } else {
+    if (schedInfo->isScheduled()) {
+      // FIXME FIXME FIXME: Generate Error/Testcase if we schedule an event in the past (unless we havn't been booted yet)
+      if (schedInfo->scheduledBootTime > time || schedInfo->virtualTime >= time) {
+        // ignore wakeup request; XXX: Why are we doing this again?
+        DD::cout << "  ignoring schedule request at " << time << "! Reason: boot-time " << schedInfo->scheduledBootTime << ", virtual-time " << schedInfo->virtualTime << DD::endl;
+        return;
+      }
+      while (schedInfo->isScheduled() && time <= *(schedInfo->scheduledTime.begin())) {
+        DD::cout << "  rescheduling!" << DD::endl;
+        // remove the state from the time event in the future
+        removeState(state);
+      }
     }
-    while (schedInfo->isScheduled() && time <= *(schedInfo->scheduledTime.begin())) {
-      DD::cout << "  rescheduling!" << DD::endl;
-      // remove the state from the time event in the future
-      removeState(state);
-    }
+    DD::cout << "Honouring schedule request for state " << state << " at time " << time << " (i.e. was not dropped)." << DD::endl;
+    assert(time >= lowerBound());
+    // set scheduled time
+    schedInfo->scheduledTime.insert(time);
+    // push the state into the fifo queue of the specified time event
+    calQueue[time].pushBack(state);
+    DD::cout << "Queue Size after scheduling " << calQueue.size() << DD::endl;
   }
-  DD::cout << "Honouring schedule request for state " << state << " at time " << time << " (i.e. was not dropped)." << DD::endl;
-  assert(time >= lowerBound());
-  // set scheduled time
-  schedInfo->scheduledTime.insert(time);
-  // push the state into the fifo queue of the specified time event
-  calQueue[time].pushBack(state);
-  DD::cout << "Queue Size after scheduling " << calQueue.size() << DD::endl;
 }
 
 BasicState* CoojaSearcher::selectState() {

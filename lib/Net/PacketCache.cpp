@@ -4,7 +4,11 @@
 #include "net/BasicState.h"
 #include "MappingInformation.h"
 
+#include "net/util/debug.h"
+
 using namespace net;
+
+typedef DEBUG<debug::mapping> DD;
 
 
 PacketCacheBase::StateTrie::StateTrie()
@@ -27,6 +31,7 @@ unsigned PacketCacheBase::StateTrie::insert(ExData::const_iterator begin, ExData
   } else {
     ExData::const_iterator next = begin;
     ++next;
+    assert(util::SharedPtr<DataAtom>(*begin) && "Null ptr in packet string when writing.");
     d = 1+tree[*begin].insert(next,end,s); // implicit StateTrie construction!
   }
   if (d > depth)
@@ -48,6 +53,7 @@ void PacketCacheBase::StateTrie::unfoldWith(ExData::iterator it, unsigned remain
     ++next;
     for (Tree::const_iterator i = tree.begin(), e = tree.end(); i != e; ++i) {
       *it = i->first;
+      assert(util::SharedPtr<DataAtom>(*it) && "Null ptr in packet string when reading.");
       i->second.unfoldWith(next,remainingDepth-1,exData,func);
     }
   }

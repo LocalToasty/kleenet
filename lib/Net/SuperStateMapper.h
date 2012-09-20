@@ -150,6 +150,8 @@ namespace net {
 
       virtual unsigned countCurrentDistributedScenarios() const;
       virtual unsigned countTotalDistributedScenarios() const;
+
+      void dumpInternals() const;
   };
 
   template <typename Graph> class SuperStateMapperWithClustering

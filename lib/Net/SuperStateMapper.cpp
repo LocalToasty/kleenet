@@ -51,11 +51,11 @@ SuperInformation::~SuperInformation() {
 VState::VState(SuperInformation *s)
   : sli_si(NULL), si(NULL), sli_ds(NULL), ds(NULL),
     graphEdge(s->graphNode.graph), isTarget(false) {
-  //DD::cout << "Creating VState " << this << " (on SI " << s << ", on BasicState " << s->getState() << ")" << DD::endl; // XXX
+  DD::cout << "Creating VState " << this << " (on SI " << s << ", on BasicState " << s->getState() << ")" << DD::endl; // XXX
   moveTo(s);
 }
 VState::~VState() {
-  //DD::cout << "Destroying VState " << this << DD::endl; // XXX
+  DD::cout << "Destroying VState " << this << DD::endl; // XXX
 }
 
 void VState::moveTo(SuperInformation *s) {
@@ -99,18 +99,18 @@ DState::DState(DState& ds)
   vstates.lock();
 }
 DState::~DState() {
-  //DD::cout << "DState dying" << DD::endl;
+  DD::cout << "DState dying" << DD::endl;
   mapper.activeDStates._list.drop(sli_actives);
-  //DD::cout << "DState dead" << DD::endl;
+  DD::cout << "DState dead" << DD::endl;
 }
 
 DState *DState::adoptVState(VState *vs) {
   assert(vs);
   DState *old = autoAbandonVState(vs);
   // we are friends with VState ...
-  //DD::cout << "[" << this << "] size[n:" << vs->info()->getNode().id << "] before adopting vstate: " << vstates[vs->info()->getNode()].size() << DD::endl;
+  DD::cout << "[" << this << "] size[n:" << vs->info()->getNode().id << "] before adopting vstate: " << vstates[vs->info()->getNode()].size() << DD::endl;
   vs->sli_ds = vstates[vs->info()->getNode()].put(vs);
-  //DD::cout << "[" << this << "] size[n:" << vs->info()->getNode().id << "] after adopting vstate: " << vstates[vs->info()->getNode()].size() << DD::endl;
+  DD::cout << "[" << this << "] size[n:" << vs->info()->getNode().id << "] after adopting vstate: " << vstates[vs->info()->getNode()].size() << DD::endl;
   vs->ds = this;
   vs->graphEdge.setDState(&(this->graphNode));
   return old;
@@ -125,9 +125,9 @@ DState *DState::adoptVState(VState *vs) {
 void DState::abandonVState(VState *vs) {
   assert(vs && vs->sli_ds && vs->ds == this);
   assert(!vstates[vs->info()->getNode()].isLocked());
-  //DD::cout << "size[n:" << vs->info()->getNode().id << "] before abandoning vstate: " << vstates[vs->info()->getNode()].size() << DD::endl;
+  DD::cout << "size[n:" << vs->info()->getNode().id << "] before abandoning vstate: " << vstates[vs->info()->getNode()].size() << DD::endl;
   vstates[vs->info()->getNode()].drop(vs->sli_ds);
-  //DD::cout << "size[n:" << vs->info()->getNode().id << "] after abandoning vstate: " << vstates[vs->info()->getNode()].size() << DD::endl;
+  DD::cout << "size[n:" << vs->info()->getNode().id << "] after abandoning vstate: " << vstates[vs->info()->getNode()].size() << DD::endl;
   vs->ds = NULL;
   vs->sli_ds = NULL;
   vs->graphEdge.setDState(NULL);
@@ -275,6 +275,7 @@ void SuperStateMapper::_findTargets(const BasicState &state,
   assert(si);
   for (util::SafeListIterator<VState*> senders(si->vstates); senders.more();
           senders.next()) {
+    assert(senders.get()->dstate()->look(dest).size() && "Dstate doesn't have states on one node");
     for (util::SafeListIterator<VState*> vtargets(senders.get()->dstate()->look(dest));
             vtargets.more(); vtargets.next()) {
       SuperInformation *ti = vtargets.get()->info();
@@ -462,10 +463,63 @@ void SuperStateMapper::_map(BasicState &es, Node dest) {
   superTargets.dropAll();
 }
 
+static std::string intToLabel(unsigned i) {
+  char t[2];
+  t[0] = (i%('z'-'a'+1))+'a';
+  t[1] = 0;
+  std::string digit = t;
+  i /= 'z'-'a'+1;
+  if (i)
+    digit = intToLabel(i) + digit;
+  return digit;
+}
+
+void SuperStateMapper::dumpInternals() const {
+  //for (Nodes::const_iterator n = this->nodes().begin(), ne = this->nodes().end(); n != ne; ++n) {
+  //  for (std::set<BasicState*>::const_iterator i = states.begin(), end = states.end(); i != end; ++i) {
+  //    findTargets(**i,*n);
+  //    invalidate();
+  //  }
+  //}
+  unsigned const count = activeDStates.list.size();
+  std::string const prefix = "    ";
+  if (count == 1) {
+    DD::cout << prefix << "Dumping the singleton dstate:" << DD::endl;
+  } else {
+    DD::cout << prefix << "Dumping all " << count << " dstates:" << DD::endl;
+  }
+  static std::map<DState*,unsigned> dIndexer;
+  static std::map<VState*,unsigned> vIndexer;
+  bool BANG = false;
+  for (util::SafeListIterator<DState*> it(activeDStates.list); it.more(); it.next()) {
+    if (dIndexer[it.get()] == 0)
+      dIndexer[it.get()] = dIndexer.size();
+    DD::cout << prefix << "DState(" << dIndexer[it.get()] << ") = {";
+    std::string sep = "";
+    for (Nodes::const_iterator n = this->nodes().begin(); n != this->nodes().end(); ++n) {
+      DD::cout << sep << "[" << n->id << "] => {";
+      std::string sep2 = "";
+      for (util::SafeListIterator<VState*> vit(it.get()->look(*n)); vit.more(); vit.next()) {
+        if (vIndexer[vit.get()] == 0)
+          vIndexer[vit.get()] = vIndexer.size();
+        DD::cout << sep2 << intToLabel(vIndexer[vit.get()]-1);
+        sep2 = ", ";
+      }
+      DD::cout << "}";
+      sep = ", ";
+      BANG = BANG && it.get()->look(*n).size();
+    }
+    DD::cout << "}" << DD::endl;
+  }
+  assert(!BANG && "Crap DState");
+  DD::cout << prefix << "End of Dumping DStates." << DD::endl;
+}
+
 void SuperStateMapper::_phonyMap(std::set<BasicState*> const &states, Node dest) {
-  //DD::cout << "phonyMap" << DD::endl;
   assert(states.size() && "Empty mapping request?");
   Node const origin = stateInfo(*states.begin())->getNode();
+  DD::cout << "phonyMap (with " << states.size() << " senders) " << origin.id << " -> " << dest.id << DD::endl;
+  dumpInternals();
   resetMarks();
   // These are individual virtual packets.
   // !IMPORTANT! The key-value (first) is the RECEIVER, the second value
@@ -495,7 +549,7 @@ void SuperStateMapper::_phonyMap(std::set<BasicState*> const &states, Node dest)
     }
   }
 
-  //DD::cout << "found a total of " << vpackets.size() << " vpackets" << DD::endl;
+  DD::cout << "found a total of " << vpackets.size() << " vpackets" << DD::endl;
 
   std::vector<VState*> allvt;
   allvt.reserve(vpackets.size());
@@ -508,7 +562,7 @@ void SuperStateMapper::_phonyMap(std::set<BasicState*> const &states, Node dest)
     size_t const sending = i->second.size();
     assert(sending);
     assert(sending <= total);
-    //DD::cout << "total states: " << total << "; sending: " << sending << DD::endl;
+    DD::cout << "total states: " << total << "; sending: " << sending << DD::endl;
     if (sending < total) {
       if (!ds->isMarked()) {
         new DState(*ds); // is automatically stored in ds->heir
@@ -517,7 +571,7 @@ void SuperStateMapper::_phonyMap(std::set<BasicState*> const &states, Node dest)
       target = new VState(target->info());
       ds->heir->adoptVState(target);
     } else {
-      //DD::cout << "IGNORING PHONY PACKET!" << DD::endl;
+      DD::cout << "IGNORING PHONY PACKET!" << DD::endl;
     }
     // Note that it is not possible to add any vstate
     // twice as the vstate is the key of the data structure
@@ -578,7 +632,7 @@ void SuperStateMapper::_phonyMap(std::set<BasicState*> const &states, Node dest)
       }
     }
     for (Joblist::const_iterator i = jobs.begin(), e = jobs.end(); i != e; ++i) {
-      //DD::cout << i->first << " (" << i->first->info() << "[" << i->first->info()->multiplicity << "]" << " ~> " << i->second << "[" << i->second->multiplicity << "])" << DD::endl;
+      DD::cout << i->first << " (" << i->first->info() << "[" << i->first->info()->multiplicity << "]" << " ~> " << i->second << "[" << i->second->multiplicity << "])" << DD::endl;
       assert(i->first->info()->multiplicity > 1);
       i->first->moveTo(i->second);
     }
@@ -587,6 +641,9 @@ void SuperStateMapper::_phonyMap(std::set<BasicState*> const &states, Node dest)
     (*i)->isTarget = false;
   }
   resetMarks();
+
+  DD::cout << "Eof phonyMap" << DD::endl;
+  dumpInternals();
 }
 
 

@@ -582,19 +582,30 @@ void SuperStateMapper::_phonyMap(std::set<BasicState*> const &states, Node dest)
     allvt.push_back(target);
   }
 
+  // move senders
   {
-    // Senders and Bystanders (for hard-copy dstates)
+    for (VSenders::const_iterator it = vsenders.begin(), end = vsenders.end(); it != end; ++it) {
+      VState* vs = *it;
+      DState* ds = vs->dstate();
+      if (ds->isMarked()) // Maybe it's truly phony and we are ignoring it. No dstate-fork, then.
+        ds->heir->adoptVState(vs);
+    }
+  }
+
+  // copy bystanders
+  if (this->nodes().size() > 2) {
     util::SafeListIterator<DState*> dsit;
     for (iterateMarked(&dsit); dsit.more(); dsit.next())
       for (Nodes::const_iterator n = this->nodes().begin(), ne = this->nodes().end(); n != ne; ++n)
-        if (*n != dest) {
+        if (*n != dest && *n != origin) {
           std::vector<std::pair<DState*,VState*> > cache;
           util::SharedSafeList<VState*>& slist(dsit.get()->look(*n));
           cache.reserve(slist.size());
           for (util::SafeListIterator<VState*> vs(slist); vs.more(); vs.next())
-            cache.push_back(std::make_pair(dsit.get()->heir,(*n == origin)?vs.get():new VState(vs.get()->info())));
-          for (std::vector<std::pair<DState*,VState*> >::const_iterator avs = cache.begin(), avse = cache.end(); avs != avse; ++avs)
+            cache.push_back(std::make_pair(dsit.get()->heir,new VState(vs.get()->info())));
+          for (std::vector<std::pair<DState*,VState*> >::const_iterator avs = cache.begin(), avse = cache.end(); avs != avse; ++avs) {
             avs->first->adoptVState(avs->second);
+          }
         }
   }
 

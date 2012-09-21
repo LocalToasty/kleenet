@@ -2,6 +2,8 @@
 
 #include "SchedulingInformation.h"
 
+#include "net/PacketCache.h"
+
 #include <vector>
 #include <functional>
 #include <algorithm>
@@ -15,7 +17,8 @@ namespace net {
   struct LockStepInformation : SchedulingInformation<LockStepInformation> {
     std::vector<BasicState*>::size_type slot;
     bool blocked;
-    LockStepInformation() : slot(-1), blocked(false) {}
+    bool skipOnce;
+    LockStepInformation() : slot(-1), blocked(false), skipOnce(false) {}
   };
   struct LockStepInformationHandler : SchedulingInformationHandler<LockStepInformation> {
     typedef std::vector<BasicState*> States;
@@ -40,8 +43,14 @@ namespace net {
       assert(states.size() >= nullSlots);
       return states.size()-nullSlots;
     }
+    template <typename T>
+    inline static T testAndSet(T& var, T const value) {
+      T const prev = var;
+      var = value;
+      return prev;
+    }
     void fastForwardJunk() {
-      while (next != end && !*next)
+      while (next != end && (!*next || testAndSet(stateInfo(*next)->skipOnce,false)))
         ++next; // fast forward junk-entries
     }
     void block(LockStepInformation* const lsi) {
@@ -64,9 +73,10 @@ namespace net {
         }
       blockedStates = 0;
     }
-    void consolidate() {
+    bool consolidate() {
       fastForwardJunk();
-      if (next == end) {
+      bool const result = next == end;
+      if (result) {
         if (getGovernedStates() < states.capacity()/4) {
           std::vector<BasicState*> replace(states.size()-nullSlots,NULL);
           std::vector<BasicState*>::size_type index = 0;
@@ -85,6 +95,7 @@ namespace net {
         assert(next != end);
         globalTime += stepIncrement;
       }
+      return result;
     }
   };
 }
@@ -120,10 +131,15 @@ bool LockStepSearcher::empty() const {
 }
 void LockStepSearcher::operator+=(BasicState* state) {
   lsih.equipState(state);
-  lsih.stateInfo(state)->slot = lsih.states.size();
+  typedef std::vector<BasicState*>::size_type Slot;
+  Slot& slot = lsih.stateInfo(state)->slot;
+  typedef LockStepInformationHandler::States::difference_type DiffType;
+  DiffType const current = lsih.next - lsih.states.begin();
+  // note "slot" is now still the slot of the parent state
+  lsih.stateInfo(state)->skipOnce = (slot != static_cast<Slot>(-1)) && (static_cast<DiffType>(slot) < current);
+  slot = lsih.states.size();
   if (lsih.stateInfo(state)->blocked)
     lsih.blockedStates++;
-  LockStepInformationHandler::States::difference_type const current = lsih.next - lsih.states.begin();
   lsih.states.push_back(state); // potentially invalidates iterators!
   lsih.next = lsih.states.begin() + current;
   lsih.end = lsih.states.end();
@@ -146,7 +162,10 @@ BasicState* LockStepSearcher::selectState() {
   }
   BasicState* selection;
   do {
-    lsih.consolidate();
+    while (lsih.consolidate()) {
+      if (packetCache)
+        packetCache->commitMappings();
+    }
     selection = *lsih.next++;
   } while (lsih.stateInfo(selection)->blocked);
   updateLowerBound((lsih.stateInfo(selection)->virtualTime) = lsih.globalTime);

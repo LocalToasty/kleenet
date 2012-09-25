@@ -26,7 +26,8 @@ namespace net {
       class StateTrie;
     private:
       StateMapper& stateMapper;
-      std::vector<util::SharedPtr<util::DynamicFunctor<Node> > > commitHooks;
+      typedef util::SharedPtr<util::DynamicFunctor<Node> > CommitHook;
+      std::vector<CommitHook> commitHooks;
     public:
       class StateLink { // similar to smart pointer semantics
         private:
@@ -79,7 +80,7 @@ namespace net {
     public:
       PacketCacheBase(StateMapper& mapper);
       virtual void commitMappings() = 0;
-      void onCommitDo(util::SharedPtr<util::DynamicFunctor<Node> >);
+      void onCommitDo(CommitHook);
       // It is NOT necessary to call that for dying states!
       // When a state is destroyed it automatically removes itself from all Tries.
       void removeState(BasicState*);

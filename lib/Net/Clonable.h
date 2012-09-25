@@ -12,7 +12,7 @@ namespace net {
 
   class ClonerI {
     public:
-      virtual Clonable& operator()(Clonable&) const = 0;
+      // It is legal for this to return NULL!
       virtual Clonable* operator()(Clonable*) const = 0;
   };
 
@@ -34,8 +34,22 @@ namespace net {
         // Cloner. You have been a very bad code monkey!
         return static_cast<Clonable*>(new T(*static_cast<T*>(c)));
       }
-      Clonable& operator()(Clonable& c) const {
-        return *((*this)(&c));
+  };
+
+  template <typename T> class NullCloner : public ClonerI {
+    private:
+      // ... we're pretty shy ...
+      NullCloner() {
+      }
+      NullCloner(NullCloner const&) {
+      }
+    public:
+      static ClonerI const& getCloner() {
+        static NullCloner const singleton;
+        return singleton;
+      }
+      Clonable* operator()(Clonable*) const {
+        return NULL;
       }
   };
 

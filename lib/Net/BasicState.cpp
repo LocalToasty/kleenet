@@ -44,10 +44,11 @@ BasicState::BasicState(BasicState const& from)
   if (!fake) {
     //std::cout << "BasicState " << this << " is not a fake." << std::endl;
     for (size_t i = 0; i < tableSize(); i++) {
-      StateDependantI* const dep(from.dependants[i]);
-      if (dep) {
-        // This will automatically set dependants[i] to the new StateDepedantI*
-        static_cast<StateDependantI*>(dep->getCloner()(dep))->setState(this);
+      if (StateDependantI* const dep = from.dependants[i]) {
+        if (StateDependantI* const cloned = static_cast<StateDependantI*>(dep->getCloner()(dep))) {
+          // This will automatically set dependants[i] to the new StateDepedantI*
+          cloned->setState(this);
+        }
       }
     }
   }

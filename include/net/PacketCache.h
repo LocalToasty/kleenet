@@ -21,20 +21,46 @@ namespace net {
 
   class PacketCacheBase {
     template <typename PacketInfo> friend class PacketCache;
+    friend class StateTrie;
+    protected:
+      class StateTrie;
     private:
       StateMapper& stateMapper;
       std::vector<util::SharedPtr<util::DynamicFunctor<Node> > > commitHooks;
+    public:
+      class StateLink { // similar to smart pointer semantics
+        private:
+          BasicState* state;
+        public:
+          mutable std::set<StateLink>* container;
+          StateLink() : state() {}
+          StateLink(BasicState* s) : state() {
+            *this = s;
+          }
+          StateLink(StateLink const& from) : state() {
+            *this = from.state;
+          }
+          StateLink& operator=(BasicState*);
+          ~StateLink() {
+            *this = NULL;
+          }
+          operator BasicState*() const {
+            return state;
+          }
+      };
     protected:
       class StateTrie {
+        friend class PacketCacheBase;
+        public:
+          typedef std::set<StateLink> Content;
         private:
           typedef std::map<DataAtomHolder,StateTrie> Tree;
-          typedef std::set<BasicState*> Content;
           Tree tree;
           Content content;
           unsigned depth;
         public:
           struct Functor {
-            virtual void operator()(ExData const& exData, std::set<BasicState*> const& states) const = 0;
+            virtual void operator()(ExData const& exData, Content const& states) const = 0;
           };
         private:
           void unfoldWith(ExData::iterator it, unsigned remainingDepth, ExData const& exData, Functor const& func) const;
@@ -54,6 +80,9 @@ namespace net {
       PacketCacheBase(StateMapper& mapper);
       virtual void commitMappings() = 0;
       void onCommitDo(util::SharedPtr<util::DynamicFunctor<Node> >);
+      // It is NOT necessary to call that for dying states!
+      // When a state is destroyed it automatically removes itself from all Tries.
+      void removeState(BasicState*);
   };
 
   /* NOTE: PacketInfo must be default convertible to Node. And that Node must be the destination! */

@@ -28,6 +28,7 @@ namespace net {
       StateMapper& stateMapper;
       typedef util::SharedPtr<util::DynamicFunctor<Node> > CommitHook;
       std::vector<CommitHook> commitHooks;
+      size_t knownRedundantMappings;
     public:
       class StateLink { // similar to smart pointer semantics
         private:
@@ -64,11 +65,13 @@ namespace net {
             virtual void operator()(ExData const& exData, Content const& states) const = 0;
           };
         private:
-          void unfoldWith(ExData::iterator it, unsigned depth, bool forceDistinction, ExData const& exData, Functor const& func) const;
+          // unfolds the tree and returns (#total-func-calls, #theoretical-minimum-func-calls)
+          std::pair<size_t,size_t> unfoldWith(ExData::iterator it, unsigned depth, bool forceDistinction, ExData const& exData, Functor const& func) const;
         public:
           StateTrie();
           unsigned insert(ExData::const_iterator begin, ExData::const_iterator end, BasicState* s);
-          void call(Functor const& func) const;
+          // returns (#total-func-calls, #theoretical-minimum-func-calls)
+          std::pair<size_t,size_t> call(Functor const& func) const;
           void clear();
           Tree::size_type size() const;
       };
@@ -84,6 +87,9 @@ namespace net {
       // It is NOT necessary to call that for dying states!
       // When a state is destroyed it automatically removes itself from all Tries.
       void removeState(BasicState*);
+      size_t getKnownRedundantMappings() const {
+        return knownRedundantMappings;
+      }
   };
 
   /* NOTE: PacketInfo must be default convertible to Node. And that Node must be the destination! */

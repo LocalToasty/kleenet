@@ -15,6 +15,7 @@ namespace kleenet {
     public:
       virtual void incDScenariosExplored() = 0;
       virtual void incClustersExplored() = 0;
+      virtual void updateKnownRedundantMappings(size_t) = 0;
   };
   // NOTE: inheriting from klee::Interpreter is dangerous. Don't do it!
   // rationale: kleenet::Executor isA klee::Executor isA klee::Interpreter

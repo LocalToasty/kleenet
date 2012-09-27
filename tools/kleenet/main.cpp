@@ -224,7 +224,8 @@ private:
   unsigned m_testIndex;  // number of tests written so far
   unsigned m_pathsExplored; // number of paths explored so far
   unsigned m_dscenariosExplored; // number of distributed scenarios explored so far
-  unsigned m_clustersExplored; // number of distributed scenarios explored so far
+  unsigned m_clustersExplored; // number of clusters explored so far
+  unsigned m_knownRedundantMappings; // number of mappings known to be done redundantly
 
   // used for writing .ktest files
   int m_argc;
@@ -239,9 +240,14 @@ public:
   unsigned getNumPathsExplored() { return m_pathsExplored; }
   unsigned getNumDScenariosExplored() { return m_dscenariosExplored; }
   unsigned getNumClustersExplored() { return m_clustersExplored; }
+  unsigned getNumKnownRedundantMappings() { return m_knownRedundantMappings; }
   void incPathsExplored() { m_pathsExplored++; }
   void incDScenariosExplored() { m_dscenariosExplored++; }
   void incClustersExplored() { m_clustersExplored++; }
+  void updateKnownRedundantMappings(size_t krm) {
+    assert(krm >= m_knownRedundantMappings && "Cannot decrease number of known redundant mappings");
+    m_knownRedundantMappings = krm;
+  }
 
   void setInterpreter(Interpreter *i);
 
@@ -275,6 +281,7 @@ KleeHandler::KleeHandler(int argc, char **argv)
     m_pathsExplored(0),
     m_dscenariosExplored(0),
     m_clustersExplored(0),
+    m_knownRedundantMappings(0),
     m_argc(argc),
     m_argv(argv) {
   std::string theDir;
@@ -1515,6 +1522,11 @@ int main(int argc, char **argv, char **envp) {
         << handler->getNumDScenariosExplored() << "\n";
   stats << "KleeNet: done: explored clusters = "
         << handler->getNumClustersExplored() << "\n";
+  if (unsigned const krm = handler->getNumKnownRedundantMappings()) {
+    stats << "KleeNet: done: known redundant mappings = "
+          << krm << "\n";
+  }
+
   std::cerr << stats.str();
   handler->getInfoStream() << stats.str();
 

@@ -16,7 +16,7 @@ namespace net {
   }
 }
 
-//#define ENABLE_DEBUG (mapping | term | searchers)
+//#define ENABLE_DEBUG all
 // undefine this to have none
 
 #ifdef NDEBUG

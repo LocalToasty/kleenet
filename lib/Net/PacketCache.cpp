@@ -5,6 +5,7 @@
 #include "MappingInformation.h"
 #include "StateDependant.h"
 
+#include "net/Observer.h"
 #include "net/util/debug.h"
 
 using namespace net;
@@ -12,14 +13,35 @@ using namespace net;
 typedef DEBUG<debug::pcache> DD;
 
 namespace {
-  struct PacketCacheInformation : net::StateDependant<PacketCacheInformation> {
-    using StateDependant<PacketCacheInformation>::setState;
+  struct PacketCacheInformation
+  : StateDependant<PacketCacheInformation>
+  , Observer<MappingInformation>
+  {
     using StateDependant<PacketCacheInformation>::setCloner;
-    std::set<net::PacketCacheBase::StateLink*> backLinks;
-    PacketCacheInformation() : StateDependant<PacketCacheInformation>() {}
-    PacketCacheInformation(PacketCacheInformation const& from) : StateDependant<PacketCacheInformation>(from) {
+    std::set<PacketCacheBase::StateLink*> backLinks;
+    MappingInformation* attached;
+    PacketCacheInformation()
+      : StateDependant<PacketCacheInformation>()
+      , Observer<MappingInformation>()
+      , backLinks()
+      , attached(NULL)
+      {
+    }
+    void setState(BasicState* _state) {
+      StateDependant<PacketCacheInformation>::setState(_state);
+      attached = StateDependant<MappingInformation>::retrieveDependant(_state);
+      assert(attached && "Trying to create PacketCacheInformation for a state unknown to the mapper.");
+      attached->add(this); // Observer stuff
+    }
+    void notify(Observable<MappingInformation>*) {}
+    void notifyNew(Observable<MappingInformation>*, Observable<MappingInformation> const*) {}
+    void notifyDie(Observable<MappingInformation> const* observable) {
+      assert(observable == attached);
+      attached = NULL;
+      delete this;
     }
     ~PacketCacheInformation() {
+      DD::cout << "~PacketCacheInformation ..." << DD::endl;
       {
         // loop would silently invalidate set iterators!
         std::vector<net::PacketCacheBase::StateLink*> const links(backLinks.begin(),backLinks.end());
@@ -29,8 +51,15 @@ namespace {
           (*it)->container->erase(**it);
         }
       }
+      if (attached) {
+        attached->remove(this); // Observer stuff
+        attached = NULL;
+      }
       assert(backLinks.empty());
+      DD::cout << "~PacketCacheInformation DONE" << DD::endl;
     }
+    private:
+      PacketCacheInformation(PacketCacheInformation const& from); // not implemented, we use this with the NullCloner
   };
 }
 
@@ -131,6 +160,12 @@ void PacketCacheBase::commitMappings(Node dest, StateTrie const& st, Transmitter
       }
       void operator()(ExData const& exData, StateTrie::Content const& states) const {
         std::set<BasicState*> const senders(states.begin(),states.end());
+        if (DD::enable) {
+          DD::cout << "__PacketCache__ Mapping:";
+          for (std::set<BasicState*>::const_iterator sender = senders.begin(), end = senders.end(); sender != end; ++sender)
+            DD::cout << " " << *sender << "(" << StateDependant<MappingInformation>::retrieveDependant(*sender) << ")";
+          DD::cout << DD::endl;
+        }
         stateMapper.map(senders, dest);
         for (std::set<BasicState*>::const_iterator sender = senders.begin(), end = senders.end(); sender != end; ++sender) {
           stateMapper.findTargets(*sender, dest);

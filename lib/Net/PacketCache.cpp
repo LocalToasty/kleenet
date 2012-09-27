@@ -9,7 +9,7 @@
 
 using namespace net;
 
-typedef DEBUG<debug::mapping> DD;
+typedef DEBUG<debug::pcache> DD;
 
 namespace {
   struct PacketCacheInformation : net::StateDependant<PacketCacheInformation> {
@@ -84,13 +84,9 @@ unsigned PacketCacheBase::StateTrie::insert(ExData::const_iterator begin, ExData
   return depth;
 }
 
-void PacketCacheBase::StateTrie::unfoldWith(ExData::iterator it, unsigned remainingDepth, ExData const& exData, Functor const& func) const {
+void PacketCacheBase::StateTrie::unfoldWith(ExData::iterator it, unsigned depth, ExData const& exData, Functor const& func) const {
   if (!content.empty()) {
-    /* Note: To ensure that we will never invoke the functor with an illformed data-string,
-     * we check that we consumed exactly 'depth' many atoms. This will result in a
-     * recursion tree that has leafs only at one depth. */
-    assert(!remainingDepth && "Ill-formed data-string due to partial tree.");
-    func(exData,content);
+    func(ExData(exData.begin(),exData.begin()+depth),content);
   }
   if (!tree.empty()) {
     assert(it != exData.end());
@@ -99,14 +95,14 @@ void PacketCacheBase::StateTrie::unfoldWith(ExData::iterator it, unsigned remain
     for (Tree::const_iterator i = tree.begin(), e = tree.end(); i != e; ++i) {
       *it = i->first;
       assert(util::SharedPtr<DataAtom>(*it) && "Null ptr in packet string when reading.");
-      i->second.unfoldWith(next,remainingDepth-1,exData,func);
+      i->second.unfoldWith(next,depth+1,exData,func);
     }
   }
 }
 
 void PacketCacheBase::StateTrie::call(Functor const& func) const {
   ExData exData(depth, DataAtomHolder(util::SharedPtr<DataAtom>()));
-  unfoldWith(exData.begin(),depth,exData,func);
+  unfoldWith(exData.begin(),0,exData,func);
 }
 
 

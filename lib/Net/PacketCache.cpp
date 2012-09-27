@@ -113,9 +113,17 @@ unsigned PacketCacheBase::StateTrie::insert(ExData::const_iterator begin, ExData
   return depth;
 }
 
-void PacketCacheBase::StateTrie::unfoldWith(ExData::iterator it, unsigned depth, ExData const& exData, Functor const& func) const {
+void PacketCacheBase::StateTrie::unfoldWith(ExData::iterator it, unsigned depth, bool forceDistinction, ExData const& exData, Functor const& func) const {
   if (!content.empty()) {
-    func(ExData(exData.begin(),exData.begin()+depth),content);
+    ExData const payload(exData.begin(),exData.begin()+depth);
+    if (forceDistinction) {
+      for (Content::const_iterator cit = content.begin(), end = content.end(); cit != end; ++cit) {
+        Content::const_iterator next = cit;
+        func(payload,Content(cit,++next));
+      }
+    } else {
+      func(payload,content);
+    }
   }
   if (!tree.empty()) {
     assert(it != exData.end());
@@ -124,14 +132,14 @@ void PacketCacheBase::StateTrie::unfoldWith(ExData::iterator it, unsigned depth,
     for (Tree::const_iterator i = tree.begin(), e = tree.end(); i != e; ++i) {
       *it = i->first;
       assert(util::SharedPtr<DataAtom>(*it) && "Null ptr in packet string when reading.");
-      i->second.unfoldWith(next,depth+1,exData,func);
+      i->second.unfoldWith(next,depth+1,(forceDistinction || it->forceDistinction()),exData,func);
     }
   }
 }
 
 void PacketCacheBase::StateTrie::call(Functor const& func) const {
   ExData exData(depth, DataAtomHolder(util::SharedPtr<DataAtom>()));
-  unfoldWith(exData.begin(),0,exData,func);
+  unfoldWith(exData.begin(),0,false,exData,func);
 }
 
 

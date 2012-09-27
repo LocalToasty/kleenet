@@ -18,6 +18,7 @@ namespace net {
       virtual char getClassId() const = 0;
       bool sameClass(DataAtom const&) const;
     public:
+      virtual bool forceDistinction() const { return false; }
       virtual bool operator==(DataAtom const&) const = 0;
       virtual bool operator<(DataAtom const&) const = 0;
       virtual ~DataAtom();
@@ -47,6 +48,7 @@ namespace net {
       DataAtomHolder(util::SharedPtr<DataAtom> a);
       DataAtomHolder(DataAtomHolder const& from);
       void operator=(DataAtomHolder const& from);
+      bool forceDistinction() const;
       bool operator==(DataAtomHolder const& cmp) const;
       bool operator<(DataAtomHolder const& cmp) const;
       operator util::SharedPtr<DataAtom>() const;

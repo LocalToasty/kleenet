@@ -30,6 +30,11 @@ DataAtomHolder::DataAtomHolder(DataAtomHolder const& from) : atom(from.atom) {
 void DataAtomHolder::operator=(DataAtomHolder const& from) {
   atom = from.atom;
 }
+bool DataAtomHolder::forceDistinction() const {
+  if (!atom)
+    return false;
+  return atom->forceDistinction();
+}
 bool DataAtomHolder::operator==(DataAtomHolder const& cmp) const {
   if (atom == cmp.atom)
     return true;

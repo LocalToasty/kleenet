@@ -64,7 +64,7 @@ namespace net {
             virtual void operator()(ExData const& exData, Content const& states) const = 0;
           };
         private:
-          void unfoldWith(ExData::iterator it, unsigned depth, ExData const& exData, Functor const& func) const;
+          void unfoldWith(ExData::iterator it, unsigned depth, bool forceDistinction, ExData const& exData, Functor const& func) const;
         public:
           StateTrie();
           unsigned insert(ExData::const_iterator begin, ExData::const_iterator end, BasicState* s);

@@ -31,6 +31,7 @@ namespace kleenet {
       klee::ref<klee::Expr> expr;
     public:
       explicit SymbolicAtom(klee::ref<klee::Expr>);
+      virtual bool forceDistinction() const { return true; }
       virtual bool operator==(net::DataAtom const&) const;
       virtual bool operator<(net::DataAtom const&) const;
       operator klee::ref<klee::Expr>() const;

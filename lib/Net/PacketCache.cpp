@@ -158,7 +158,10 @@ void PacketCacheBase::StateTrie::clear() {
 
 
 PacketCacheBase::PacketCacheBase(StateMapper& stateMapper)
-  : stateMapper(stateMapper) {
+  : stateMapper(stateMapper)
+  , commitHooks()
+  , knownRedundantMappings(0)
+  {
 }
 
 void PacketCacheBase::commitMappings(Node dest, StateTrie const& st, Transmitter const& transmitter) {

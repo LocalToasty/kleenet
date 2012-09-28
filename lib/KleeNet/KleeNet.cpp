@@ -6,6 +6,7 @@
 #include "klee/ExecutionState.h"
 
 #include "net/StateMapper.h"
+#include "net/ClusterCounter.h"
 #include "net/PacketCache.h"
 #include "net/Searcher.h"
 
@@ -17,6 +18,8 @@
 
 #include <vector>
 #include <algorithm>
+
+#include <iostream>
 
 namespace {
   llvm::cl::opt<net::StateMappingType>
@@ -99,13 +102,21 @@ KleeNet::RunEnv::RunEnv(KleeNet& kleenet, klee::ExecutionState* rootState)
   : kleenet(kleenet)
   , stateMapper(net::StateMapper::create(StateMapping,UsePhonyPackets,rootState))
   , transmitHandler(new TransmitHandler()) // XXX
-  , packetCache(new KleeNet::PacketCache(*stateMapper,*transmitHandler)) { // XXX
+  , packetCache(new KleeNet::PacketCache(*stateMapper,*transmitHandler)) // XXX
+  , clusterCounter(new net::ClusterCounter(rootState))
+  {
   kleenet.env = this;
   rootState->executor = kleenet.executor;
+  clusterCounter->add(this);
+  kleenet.executor->netInterpreterHandler->logClusterChange(clusterCounter->clusters);
 }
 
 KleeNet::RunEnv::~RunEnv() {
   kleenet.env = NULL;
+}
+
+void KleeNet::RunEnv::notify(net::Observable<net::ClusterCounter>* observable) {
+  kleenet.executor->netInterpreterHandler->logClusterChange(observable->observed->clusters);
 }
 
 KleeNet::TerminateStateHandler::~TerminateStateHandler() {

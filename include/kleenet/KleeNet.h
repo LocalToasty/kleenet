@@ -13,6 +13,7 @@
 #include <memory>
 
 #include "net/DataAtom.h"
+#include "net/ClusterCounter.h"
 
 namespace klee {
   class ExecutionState;
@@ -20,6 +21,7 @@ namespace klee {
 
 namespace net {
   class StateMapper;
+  class ClusterCounter;
   class Node;
   template <typename I> class PacketCache;
 }
@@ -33,13 +35,17 @@ namespace kleenet {
   class KleeNet {
     public:
       typedef net::PacketCache<PacketInfo> PacketCache;
-      struct RunEnv {
+      struct RunEnv : net::Observer<net::ClusterCounter> {
         friend class KleeNet;
         private:
           KleeNet& kleenet;
           std::auto_ptr<net::StateMapper> stateMapper;
           std::auto_ptr<TransmitHandler> transmitHandler;
           std::auto_ptr<PacketCache> packetCache;
+          std::auto_ptr<net::ClusterCounter> clusterCounter;
+          virtual void notify(net::Observable<net::ClusterCounter>* observable);
+          virtual void notifyNew(net::Observable<net::ClusterCounter>* observable, net::Observable<net::ClusterCounter> const* toldBy) {}
+          virtual void notifyDie(net::Observable<net::ClusterCounter> const* observable) {}
         public:
           RunEnv(KleeNet& kleenet, klee::ExecutionState* rootState);
           ~RunEnv();

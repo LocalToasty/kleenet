@@ -9,6 +9,7 @@
 #pragma once
 
 #include "klee/Interpreter.h"
+#include <set>
 
 namespace kleenet {
   class InterpreterHandler : public klee::InterpreterHandler {
@@ -16,6 +17,7 @@ namespace kleenet {
       virtual void incDScenariosExplored() = 0;
       virtual void incClustersExplored() = 0;
       virtual void updateKnownRedundantMappings(size_t) = 0;
+      virtual void logClusterChange(std::set<unsigned> const&) = 0;
   };
   // NOTE: inheriting from klee::Interpreter is dangerous. Don't do it!
   // rationale: kleenet::Executor isA klee::Executor isA klee::Interpreter

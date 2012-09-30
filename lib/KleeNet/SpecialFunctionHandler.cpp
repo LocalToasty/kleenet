@@ -90,6 +90,7 @@ namespace kleenet {
         };
         Executor* executor;
         SpecialFunctionHandler_impl* main;
+        void dumpStateMapperInternals() const;
     };
     struct HandleArgs {
       klee::ExecutionState& state;
@@ -404,6 +405,10 @@ namespace kleenet {
       return parent.readStringAtAddress(state,address);
     }
   };
+
+  void sfh::SFHBase::dumpStateMapperInternals() const {
+    this->main->netEx.kleeNet.getStateMapper()->dumpInternals();
+  }
 
   SpecialFunctionHandler::SpecialFunctionHandler(Executor& netEx)
     : klee::SpecialFunctionHandler(netEx) // implicit downcast

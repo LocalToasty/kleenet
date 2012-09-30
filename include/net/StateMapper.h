@@ -251,6 +251,8 @@ namespace net {
           StateMappingType mt,
           bool usePhonyPackets,
           BasicState* rootState);
+
+      virtual void dumpInternals() const {}
   };
 
 }

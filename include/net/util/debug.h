@@ -1,49 +1,38 @@
 #pragma once
 
-// remember to undefine these at the end of the file
-#define ND_FLAGS_slack     ((1u<<0))       /*default reason*/
-#define ND_FLAGS_mapping   ((1u<<1))       /*debugging mapping*/
-#define ND_FLAGS_clusters  ((1u<<2))       /*debugging clustering*/
-#define ND_FLAGS_searchers ((1u<<3))       /*debugging searchers*/
-#define ND_FLAGS_external1 ((1u<<4))       /*debugging external module (1)*/
-#define ND_FLAGS_external2 ((1u<<5))       /*debugging external module (2)*/
-#define ND_FLAGS_term      ((1u<<6))       /*debugging external module (2)*/
-#define ND_FLAGS_all       ((1u<<15)-1)    /*everything!*/
-
-#define ND_MAKEFLAG(what) what = ND_FLAGS_##what,
-
 namespace net {
   namespace debug {
     enum DebugFlags {
-      ND_MAKEFLAG(slack)
-      ND_MAKEFLAG(mapping)
-      ND_MAKEFLAG(clusters)
-      ND_MAKEFLAG(searchers)
-      ND_MAKEFLAG(external1)
-      ND_MAKEFLAG(external2)
-      ND_MAKEFLAG(term)
-      ND_MAKEFLAG(all)
-      none = 0
+        slack      = ((1u<<0x0))       /*default reason*/
+      , mapping    = ((1u<<0x1))       /*debugging mapping*/
+      , clusters   = ((1u<<0x2))       /*debugging clustering*/
+      , searchers  = ((1u<<0x3))       /*debugging searchers*/
+      , term       = ((1u<<0x4))       /*debugging termination*/
+      , pcache     = ((1u<<0x5))       /*debugging packet cache*/
+      , external1  = ((1u<<0xd))       /*debugging external module (1)*/
+      , external2  = ((1u<<0xe))       /*debugging external module (2)*/
+      , all        = ((1u<<0xf)-1)     /*everything!*/
     };
   }
 }
 
-#define ENABLE_DEBUG (none)
-
-#undef ND_MAKEFLAG
+//#define ENABLE_DEBUG all
+// undefine this to have none
 
 #ifdef NDEBUG
 #  undef ENABLE_DEBUG
-#  define ENABLE_DEBUG 0
 #endif
 
-#if ENABLE_DEBUG
+#ifdef ENABLE_DEBUG
 #  include <iostream>
+#  define ENABLE_DEBUG_VALUE ENABLE_DEBUG
+#else
+#  define ENABLE_DEBUG_VALUE 0
 #endif
 
 namespace net {
   namespace debug {
-    enum EnableDebugWrapper { enable = ENABLE_DEBUG };
+    enum EnableDebugWrapper { enable = ENABLE_DEBUG_VALUE };
     struct Fake {};
     template <typename T>
     Fake& operator<<(Fake& out, T const&) {
@@ -61,7 +50,7 @@ namespace net {
       EndlType endl;
       static bool const enable = false;
     };
-#if ENABLE_DEBUG
+#ifdef ENABLE_DEBUG
     template <>
     struct ifdebug<true> {
       typedef ::std::ostream OutType;
@@ -94,10 +83,4 @@ namespace net {
 }
 
 #undef ENABLE_DEBUG
-#undef ND_FLAGS_slack
-#undef ND_FLAGS_mapping
-#undef ND_FLAGS_clusters
-#undef ND_FLAGS_searchers
-#undef ND_FLAGS_external1
-#undef ND_FLAGS_external2
-#undef ND_FLAGS_all
+#undef ENABLE_DEBUG_VALUE

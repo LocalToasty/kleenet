@@ -43,8 +43,10 @@ namespace net {
       Observable(T* whoami) : observed(whoami) {
       }
       virtual ~Observable() {
-        for (typename Subscribers::iterator it = subscribers.begin(),
-                                            en = subscribers.end(); it != en; ++it) {
+        Subscribers copy;
+        copy.swap(subscribers);
+        for (typename Subscribers::iterator it = copy.begin(),
+                                            en = copy.end(); it != en; ++it) {
           (*it)->notifyDie(this);
         }
       }

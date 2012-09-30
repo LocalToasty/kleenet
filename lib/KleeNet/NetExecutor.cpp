@@ -300,5 +300,7 @@ void Executor::terminateState(klee::ExecutionState& state) {
   };
   DD::cout << "[NetExecutor::terminateState] asking KleeNet to terminateCluster of " << (&state) << " " << DD::endl;
   kleenet.terminateCluster(state,TS(this));
+  if (net::PacketCacheBase* const pcb = kleenet.getPacketCache())
+    netInterpreterHandler->updateKnownRedundantMappings(pcb->getKnownRedundantMappings());
   DD::cout << "[NetExecutor::terminateState] EOF" << DD::endl;
 }

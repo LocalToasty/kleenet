@@ -70,6 +70,7 @@
 #include <sys/stat.h>
 #include <sys/wait.h>
 #include <signal.h>
+#include <ctime>
 
 #include <iostream>
 #include <iterator>
@@ -208,6 +209,10 @@ namespace {
   Watchdog("watchdog",
            cl::desc("Use a watchdog process to enforce --max-time."),
            cl::init(0));
+
+  cl::opt<bool>
+  DumpClusterChanges("sde-dump-cluster-changes",
+           cl::desc("Dump all changes of clusters on standard out, in addition to protocolling it."));
 }
 
 extern cl::opt<double> MaxTime;
@@ -224,7 +229,10 @@ private:
   unsigned m_testIndex;  // number of tests written so far
   unsigned m_pathsExplored; // number of paths explored so far
   unsigned m_dscenariosExplored; // number of distributed scenarios explored so far
-  unsigned m_clustersExplored; // number of distributed scenarios explored so far
+  unsigned m_clustersExplored; // number of clusters explored so far
+  unsigned m_knownRedundantMappings; // number of mappings known to be done redundantly
+  std::vector<std::pair<unsigned,std::set<unsigned> > > m_clusterLog; // log of clusters over time
+  time_t m_startTime;
 
   // used for writing .ktest files
   int m_argc;
@@ -235,13 +243,39 @@ public:
   ~KleeHandler();
 
   std::ostream &getInfoStream() const { return *m_infoFile; }
-  unsigned getNumTestCases() { return m_testIndex; }
-  unsigned getNumPathsExplored() { return m_pathsExplored; }
-  unsigned getNumDScenariosExplored() { return m_dscenariosExplored; }
-  unsigned getNumClustersExplored() { return m_clustersExplored; }
+  unsigned getNumTestCases() const { return m_testIndex; }
+  unsigned getNumPathsExplored() const { return m_pathsExplored; }
+  unsigned getNumDScenariosExplored() const { return m_dscenariosExplored; }
+  unsigned getNumClustersExplored() const { return m_clustersExplored; }
+  unsigned getNumKnownRedundantMappings() const { return m_knownRedundantMappings; }
+  std::vector<std::pair<unsigned,std::set<unsigned> > > const& getClusterLog() const {
+    return m_clusterLog;
+  }
+  // mutation:
   void incPathsExplored() { m_pathsExplored++; }
   void incDScenariosExplored() { m_dscenariosExplored++; }
   void incClustersExplored() { m_clustersExplored++; }
+  void updateKnownRedundantMappings(size_t krm) {
+    assert(krm >= m_knownRedundantMappings && "Cannot decrease number of known redundant mappings");
+    m_knownRedundantMappings = krm;
+  }
+  void logClusterChange(std::set<unsigned> const& currentClusters) {
+    time_t const diff = std::time(NULL) - m_startTime;
+    if (DumpClusterChanges) {
+      std::cout << "[" << diff << "s] Clusterchange: Now " << currentClusters.size() << " clusters in total.";
+      if (currentClusters.size()) {
+        std::cout << " Namely: {";
+        std::string del = "";
+        for (std::set<unsigned>::const_iterator it = currentClusters.begin(), en = currentClusters.end(); it != en; ++it) {
+          std::cout << del << *it;
+          del = ",";
+        }
+        std::cout << "}";
+      }
+      std::cout << std::endl;
+    }
+    m_clusterLog.push_back(std::make_pair(diff,currentClusters));
+  }
 
   void setInterpreter(Interpreter *i);
 
@@ -275,6 +309,9 @@ KleeHandler::KleeHandler(int argc, char **argv)
     m_pathsExplored(0),
     m_dscenariosExplored(0),
     m_clustersExplored(0),
+    m_knownRedundantMappings(0),
+    m_clusterLog(),
+    m_startTime(std::time(NULL)),
     m_argc(argc),
     m_argv(argv) {
   std::string theDir;
@@ -1515,6 +1552,11 @@ int main(int argc, char **argv, char **envp) {
         << handler->getNumDScenariosExplored() << "\n";
   stats << "KleeNet: done: explored clusters = "
         << handler->getNumClustersExplored() << "\n";
+  if (unsigned const krm = handler->getNumKnownRedundantMappings()) {
+    stats << "KleeNet: done: known redundant mappings = "
+          << krm << "\n";
+  }
+
   std::cerr << stats.str();
   handler->getInfoStream() << stats.str();
 

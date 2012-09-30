@@ -14,13 +14,13 @@ namespace {
 
   llvm::cl::opt<kleenet::ConstraintSetTransfer::TxConstraintsTransmission>
   txConstraintsTransmission("sde-constraints-transmission"
-    , llvm::cl::desc("Select how to decide which constraints to propagate on symbolic packet transmission. Default is 'force-all'.")
+    , llvm::cl::desc("Select how to decide which constraints to propagate on symbolic packet transmission. Default is 'closure'.")
     , llvm::cl::values(
         clEnumValN(kleenet::ConstraintSetTransfer::CLOSURE,"closure","Compute the minimal set of constraints for a given transmission and only transmit the constraints that affect the packet data.")
       , clEnumValN(kleenet::ConstraintSetTransfer::FORCEALL,"force-all","Allways transfer all constraints that affect all distributed symbols of the sender state. In some cases this will prevent false positives.")
       , clEnumValEnd
     )
-    , llvm::cl::init(kleenet::ConstraintSetTransfer::FORCEALL)
+    , llvm::cl::init(kleenet::ConstraintSetTransfer::CLOSURE)
   );
 }
 

@@ -19,7 +19,7 @@
 #include "net/util/debug.h"
 #include "kexPPrinter.h"
 
-#define DD net::DEBUG<net::debug::external1>
+#define DD net::DEBUG<net::debug::transmit>
 
 
 namespace kleenet {

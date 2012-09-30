@@ -9,6 +9,7 @@ namespace net {
       , searchers  = ((1u<<0x3))       /*debugging searchers*/
       , term       = ((1u<<0x4))       /*debugging termination*/
       , pcache     = ((1u<<0x5))       /*debugging packet cache*/
+      , transmit   = ((1u<<0xc))       /*debugging transmission handlers*/
       , external1  = ((1u<<0xd))       /*debugging external module (1)*/
       , external2  = ((1u<<0xe))       /*debugging external module (2)*/
       , all        = ((1u<<0xf)-1)     /*everything!*/

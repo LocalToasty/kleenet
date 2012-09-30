@@ -12,7 +12,7 @@
 #include <tr1/unordered_map>
 #include <tr1/unordered_set>
 
-#define DD net::DEBUG<net::debug::external1>
+#define DD net::DEBUG<net::debug::transmit>
 
 namespace kleenet {
   // A locator for an array object of a particluar distributed symbol for arbitrary states.

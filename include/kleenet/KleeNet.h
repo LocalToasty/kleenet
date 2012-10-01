@@ -59,6 +59,7 @@ namespace kleenet {
     public:
       KleeNet(Executor* executor);
       PacketCache* getPacketCache() const;
+      bool isPhonyPackets() const;
       net::StateMapper* getStateMapper() const;
       TransmitHandler* getTransmitHandler() const;
       static net::Node getStateNode(klee::ExecutionState const*);

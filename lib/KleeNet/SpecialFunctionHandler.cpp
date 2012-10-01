@@ -545,7 +545,7 @@ namespace kleenet {
       WakeupFunctor(kleenet::Executor* executor, net::EventSearcher* ev, klee::ExecutionState& es, net::Node dest)
         : executor(executor), ev(ev), es(es), dest(dest) {}
       void operator()(net::Node d) const {
-        if (net::StateMapper* const sm = executor->kleeNet.getStateMapper())
+        if (net::StateMapper* const sm = executor->kleeNet.getStateMapper()) {
           if ((executor->stateCondition(&es) > 0) && (d == dest)) {
             /* sm->map(es, dest);
              We do not map for wakeup requests to allow the packet cache to work its magic.
@@ -558,7 +558,11 @@ namespace kleenet {
               // schedule immediate wakeup
               ev->scheduleStateAt(bs, ev->lowerBound());
             }
+          } else {
+            assert((executor->stateCondition(&es) > 0) && "WakeupFunctor: State is inactive.");
+            assert((d != dest) && "WakeupFunctor: Destination node differs from expected node.");
           }
+        }
       }
     };
     net::EventSearcher* const ev = executor->getNetSearcher()->netSearcher()->toEventSearcher();
@@ -566,11 +570,11 @@ namespace kleenet {
       Node const dest = args[0]->getZExtValue();
 
       net::util::SharedPtr<net::util::DynamicFunctor<net::Node> > action(new WakeupFunctor(executor,ev,ha.state,dest));
-      if (net::PacketCacheBase* pc = executor->kleeNet.getPacketCache()) {
+      if (executor->kleeNet.isPhonyPackets()) {
+        net::PacketCacheBase* pc = executor->kleeNet.getPacketCache();
+        assert(pc && "Cannot have no packetCache object while demanding it to be active.");
         pc->onCommitDo(action);
       } else {
-        // The following line is for testing only, it will IMMEDIATELY invoke the WakeupFunctor.
-        // Change `true` to `false` above.
         (*action)(dest);
       }
     }

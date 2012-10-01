@@ -61,6 +61,9 @@ KleeNet::PacketCache* KleeNet::getPacketCache() const {
   }
   return NULL;
 }
+bool KleeNet::isPhonyPackets() const {
+  return phonyPackets;
+}
 net::StateMapper* KleeNet::getStateMapper() const {
   if (env) {
     return env->stateMapper.get();

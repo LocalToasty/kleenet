@@ -11,6 +11,7 @@
 #define DD DEBUG<debug::searchers>
 
 // TODO: check that we *actually* behave like cooja
+// Verified by Raimondas. Sue him, not me.
 
 namespace net {
   struct CoojaInformation : SchedulingInformation<CoojaInformation> {
@@ -20,6 +21,10 @@ namespace net {
     // That is, these are times the state thinks it is scheduled,
     // but that it has not yet been to in our data structures.
     std::set<Time> danglingTimes;
+    static std::set<Time> setunion(std::set<Time> a, std::set<Time> const& b) {
+      a.insert(b.begin(),b.end());
+      return a;
+    }
     bool isDangling;
     Time scheduledBootTime;
     CoojaInformation()
@@ -33,10 +38,11 @@ namespace net {
     CoojaInformation(CoojaInformation const& from)
       : SchedulingInformation<CoojaInformation>(from)
       , scheduledTime()
-      , danglingTimes(from.scheduledTime)
+      , danglingTimes(setunion(from.scheduledTime,from.danglingTimes))
       , isDangling(true)
       , scheduledBootTime(from.scheduledBootTime)
       {
+        assert(!danglingTimes.empty() && "Cannot copy-construct a state without events.");
     }
     bool isScheduled() {
       return !scheduledTime.empty();

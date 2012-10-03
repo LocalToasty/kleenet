@@ -142,7 +142,7 @@ namespace kleenet {
       , lockStep(new KleeNetSearcherAF<net::LockStepSearcher>(UseLockStepSearch))
       , cooja(new KleeNetSearcherAF<net::CoojaSearcher>(UseCoojaSearch))
       , clusterLockStep(new KleeNetSearcherAF<net::GenericClusterSearcher<net::LockStepSearcher> >(UseLockStepClusterSearch,strategyAdapter))
-      , clusterCooja(new KleeNetSearcherAF<net::GenericClusterSearcher<net::CoojaSearcher> >(UseCoojaSearch,strategyAdapter))
+      , clusterCooja(new KleeNetSearcherAF<net::GenericClusterSearcher<net::CoojaSearcher> >(UseCoojaClusterSearch,strategyAdapter))
       {
     }
     void SearcherAutoRun::linkme() {

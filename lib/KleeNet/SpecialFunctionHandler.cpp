@@ -559,8 +559,7 @@ namespace kleenet {
               ev->scheduleStateAt(bs, ev->lowerBound());
             }
           } else {
-            assert((executor->stateCondition(&es) > 0) && "WakeupFunctor: State is inactive.");
-            assert((d != dest) && "WakeupFunctor: Destination node differs from expected node.");
+            assert((d == dest) && "WakeupFunctor: Destination node differs from expected node.");
           }
         }
       }

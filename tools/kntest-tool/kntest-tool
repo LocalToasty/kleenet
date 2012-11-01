@@ -9,7 +9,7 @@ import os
 import struct
 import sys
 
-version_no=3
+version_no=30701
 
 class KTestError(Exception):
     pass

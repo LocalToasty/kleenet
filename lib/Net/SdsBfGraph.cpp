@@ -183,10 +183,10 @@ void SdsBfGraph::addedEdge(SdsEdge* e) {
     (*i)->changeCluster(keep);
      DD::cout << "-1" << DD::endl;
     SdsStateNode* n = SdsStateNode::getNode(static_cast<SuperInformation*>(*i));
-    util::SafeListIterator<SdsEdge*> i;
-    n->getNeighbourIterator(i);
-    for (; i.more(); i.next()) {
-      SdsNode* dsn = i.get()->traverseFrom(n);
+    util::SafeListIterator<SdsEdge*> neighbourIterator;
+    n->getNeighbourIterator(neighbourIterator);
+    for (; neighbourIterator.more(); neighbourIterator.next()) {
+      SdsNode* dsn = neighbourIterator.get()->traverseFrom(n);
       assert(dsn && dsn->isA == SdsNode::SNT_DSTATE_NODE);
       static_cast<SdsDStateNode*>(dsn)->moveToCluster(keep);
        DD::cout << "((-1))" << DD::endl;

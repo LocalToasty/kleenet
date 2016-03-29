@@ -10,24 +10,41 @@
 #include "klee/Internal/Module/InstructionInfoTable.h"
 #include "klee/Config/Version.h"
 
+#if LLVM_VERSION_CODE >= LLVM_VERSION(3, 3)
+#include "llvm/IR/Function.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/IR/IntrinsicInst.h"
+#include "llvm/IR/Module.h"
+#else
 #include "llvm/Function.h"
 #include "llvm/Instructions.h"
 #include "llvm/IntrinsicInst.h"
-#include "llvm/Linker.h"
 #include "llvm/Module.h"
-#if LLVM_VERSION_CODE < LLVM_VERSION(2, 8)
-#include "llvm/Assembly/AsmAnnotationWriter.h"
-#else
-#include "llvm/Assembly/AssemblyAnnotationWriter.h"
-#include "llvm/Support/FormattedStream.h"
 #endif
-#include "llvm/Support/CFG.h"
+
+# if LLVM_VERSION_CODE < LLVM_VERSION(3,5)
+#include "llvm/Assembly/AssemblyAnnotationWriter.h"
 #include "llvm/Support/InstIterator.h"
+#include "llvm/Linker.h"
+#else
+#include "llvm/IR/AssemblyAnnotationWriter.h"
+#include "llvm/IR/InstIterator.h"
+#include "llvm/Linker/Linker.h"
+#endif
+
+#include "llvm/Support/FormattedStream.h"
 #include "llvm/Support/raw_ostream.h"
-#if LLVM_VERSION_CODE >= LLVM_VERSION(2, 7)
+
+#if LLVM_VERSION_CODE >= LLVM_VERSION(3,5)
+#include "llvm/IR/DebugInfo.h"
+#elif LLVM_VERSION_CODE >= LLVM_VERSION(3, 2)
+#include "llvm/DebugInfo.h"
+#else
 #include "llvm/Analysis/DebugInfo.h"
 #endif
+
 #include "llvm/Analysis/ValueTracking.h"
+#include "llvm/Support/ErrorHandling.h"
 
 #include <map>
 #include <string>
@@ -37,12 +54,8 @@ using namespace klee;
 
 class InstructionToLineAnnotator : public llvm::AssemblyAnnotationWriter {
 public:
-#if LLVM_VERSION_CODE < LLVM_VERSION(2, 8)
-  void emitInstructionAnnot(const Instruction *i, llvm::raw_ostream &os) {
-#else
   void emitInstructionAnnot(const Instruction *i,
                             llvm::formatted_raw_ostream &os) {
-#endif
     os << "%%%";
     os << (uintptr_t) i;
   }
@@ -74,18 +87,9 @@ static void buildInstructionToLineMap(Module *m,
   }
 }
 
-#if LLVM_VERSION_CODE < LLVM_VERSION(2, 7)
-static std::string getDSPIPath(const DbgStopPointInst *dspi) {
-  std::string dir, file;
-  bool res = GetConstantStringInfo(dspi->getDirectory(), dir);
-  assert(res && "GetConstantStringInfo failed");
-  res = GetConstantStringInfo(dspi->getFileName(), file);
-  assert(res && "GetConstantStringInfo failed");
-#else
 static std::string getDSPIPath(DILocation Loc) {
   std::string dir = Loc.getDirectory();
   std::string file = Loc.getFilename();
-#endif
   if (dir.empty() || file[0] == '/') {
     return file;
   } else if (*dir.rbegin() == '/') {
@@ -98,20 +102,12 @@ static std::string getDSPIPath(DILocation Loc) {
 bool InstructionInfoTable::getInstructionDebugInfo(const llvm::Instruction *I, 
                                                    const std::string *&File,
                                                    unsigned &Line) {
-#if LLVM_VERSION_CODE < LLVM_VERSION(2, 7)
-  if (const DbgStopPointInst *dspi = dyn_cast<DbgStopPointInst>(I)) {
-    File = internString(getDSPIPath(dspi));
-    Line = dspi->getLine();
-    return true;
-  }
-#else
   if (MDNode *N = I->getMetadata("dbg")) {
     DILocation Loc(N);
     File = internString(getDSPIPath(Loc));
     Line = Loc.getLineNumber();
     return true;
   }
-#endif
 
   return false;
 }
@@ -124,64 +120,33 @@ InstructionInfoTable::InstructionInfoTable(Module *m)
 
   for (Module::iterator fnIt = m->begin(), fn_ie = m->end(); 
        fnIt != fn_ie; ++fnIt) {
+
+    // We want to ensure that as all instructions have source information, if
+    // available. Clang sometimes will not write out debug information on the
+    // initial instructions in a function (correspond to the formal parameters),
+    // so we first search forward to find the first instruction with debug info,
+    // if any.
     const std::string *initialFile = &dummyString;
     unsigned initialLine = 0;
-
-    // It may be better to look for the closest stoppoint to the entry
-    // following the CFG, but it is not clear that it ever matters in
-    // practice.
-    for (inst_iterator it = inst_begin(fnIt), ie = inst_end(fnIt);
-         it != ie; ++it)
+    for (inst_iterator it = inst_begin(fnIt), ie = inst_end(fnIt); it != ie;
+         ++it) {
       if (getInstructionDebugInfo(&*it, initialFile, initialLine))
         break;
-    
-    typedef std::map<BasicBlock*, std::pair<const std::string*,unsigned> > 
-      sourceinfo_ty;
-    sourceinfo_ty sourceInfo;
-    for (llvm::Function::iterator bbIt = fnIt->begin(), bbie = fnIt->end(); 
-         bbIt != bbie; ++bbIt) {
-      std::pair<sourceinfo_ty::iterator, bool>
-        res = sourceInfo.insert(std::make_pair(bbIt,
-                                               std::make_pair(initialFile,
-                                                              initialLine)));
-      if (!res.second)
-        continue;
+    }
 
-      std::vector<BasicBlock*> worklist;
-      worklist.push_back(bbIt);
+    const std::string *file = initialFile;
+    unsigned line = initialLine;
+    for (inst_iterator it = inst_begin(fnIt), ie = inst_end(fnIt); it != ie;
+        ++it) {
+      Instruction *instr = &*it;
+      unsigned assemblyLine = lineTable[instr];
 
-      do {
-        BasicBlock *bb = worklist.back();
-        worklist.pop_back();
+      // Update our source level debug information.
+      getInstructionDebugInfo(instr, file, line);
 
-        sourceinfo_ty::iterator si = sourceInfo.find(bb);
-        assert(si != sourceInfo.end());
-        const std::string *file = si->second.first;
-        unsigned line = si->second.second;
-        
-        for (BasicBlock::iterator it = bb->begin(), ie = bb->end();
-             it != ie; ++it) {
-          Instruction *instr = it;
-          unsigned assemblyLine = 0;
-          std::map<const Instruction*, unsigned>::const_iterator ltit = 
-            lineTable.find(instr);
-          if (ltit!=lineTable.end())
-            assemblyLine = ltit->second;
-          getInstructionDebugInfo(instr, file, line);
-          infos.insert(std::make_pair(instr,
-                                      InstructionInfo(id++,
-                                                      *file,
-                                                      line,
-                                                      assemblyLine)));        
-        }
-        
-        for (succ_iterator it = succ_begin(bb), ie = succ_end(bb); 
-             it != ie; ++it) {
-          if (sourceInfo.insert(std::make_pair(*it,
-                                               std::make_pair(file, line))).second)
-            worklist.push_back(*it);
-        }
-      } while (!worklist.empty());
+      infos.insert(std::make_pair(instr,
+                                  InstructionInfo(id++, *file, line,
+                                                  assemblyLine)));
     }
   }
 }
@@ -212,16 +177,20 @@ const InstructionInfo &
 InstructionInfoTable::getInfo(const Instruction *inst) const {
   std::map<const llvm::Instruction*, InstructionInfo>::const_iterator it = 
     infos.find(inst);
-  if (it==infos.end()) {
-    return dummyInfo;
-  } else {
-    return it->second;
-  }
+  if (it == infos.end())
+    llvm::report_fatal_error("invalid instruction, not present in "
+                             "initial module!");
+  return it->second;
 }
 
 const InstructionInfo &
 InstructionInfoTable::getFunctionInfo(const Function *f) const {
   if (f->isDeclaration()) {
+    // FIXME: We should probably eliminate this dummyInfo object, and instead
+    // allocate a per-function object to track the stats for that function
+    // (otherwise, anyone actually trying to use those stats is getting ones
+    // shared across all functions). I'd like to see if this matters in practice
+    // and construct a test case for it if it does, though.
     return dummyInfo;
   } else {
     return getInfo(f->begin()->begin());

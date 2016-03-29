@@ -20,7 +20,10 @@
 #include "klee/Internal/Module/Cell.h"
 #include "klee/Internal/Module/KInstruction.h"
 #include "klee/Internal/Module/KModule.h"
-#include "llvm/Support/CallSite.h"
+#include "klee/util/ArrayCache.h"
+
+#include "llvm/ADT/Twine.h"
+
 #include <vector>
 #include <string>
 #include <map>
@@ -40,7 +43,11 @@ namespace llvm {
   class Function;
   class GlobalValue;
   class Instruction;
+#if LLVM_VERSION_CODE <= LLVM_VERSION(3, 1)
   class TargetData;
+#else
+  class DataLayout;
+#endif
   class Twine;
   class Value;
 }
@@ -68,6 +75,8 @@ namespace klee {
   class TimingSolver;
   class TreeStreamWriter;
   template<class T> class ref;
+
+
 
   /// \todo Add a context object to keep track of data only live
   /// during an instruction step. Should contain addedStates,
@@ -170,8 +179,12 @@ protected: // KleeNet mod
   /// false, it is buggy (it needs to validate its writes).
   bool ivcEnabled;
 
-  /// The maximum time to allow for a single stp query.
-  double stpTimeout;  
+  /// The maximum time to allow for a single core solver query.
+  /// (e.g. for a single STP query)
+  double coreSolverTimeout;
+
+  /// Assumes ownership of the created array objects
+  ArrayCache arrayCache;
 
   llvm::Function* getTargetFunction(llvm::Value *calledVal,
                                     ExecutionState &state);
@@ -283,7 +296,7 @@ protected: // KleeNet mod
 
   /// Add the given (boolean) condition as a constraint on state. This
   /// function is a wrapper around the state's addConstraint function
-  /// which also manages manages propogation of implied values,
+  /// which also manages propagation of implied values,
   /// validity checks, and seed patching.
   void addConstraint(ExecutionState &state, ref<Expr> condition);
 
@@ -336,6 +349,11 @@ protected: // KleeNet mod
   /// Get textual information regarding a memory address.
   std::string getAddressInfo(ExecutionState &state, ref<Expr> address) const;
 
+  // Determines the \param lastInstruction of the \param state which is not KLEE
+  // internal and returns its InstructionInfo
+  const InstructionInfo & getLastNonKleeInternalInstruction(const ExecutionState &state,
+      llvm::Instruction** lastInstruction);
+
   // remove state from queue and delete
   void terminateState(ExecutionState &state);
   // call exit handler and terminate state
@@ -386,7 +404,8 @@ protected: // KleeNet mod
   void initTimers();
   void processTimers(ExecutionState *current,
                      double maxInstTime);
-                
+  void checkMemoryUsage();
+
 public:
   Executor(const InterpreterOptions &opts, InterpreterHandler *ie);
   virtual ~Executor();
@@ -447,7 +466,7 @@ public:
 
   virtual void getConstraintLog(const ExecutionState &state,
                                 std::string &res,
-                                bool asCVC = false);
+                                Interpreter::LogType logFormat = Interpreter::STP);
 
   virtual bool getSymbolicSolution(const ExecutionState &state, 
                                    std::vector< 

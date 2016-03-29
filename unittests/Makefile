@@ -1,4 +1,11 @@
 ##===- unittests/Makefile ----------------------------------*- Makefile -*-===##
+# 
+#                      The KLEE Symbolic Virtual Machine
+# 
+#  This file is distributed under the University of Illinois Open Source
+#  License. See LICENSE.TXT for details.
+# 
+# ===----------------------------------------------------------------------===##
 
 LEVEL = ..
 
@@ -13,6 +20,10 @@ CPP.Flags += -Wno-variadic-macros
 DIRS = Expr Solver Ref
 
 include $(LEVEL)/Makefile.common
+
+# Remove -fno-rtti as this prevents typeid() being used
+# in gtest
+CXX.Flags := $(filter-out -fno-rtti,$(CXX.Flags))
 
 clean::
 	$(Verb) $(RM) -f *Tests

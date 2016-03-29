@@ -10,40 +10,38 @@
 #include "ExternalDispatcher.h"
 #include "klee/Config/Version.h"
 
-// Ugh.
-#undef PACKAGE_BUGREPORT
-#undef PACKAGE_NAME
-#undef PACKAGE_STRING
-#undef PACKAGE_TARNAME
-#undef PACKAGE_VERSION
-
+#if LLVM_VERSION_CODE >= LLVM_VERSION(3, 3)
+#include "llvm/IR/Module.h"
+#include "llvm/IR/Constants.h"
+#include "llvm/IR/DerivedTypes.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/IR/LLVMContext.h"
+#else
 #include "llvm/Module.h"
 #include "llvm/Constants.h"
 #include "llvm/DerivedTypes.h"
 #include "llvm/Instructions.h"
-#if LLVM_VERSION_CODE < LLVM_VERSION(2, 7)
-#include "llvm/ModuleProvider.h"
-#endif
-#if LLVM_VERSION_CODE >= LLVM_VERSION(2, 7)
 #include "llvm/LLVMContext.h"
 #endif
 #include "llvm/ExecutionEngine/JIT.h"
 #include "llvm/ExecutionEngine/GenericValue.h"
-#include "llvm/Support/CallSite.h"
-#if LLVM_VERSION_CODE < LLVM_VERSION(2, 9)
-#include "llvm/System/DynamicLibrary.h"
-#else
 #include "llvm/Support/DynamicLibrary.h"
-#endif
 #include "llvm/Support/raw_ostream.h"
+
 #if LLVM_VERSION_CODE < LLVM_VERSION(3, 0)
 #include "llvm/Target/TargetSelect.h"
 #else
 #include "llvm/Support/TargetSelect.h"
 #endif
+
+#if LLVM_VERSION_CODE < LLVM_VERSION(3, 5)
+#include "llvm/Support/CallSite.h"
+#else
+#include "llvm/IR/CallSite.h"
+#endif
+
 #include <setjmp.h>
 #include <signal.h>
-#include <iostream>
 
 using namespace llvm;
 using namespace klee;
@@ -89,18 +87,11 @@ void *ExternalDispatcher::resolveSymbol(const std::string &name) {
 
 ExternalDispatcher::ExternalDispatcher() {
   dispatchModule = new Module("ExternalDispatcher", getGlobalContext());
-#if LLVM_VERSION_CODE < LLVM_VERSION(2, 7)
-  ExistingModuleProvider* MP = new ExistingModuleProvider(dispatchModule);
-#endif
 
   std::string error;
-#if LLVM_VERSION_CODE < LLVM_VERSION(2, 7)
-  executionEngine = ExecutionEngine::createJIT(MP, &error);
-#else
   executionEngine = ExecutionEngine::createJIT(dispatchModule, &error);
-#endif
   if (!executionEngine) {
-    std::cerr << "unable to make jit: " << error << "\n";
+    llvm::errs() << "unable to make jit: " << error << "\n";
     abort();
   }
 

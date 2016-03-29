@@ -7,25 +7,31 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "Common.h"
-
 #include "Memory.h"
 
 #include "Context.h"
 #include "klee/Expr.h"
 #include "klee/Solver.h"
 #include "klee/util/BitArray.h"
+#include "klee/Internal/Support/ErrorHandling.h"
+#include "klee/util/ArrayCache.h"
 
 #include "ObjectHolder.h"
 #include "MemoryManager.h"
 
+#if LLVM_VERSION_CODE >= LLVM_VERSION(3, 3)
+#include <llvm/IR/Function.h>
+#include <llvm/IR/Instruction.h>
+#include <llvm/IR/Value.h>
+#else
 #include <llvm/Function.h>
 #include <llvm/Instruction.h>
 #include <llvm/Value.h>
+#endif
+
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/raw_ostream.h"
 
-#include <iostream>
 #include <cassert>
 #include <sstream>
 
@@ -105,11 +111,12 @@ ObjectState::ObjectState(const MemoryObject *mo)
     readOnly(false) {
   mo->refCount++;
   if (!UseConstantArrays) {
-    // FIXME: Leaked.
     static unsigned id = 0;
-    const Array *array = new Array("tmp_arr" + llvm::utostr(++id), size);
+    const Array *array =
+        getArrayCache()->CreateArray("tmp_arr" + llvm::utostr(++id), size);
     updates = UpdateList(array, 0);
   }
+  memset(concreteStore, 0, size);
 }
 
 
@@ -126,6 +133,7 @@ ObjectState::ObjectState(const MemoryObject *mo, const Array *array)
     readOnly(false) {
   mo->refCount++;
   makeSymbolic();
+  memset(concreteStore, 0, size);
 }
 
 ObjectState::ObjectState(const ObjectState &os) 
@@ -169,6 +177,11 @@ ObjectState::~ObjectState() {
   }
 }
 
+ArrayCache *ObjectState::getArrayCache() const {
+  assert(object && "object was NULL");
+  return object->parent->getArrayCache();
+}
+
 /***/
 
 const UpdateList &ObjectState::getUpdates() const {
@@ -208,15 +221,10 @@ const UpdateList &ObjectState::getUpdates() const {
       Contents[Index->getZExtValue()] = Value;
     }
 
-    // FIXME: We should unique these, there is no good reason to create multiple
-    // ones.
-
-    // Start a new update list.
-    // FIXME: Leaked.
     static unsigned id = 0;
-    const Array *array = new Array("const_arr" + llvm::utostr(++id), size,
-                                   &Contents[0],
-                                   &Contents[0] + Contents.size());
+    const Array *array = getArrayCache()->CreateArray(
+        "const_arr" + llvm::utostr(++id), size, &Contents[0],
+        &Contents[0] + Contents.size());
     updates = UpdateList(array, 0);
 
     // Apply the remaining (non-constant) writes.
@@ -460,7 +468,7 @@ ref<Expr> ObjectState::read(ref<Expr> offset, Expr::Width width) const {
 
   // Otherwise, follow the slow general case.
   unsigned NumBytes = width / 8;
-  assert(width == NumBytes * 8 && "Invalid write size!");
+  assert(width == NumBytes * 8 && "Invalid read size!");
   ref<Expr> Res(0);
   for (unsigned i = 0; i != NumBytes; ++i) {
     unsigned idx = Context::get().isLittleEndian() ? i : (NumBytes - i - 1);
@@ -480,7 +488,7 @@ ref<Expr> ObjectState::read(unsigned offset, Expr::Width width) const {
 
   // Otherwise, follow the slow general case.
   unsigned NumBytes = width / 8;
-  assert(width == NumBytes * 8 && "Invalid write size!");
+  assert(width == NumBytes * 8 && "Invalid width for read size!");
   ref<Expr> Res(0);
   for (unsigned i = 0; i != NumBytes; ++i) {
     unsigned idx = Context::get().isLittleEndian() ? i : (NumBytes - i - 1);
@@ -522,7 +530,7 @@ void ObjectState::write(unsigned offset, ref<Expr> value) {
   // Check for writes of constant values.
   if (ConstantExpr *CE = dyn_cast<ConstantExpr>(value)) {
     Expr::Width w = CE->getWidth();
-    if (w <= 64) {
+    if (w <= 64 && klee::bits64::isPowerOfTwo(w)) {
       uint64_t val = CE->getZExtValue();
       switch (w) {
       default: assert(0 && "Invalid write size!");
@@ -576,23 +584,23 @@ void ObjectState::write64(unsigned offset, uint64_t value) {
 }
 
 void ObjectState::print() {
-  std::cerr << "-- ObjectState --\n";
-  std::cerr << "\tMemoryObject ID: " << object->id << "\n";
-  std::cerr << "\tRoot Object: " << updates.root << "\n";
-  std::cerr << "\tSize: " << size << "\n";
+  llvm::errs() << "-- ObjectState --\n";
+  llvm::errs() << "\tMemoryObject ID: " << object->id << "\n";
+  llvm::errs() << "\tRoot Object: " << updates.root << "\n";
+  llvm::errs() << "\tSize: " << size << "\n";
 
-  std::cerr << "\tBytes:\n";
+  llvm::errs() << "\tBytes:\n";
   for (unsigned i=0; i<size; i++) {
-    std::cerr << "\t\t["<<i<<"]"
+    llvm::errs() << "\t\t["<<i<<"]"
                << " concrete? " << isByteConcrete(i)
                << " known-sym? " << isByteKnownSymbolic(i)
                << " flushed? " << isByteFlushed(i) << " = ";
     ref<Expr> e = read8(i);
-    std::cerr << e << "\n";
+    llvm::errs() << e << "\n";
   }
 
-  std::cerr << "\tUpdates:\n";
+  llvm::errs() << "\tUpdates:\n";
   for (const UpdateNode *un=updates.head; un; un=un->next) {
-    std::cerr << "\t\t[" << un->index << "] = " << un->value << "\n";
+    llvm::errs() << "\t\t[" << un->index << "] = " << un->value << "\n";
   }
 }

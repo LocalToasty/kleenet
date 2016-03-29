@@ -7,8 +7,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "Common.h"
-
 #include "StatsTracker.h"
 
 #include "klee/ExecutionState.h"
@@ -18,15 +16,26 @@
 #include "klee/Internal/Module/KModule.h"
 #include "klee/Internal/Module/KInstruction.h"
 #include "klee/Internal/Support/ModuleUtil.h"
+#include "klee/Internal/System/MemoryUsage.h"
 #include "klee/Internal/System/Time.h"
+#include "klee/Internal/Support/ErrorHandling.h"
+#include "klee/SolverStats.h"
 
 #include "CallPathManager.h"
 #include "CoreStats.h"
 #include "Executor.h"
 #include "MemoryManager.h"
 #include "UserSearcher.h"
-#include "../Solver/SolverStats.h"
 
+#if LLVM_VERSION_CODE > LLVM_VERSION(3, 2)
+#include "llvm/IR/BasicBlock.h"
+#include "llvm/IR/Function.h"
+#include "llvm/IR/Instructions.h"
+#include "llvm/IR/IntrinsicInst.h"
+#include "llvm/IR/InlineAsm.h"
+#include "llvm/IR/Module.h"
+#include "llvm/IR/Type.h"
+#else
 #include "llvm/BasicBlock.h"
 #include "llvm/Function.h"
 #include "llvm/Instructions.h"
@@ -34,21 +43,22 @@
 #include "llvm/InlineAsm.h"
 #include "llvm/Module.h"
 #include "llvm/Type.h"
-#include "llvm/Support/CommandLine.h"
-#include "llvm/Support/CFG.h"
-#if LLVM_VERSION_CODE < LLVM_VERSION(2, 9)
-#include "llvm/System/Process.h"
-#else
-#include "llvm/Support/Process.h"
 #endif
-#if LLVM_VERSION_CODE < LLVM_VERSION(2, 9)
-#include "llvm/System/Path.h"
-#else
+#include "llvm/Support/CommandLine.h"
+#include "llvm/Support/Process.h"
 #include "llvm/Support/Path.h"
+#include "llvm/Support/FileSystem.h"
+
+#if LLVM_VERSION_CODE < LLVM_VERSION(3, 5)
+#include "llvm/Support/CallSite.h"
+#include "llvm/Support/CFG.h"
+#else
+#include "llvm/IR/CallSite.h"
+#include "llvm/IR/CFG.h"
 #endif
 
-#include <iostream>
 #include <fstream>
+#include <unistd.h>
 
 using namespace klee;
 using namespace llvm;
@@ -58,45 +68,46 @@ using namespace llvm;
 namespace {  
   cl::opt<bool>
   TrackInstructionTime("track-instruction-time",
-                       cl::desc("Enable tracking of time for individual instructions"),
-                       cl::init(false));
+                       cl::init(false),
+		       cl::desc("Enable tracking of time for individual instructions (default=off)"));
 
   cl::opt<bool>
   OutputStats("output-stats",
-              cl::desc("Write running stats trace file"),
-              cl::init(true));
+              cl::init(true),
+	      cl::desc("Write running stats trace file (default=on)"));
 
   cl::opt<bool>
   OutputIStats("output-istats",
-               cl::desc("Write instruction level statistics (in callgrind format)"),
-               cl::init(true));
+	       cl::init(true),
+               cl::desc("Write instruction level statistics in callgrind format (default=on)"));
 
   cl::opt<double>
   StatsWriteInterval("stats-write-interval",
-                     cl::desc("Approximate number of seconds between stats writes (default: 1.0)"),
-                     cl::init(1.));
+                     cl::init(1.),
+		     cl::desc("Approximate number of seconds between stats writes (default=1.0s)"));
 
   cl::opt<double>
   IStatsWriteInterval("istats-write-interval",
-                      cl::desc("Approximate number of seconds between istats writes (default: 10.0)"),
-                      cl::init(10.));
+		      cl::init(10.),
+                      cl::desc("Approximate number of seconds between istats writes (default: 10.0s)"));
 
   /*
   cl::opt<double>
   BranchCovCountsWriteInterval("branch-cov-counts-write-interval",
-                     cl::desc("Approximate number of seconds between run.branches writes (default: 5.0)"),
+                     cl::desc("Approximate number of seconds between run.branches writes (default: 5.0s)"),
                      cl::init(5.));
   */
 
   // XXX I really would like to have dynamic rate control for something like this.
   cl::opt<double>
   UncoveredUpdateInterval("uncovered-update-interval",
-                          cl::init(30.));
+                          cl::init(30.),
+			  cl::desc("(default=30.0s)"));
   
   cl::opt<bool>
   UseCallPaths("use-call-paths",
-               cl::desc("Enable calltree tracking for instruction level statistics"),
-               cl::init(true));
+	       cl::init(true),
+               cl::desc("Enable calltree tracking for instruction level statistics (default=on)"));
   
 }
 
@@ -176,12 +187,20 @@ StatsTracker::StatsTracker(Executor &_executor, std::string _objectFilename,
     updateMinDistToUncovered(_updateMinDistToUncovered) {
   KModule *km = executor.kmodule;
 
-  sys::Path module(objectFilename);
-  if (!sys::Path(objectFilename).isAbsolute()) {
-    sys::Path current = sys::Path::GetCurrentDirectory();
-    current.appendComponent(objectFilename);
-    if (current.exists())
-      objectFilename = current.c_str();
+  if (!sys::path::is_absolute(objectFilename)) {
+    SmallString<128> current(objectFilename);
+    if(sys::fs::make_absolute(current)) {
+      bool exists = false;
+
+#if LLVM_VERSION_CODE < LLVM_VERSION(3, 5)
+      error_code ec = sys::fs::exists(current.str(), exists);
+      if (ec == errc::success && exists) {
+#else
+      if (!sys::fs::exists(current.str(), exists)) {
+#endif
+        objectFilename = current.c_str();
+      }
+    }
   }
 
   if (OutputIStats)
@@ -283,9 +302,6 @@ void StatsTracker::stepInstruction(ExecutionState &es) {
         //
         // FIXME: This trick no longer works, we should fix this in the line
         // number propogation.
-#if LLVM_VERSION_CODE < LLVM_VERSION(2, 7)
-        if (isa<DbgStopPointInst>(inst))
-#endif
           es.coveredLines[&ii.file].insert(ii.line);
 	es.coveredNew = true;
         es.instsSinceCovNew = 1;
@@ -372,6 +388,9 @@ void StatsTracker::writeStatsHeader() {
              << "'CexCacheTime',"
              << "'ForkTime',"
              << "'ResolveTime',"
+#ifdef DEBUG
+	     << "'ArrayHashTime',"
+#endif
              << ")\n";
   statsFile->flush();
 }
@@ -387,7 +406,7 @@ void StatsTracker::writeStatsLine() {
              << "," << numBranches
              << "," << util::getUserTime()
              << "," << executor.states.size()
-             << "," << sys::Process::GetTotalMemoryUsage()
+             << "," << util::GetTotalMallocUsage()
              << "," << stats::queries
              << "," << stats::queryConstructs
              << "," << 0 // was numObjects
@@ -399,6 +418,9 @@ void StatsTracker::writeStatsLine() {
              << "," << stats::cexCacheTime / 1000000.
              << "," << stats::forkTime / 1000000.
              << "," << stats::resolveTime / 1000000.
+#ifdef DEBUG
+             << "," << stats::arrayHashTime / 1000000.
+#endif
              << ")\n";
   statsFile->flush();
 }
@@ -417,15 +439,16 @@ void StatsTracker::updateStateStatistics(uint64_t addend) {
 void StatsTracker::writeIStats() {
   Module *m = executor.kmodule->module;
   uint64_t istatsMask = 0;
-  std::ostream &of = *istatsFile;
+  llvm::raw_fd_ostream &of = *istatsFile;
   
-  of.seekp(0, std::ios::end);
-  unsigned istatsSize = of.tellp();
-  of.seekp(0);
+  // We assume that we didn't move the file pointer
+  unsigned istatsSize = of.tell();
+
+  of.seek(0);
 
   of << "version: 1\n";
   of << "creator: klee\n";
-  of << "pid: " << sys::Process::GetCurrentUserId() << "\n";
+  of << "pid: " << getpid() << "\n";
   of << "cmd: " << m->getModuleIdentifier() << "\n\n";
   of << "\n";
   
@@ -480,6 +503,15 @@ void StatsTracker::writeIStats() {
   for (Module::iterator fnIt = m->begin(), fn_ie = m->end(); 
        fnIt != fn_ie; ++fnIt) {
     if (!fnIt->isDeclaration()) {
+      // Always try to write the filename before the function name, as otherwise
+      // KCachegrind can create two entries for the function, one with an
+      // unnamed file and one without.
+      const InstructionInfo &ii = executor.kmodule->infos->getFunctionInfo(fnIt);
+      if (ii.file != sourceFile) {
+        of << "fl=" << ii.file << "\n";
+        sourceFile = ii.file;
+      }
+      
       of << "fn=" << fnIt->getName().str() << "\n";
       for (Function::iterator bbIt = fnIt->begin(), bb_ie = fnIt->end(); 
            bbIt != bb_ie; ++bbIt) {
@@ -549,7 +581,7 @@ void StatsTracker::writeIStats() {
     updateStateStatistics((uint64_t)-1);
   
   // Clear then end of the file if necessary (no truncate op?).
-  unsigned pos = of.tellp();
+  unsigned pos = of.tell();
   for (unsigned i=pos; i<istatsSize; ++i)
     of << '\n';
   

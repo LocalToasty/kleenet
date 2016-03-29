@@ -29,13 +29,13 @@ namespace klee {
   public:
     Assignment(bool _allowFreeValues=false) 
       : allowFreeValues(_allowFreeValues) {}
-    Assignment(std::vector<const Array*> &objects, 
+    Assignment(const std::vector<const Array*> &objects,
                std::vector< std::vector<unsigned char> > &values,
                bool _allowFreeValues=false) 
       : allowFreeValues(_allowFreeValues){
       std::vector< std::vector<unsigned char> >::iterator valIt = 
         values.begin();
-      for (std::vector<const Array*>::iterator it = objects.begin(),
+      for (std::vector<const Array*>::const_iterator it = objects.begin(),
              ie = objects.end(); it != ie; ++it) {
         const Array *os = *it;
         std::vector<unsigned char> &arr = *valIt;
@@ -49,6 +49,7 @@ namespace klee {
 
     template<typename InputIterator>
     bool satisfies(InputIterator begin, InputIterator end);
+    void dump();
   };
   
   class AssignmentEvaluator : public ExprEvaluator {
@@ -67,15 +68,16 @@ namespace klee {
 
   inline ref<Expr> Assignment::evaluate(const Array *array, 
                                         unsigned index) const {
+    assert(array);
     bindings_ty::const_iterator it = bindings.find(array);
     if (it!=bindings.end() && index<it->second.size()) {
-      return ConstantExpr::alloc(it->second[index], Expr::Int8);
+      return ConstantExpr::alloc(it->second[index], array->getRange());
     } else {
       if (allowFreeValues) {
         return ReadExpr::create(UpdateList(array, 0), 
-                                ConstantExpr::alloc(index, Expr::Int32));
+                                ConstantExpr::alloc(index, array->getDomain()));
       } else {
-        return ConstantExpr::alloc(0, Expr::Int8);
+        return ConstantExpr::alloc(0, array->getRange());
       }
     }
   }

@@ -7,20 +7,25 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "Common.h"
-
 #include "CoreStats.h"
 #include "Executor.h"
 #include "PTree.h"
 #include "StatsTracker.h"
+#include "ExecutorTimerInfo.h"
 
 #include "klee/ExecutionState.h"
 #include "klee/Internal/Module/InstructionInfoTable.h"
 #include "klee/Internal/Module/KInstruction.h"
 #include "klee/Internal/Module/KModule.h"
 #include "klee/Internal/System/Time.h"
+#include "klee/Internal/Support/ErrorHandling.h"
 
+#if LLVM_VERSION_CODE >= LLVM_VERSION(3, 3)
+#include "llvm/IR/Function.h"
+#else
 #include "llvm/Function.h"
+#endif
+
 #include "llvm/Support/CommandLine.h"
 
 #include <unistd.h>
@@ -34,7 +39,7 @@ using namespace klee;
 
 cl::opt<double>
 MaxTime("max-time",
-        cl::desc("Halt execution after the specified number of seconds (0=off)"),
+        cl::desc("Halt execution after the specified number of seconds (default=0 (off))"),
         cl::init(0));
 
 ///
@@ -47,7 +52,7 @@ public:
   ~HaltTimer() {}
 
   void run() {
-    std::cerr << "KLEE: HaltTimer invoked\n";
+    llvm::errs() << "KLEE: HaltTimer invoked\n";
     executor->setHaltExecution(true);
   }
 };
@@ -88,7 +93,7 @@ void Executor::initTimers() {
   }
 
   if (MaxTime) {
-    addTimer(new HaltTimer(this), MaxTime);
+    addTimer(new HaltTimer(this), MaxTime.getValue());
   }
 }
 
@@ -97,23 +102,6 @@ void Executor::initTimers() {
 Executor::Timer::Timer() {}
 
 Executor::Timer::~Timer() {}
-
-class Executor::TimerInfo {
-public:
-  Timer *timer;
-  
-  /// Approximate delay per timer firing.
-  double rate;
-  /// Wall time for next firing.
-  double nextFireTime;
-  
-public:
-  TimerInfo(Timer *_timer, double _rate) 
-    : timer(_timer),
-      rate(_rate),
-      nextFireTime(util::getWallTime() + rate) {}
-  ~TimerInfo() { delete timer; }
-};
 
 void Executor::addTimer(Timer *timer, double rate) {
   timers.push_back(new TimerInfo(timer, rate));
@@ -133,7 +121,7 @@ void Executor::processTimers(ExecutionState *current,
     if (dumpPTree) {
       char name[32];
       sprintf(name, "ptree%08d.dot", (int) stats::instructions);
-      std::ostream *os = interpreterHandler->openOutputFile(name);
+      llvm::raw_ostream *os = interpreterHandler->openOutputFile(name);
       if (os) {
         processTree->dump(*os);
         delete os;
@@ -143,7 +131,7 @@ void Executor::processTimers(ExecutionState *current,
     }
 
     if (dumpStates) {
-      std::ostream *os = interpreterHandler->openOutputFile("states.txt");
+      llvm::raw_ostream *os = interpreterHandler->openOutputFile("states.txt");
       
       if (os) {
         for (std::set<ExecutionState*>::const_iterator it = states.begin(), 

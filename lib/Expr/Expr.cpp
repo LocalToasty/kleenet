@@ -14,13 +14,13 @@
 #include "llvm/ADT/Hashing.h"
 #endif
 #include "llvm/Support/CommandLine.h"
+#include "llvm/Support/raw_ostream.h"
 // FIXME: We shouldn't need this once fast constant support moves into
 // Core. If we need to do arithmetic, we probably want to use APInt.
 #include "klee/Internal/Support/IntEvaluation.h"
 
 #include "klee/util/ExprPPrinter.h"
 
-#include <iostream>
 #include <sstream>
 
 using namespace klee;
@@ -116,7 +116,7 @@ int Expr::compare(const Expr &b, ExprEquivSet &equivs) const {
   return 0;
 }
 
-void Expr::printKind(std::ostream &os, Kind k) {
+void Expr::printKind(llvm::raw_ostream &os, Kind k) {
   switch(k) {
 #define X(C) case C: os << #C; break
     X(Constant);
@@ -206,7 +206,7 @@ unsigned ReadExpr::computeHash() {
 }
 
 unsigned NotExpr::computeHash() {
-  unsigned hashValue = expr->hash() * Expr::MAGIC_HASH_CONSTANT * Expr::Not;
+  hashValue = expr->hash() * Expr::MAGIC_HASH_CONSTANT * Expr::Not;
   return hashValue;
 }
 
@@ -286,7 +286,7 @@ ref<Expr> Expr::createFromKind(Kind k, std::vector<CreateArg> args) {
 }
 
 
-void Expr::printWidth(std::ostream &os, Width width) {
+void Expr::printWidth(llvm::raw_ostream &os, Width width) {
   switch(width) {
   case Expr::Bool: os << "Expr::Bool"; break;
   case Expr::Int8: os << "Expr::Int8"; break;
@@ -306,13 +306,13 @@ ref<Expr> Expr::createIsZero(ref<Expr> e) {
   return EqExpr::create(e, ConstantExpr::create(0, e->getWidth()));
 }
 
-void Expr::print(std::ostream &os) const {
+void Expr::print(llvm::raw_ostream &os) const {
   ExprPPrinter::printSingleExpr(os, const_cast<Expr*>(this));
 }
 
 void Expr::dump() const {
-  this->print(std::cerr);
-  std::cerr << std::endl;
+  this->print(errs());
+  errs() << "\n";
 }
 
 /***/
@@ -342,23 +342,19 @@ void ConstantExpr::toMemory(void *address) {
   case Expr::Int64: *((uint64_t*) address) = getZExtValue(64); break;
   // FIXME: what about machines without x87 support?
   case Expr::Fl80:
-    *((long double*) address) = *(long double*) value.getRawData();
+    *((long double*) address) = *(const long double*) value.getRawData();
     break;
   }
 }
 
-void ConstantExpr::toString(std::string &Res) const {
-  Res = value.toString(10, false);
+void ConstantExpr::toString(std::string &Res, unsigned radix) const {
+  Res = value.toString(radix, false);
 }
 
 ref<ConstantExpr> ConstantExpr::Concat(const ref<ConstantExpr> &RHS) {
   Expr::Width W = getWidth() + RHS->getWidth();
   APInt Tmp(value);
-#if LLVM_VERSION_CODE <= LLVM_VERSION(2, 8)
-  Tmp.zext(W);
-#else
   Tmp=Tmp.zext(W);
-#endif
   Tmp <<= RHS->getWidth();
   Tmp |= APInt(RHS->value).zext(W);
 
@@ -485,16 +481,35 @@ ref<Expr>  NotOptimizedExpr::create(ref<Expr> src) {
 
 /***/
 
-extern "C" void vc_DeleteExpr(void*);
+Array::Array(const std::string &_name, uint64_t _size,
+             const ref<ConstantExpr> *constantValuesBegin,
+             const ref<ConstantExpr> *constantValuesEnd, Expr::Width _domain,
+             Expr::Width _range)
+    : name(_name), size(_size), domain(_domain), range(_range),
+      constantValues(constantValuesBegin, constantValuesEnd) {
 
-Array::~Array() {
-  // FIXME: This shouldn't be necessary.
-  if (stpInitialArray) {
-    ::vc_DeleteExpr(stpInitialArray);
-    stpInitialArray = 0;
-  }
+  assert((isSymbolicArray() || constantValues.size() == size) &&
+         "Invalid size for constant array!");
+  computeHash();
+#ifndef NDEBUG
+  for (const ref<ConstantExpr> *it = constantValuesBegin;
+       it != constantValuesEnd; ++it)
+    assert((*it)->getWidth() == getRange() &&
+           "Invalid initial constant value!");
+#endif // NDEBUG
 }
 
+Array::~Array() {
+}
+
+unsigned Array::computeHash() {
+  unsigned res = 0;
+  for (unsigned i = 0, e = name.size(); i != e; ++i)
+    res = (res * Expr::MAGIC_HASH_CONSTANT) + name[i];
+  res = (res * Expr::MAGIC_HASH_CONSTANT) + size;
+  hashValue = res;
+  return hashValue; 
+}
 /***/
 
 ref<Expr> ReadExpr::create(const UpdateList &ul, ref<Expr> index) {

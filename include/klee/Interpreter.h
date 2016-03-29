@@ -19,6 +19,8 @@ struct KTest;
 namespace llvm {
 class Function;
 class Module;
+class raw_ostream;
+class raw_fd_ostream;
 }
 
 namespace klee {
@@ -31,10 +33,10 @@ public:
   InterpreterHandler() {}
   virtual ~InterpreterHandler() {}
 
-  virtual std::ostream &getInfoStream() const = 0;
+  virtual llvm::raw_ostream &getInfoStream() const = 0;
 
   virtual std::string getOutputFilename(const std::string &filename) = 0;
-  virtual std::ostream *openOutputFile(const std::string &filename) = 0;
+  virtual llvm::raw_fd_ostream *openOutputFile(const std::string &filename) = 0;
 
   virtual void incPathsExplored() = 0;
 
@@ -51,11 +53,20 @@ public:
     std::string LibraryDir;
     bool Optimize;
     bool CheckDivZero;
+    bool CheckOvershift;
 
     ModuleOptions(const std::string& _LibraryDir, 
-                  bool _Optimize, bool _CheckDivZero)
+                  bool _Optimize, bool _CheckDivZero,
+                  bool _CheckOvershift)
       : LibraryDir(_LibraryDir), Optimize(_Optimize), 
-        CheckDivZero(_CheckDivZero) {}
+        CheckDivZero(_CheckDivZero), CheckOvershift(_CheckOvershift) {}
+  };
+
+  enum LogType
+  {
+	  STP, //.CVC (STP's native language)
+	  KQUERY, //.PC files (kQuery native language)
+	  SMTLIB2 //.SMT2 files (SMTLIB version 2 files)
   };
 
   /// InterpreterOptions - Options varying the runtime behavior during
@@ -132,7 +143,7 @@ public:
   
   virtual void getConstraintLog(const ExecutionState &state,
                                 std::string &res,
-                                bool asCVC = false) = 0;
+                                LogType logFormat = STP) = 0;
 
   virtual bool getSymbolicSolution(const ExecutionState &state, 
                                    std::vector< 

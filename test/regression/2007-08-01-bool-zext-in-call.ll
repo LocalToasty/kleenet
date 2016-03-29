@@ -1,5 +1,6 @@
-; RUN: llvm-as -f %s -o - | %klee 2> %t1.log
-; RUN: not test -f klee-last/test0001.abort.err
+; RUN: rm -rf %t.klee-out
+; RUN: llvm-as -f %s -o - | %klee --output-dir=%t.klee-out
+; RUN: not test -f %t.klee-out/test0001.abort.err
 
 declare void @klee_abort()
 

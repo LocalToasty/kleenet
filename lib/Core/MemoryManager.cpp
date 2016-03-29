@@ -7,8 +7,6 @@
 //
 //===----------------------------------------------------------------------===//
 
-#include "Common.h"
-
 #include "CoreStats.h"
 #include "Memory.h"
 #include "MemoryManager.h"
@@ -16,6 +14,7 @@
 #include "klee/ExecutionState.h"
 #include "klee/Expr.h"
 #include "klee/Solver.h"
+#include "klee/Internal/Support/ErrorHandling.h"
 
 #include "llvm/Support/CommandLine.h"
 
@@ -36,10 +35,9 @@ MemoryManager::~MemoryManager() {
 MemoryObject *MemoryManager::allocate(uint64_t size, bool isLocal, 
                                       bool isGlobal,
                                       const llvm::Value *allocSite) {
-  if (size>10*1024*1024) {
-    klee_warning_once(0, "failing large alloc: %u bytes", (unsigned) size);
-    return 0;
-  }
+  if (size>10*1024*1024)
+    klee_warning_once(0, "Large alloc: %u bytes.  KLEE may run out of memory.", (unsigned) size);
+  
   uint64_t address = (uint64_t) (unsigned long) malloc((unsigned) size);
   if (!address)
     return 0;

@@ -3,17 +3,35 @@
 #ifndef KLEE_CONFIG_CONFIG_H
 #define KLEE_CONFIG_CONFIG_H
 
+/* Enable KLEE DEBUG checks */
+#undef ENABLE_KLEE_DEBUG
+
+/* Enable metaSMT API */
+#undef ENABLE_METASMT
+
+/* Using STP Solver backend */
+#undef ENABLE_STP
+
+/* Using Z3 Solver backend */
+#undef ENABLE_Z3
+
 /* Does the platform use __ctype_b_loc, etc. */
 #undef HAVE_CTYPE_EXTERNALS
 
-/* Using external STP */
-#undef HAVE_EXT_STP
+/* Define to 1 if you have the <gperftools/malloc_extension.h> header file. */
+#undef HAVE_GPERFTOOLS_MALLOC_EXTENSION_H
 
 /* Define to 1 if you have the <inttypes.h> header file. */
 #undef HAVE_INTTYPES_H
 
-/* Define to 1 if you have the `stp' library (-lstp). */
-#undef HAVE_LIBSTP
+/* Define if mallinfo() is available on this platform. */
+#undef HAVE_MALLINFO
+
+/* Define to 1 if you have the <malloc/malloc.h> header file. */
+#undef HAVE_MALLOC_MALLOC_H
+
+/* Define to 1 if you have the `malloc_zone_statistics' function. */
+#undef HAVE_MALLOC_ZONE_STATISTICS
 
 /* Define to 1 if you have the <memory.h> header file. */
 #undef HAVE_MEMORY_H
@@ -36,6 +54,9 @@
 /* Define to 1 if you have the <sys/acl.h> header file. */
 #undef HAVE_SYS_ACL_H
 
+/* Define to 1 if you have the <sys/capability.h> header file. */
+#undef HAVE_SYS_CAPABILITY_H
+
 /* Define to 1 if you have the <sys/stat.h> header file. */
 #undef HAVE_SYS_STAT_H
 
@@ -45,8 +66,12 @@
 /* Define to 1 if you have the <unistd.h> header file. */
 #undef HAVE_UNISTD_H
 
-/* Path to KLEE's uClibc */
-#undef KLEE_UCLIBC
+/* Z3 needs a Z3_context passed to Z3_get_error_msg() */
+#undef HAVE_Z3_GET_ERROR_MSG_NEEDS_CONTEXT
+
+/* Define to empty or 'const' depending on how SELinux qualifies its security
+   context parameters. */
+#undef KLEE_SELINUX_CTX_CONST
 
 /* LLVM version is release (instead of development) */
 #undef LLVM_IS_RELEASE
@@ -69,6 +94,9 @@
 /* Define to the one symbol short name of this package. */
 #undef PACKAGE_TARNAME
 
+/* Define to the home page for this package. */
+#undef PACKAGE_URL
+
 /* Define to the version of this package. */
 #undef PACKAGE_VERSION
 
@@ -77,5 +105,8 @@
 
 /* Define to 1 if you have the ANSI C header files. */
 #undef STDC_HEADERS
+
+/* klee-uclibc is supported */
+#undef SUPPORT_KLEE_UCLIBC
 
 #endif

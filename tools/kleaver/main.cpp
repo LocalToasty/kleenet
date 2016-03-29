@@ -1,4 +1,11 @@
-#include <iostream>
+//===-- main.cpp ------------------------------------------------*- C++ -*-===//
+//
+//                     The KLEE Symbolic Virtual Machine
+//
+// This file is distributed under the University of Illinois Open Source
+// License. See LICENSE.TXT for details.
+//
+//===----------------------------------------------------------------------===//
 
 #include "expr/Lexer.h"
 #include "expr/Parser.h"
@@ -8,28 +15,29 @@
 #include "klee/Expr.h"
 #include "klee/ExprBuilder.h"
 #include "klee/Solver.h"
+#include "klee/SolverImpl.h"
 #include "klee/Statistics.h"
+#include "klee/CommandLine.h"
+#include "klee/Common.h"
 #include "klee/util/ExprPPrinter.h"
 #include "klee/util/ExprVisitor.h"
+#include "klee/util/ExprSMTLIBPrinter.h"
+#include "klee/Internal/Support/PrintVersion.h"
 
-#include "llvm/ADT/OwningPtr.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/Support/CommandLine.h"
 #include "llvm/Support/ManagedStatic.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/raw_ostream.h"
 
-// FIXME: Ugh, this is gross. But otherwise our config.h conflicts with LLVMs.
-#undef PACKAGE_BUGREPORT
-#undef PACKAGE_NAME
-#undef PACKAGE_STRING
-#undef PACKAGE_TARNAME
-#undef PACKAGE_VERSION
+#include <sys/stat.h>
+#include <unistd.h>
 
-#if LLVM_VERSION_CODE < LLVM_VERSION(2, 9)
-#include "llvm/System/Signals.h"
-#else
+
 #include "llvm/Support/Signals.h"
+
+#if LLVM_VERSION_CODE < LLVM_VERSION(3, 5)
+#include "llvm/ADT/OwningPtr.h"
 #include "llvm/Support/system_error.h"
 #endif
 
@@ -45,6 +53,7 @@ namespace {
   enum ToolActions {
     PrintTokens,
     PrintAST,
+    PrintSMTLIBv2,
     Evaluate
   };
 
@@ -54,11 +63,14 @@ namespace {
              llvm::cl::values(
              clEnumValN(PrintTokens, "print-tokens",
                         "Print tokens from the input file."),
+			clEnumValN(PrintSMTLIBv2, "print-smtlib",
+					   "Print parsed input file as SMT-LIBv2 query."),
              clEnumValN(PrintAST, "print-ast",
                         "Print parsed AST nodes from the input file."),
              clEnumValN(Evaluate, "evaluate",
                         "Print parsed AST nodes from the input file."),
              clEnumValEnd));
+
 
   enum BuilderKinds {
     DefaultBuilder,
@@ -79,17 +91,40 @@ namespace {
                          "Fold constants and simplify expressions."),
               clEnumValEnd));
 
-  cl::opt<bool>
-  UseDummySolver("use-dummy-solver",
-		   cl::init(false));
 
-  cl::opt<bool>
-  UseFastCexSolver("use-fast-cex-solver",
-		   cl::init(false));
-  
-  cl::opt<bool>
-  UseSTPQueryPCLog("use-stp-query-pc-log",
-                   cl::init(false));
+  llvm::cl::opt<std::string> directoryToWriteQueryLogs("query-log-dir",llvm::cl::desc("The folder to write query logs to. Defaults is current working directory."),
+		                                               llvm::cl::init("."));
+
+}
+
+static std::string getQueryLogPath(const char filename[])
+{
+	//check directoryToWriteLogs exists
+	struct stat s;
+	if( !(stat(directoryToWriteQueryLogs.c_str(),&s) == 0 && S_ISDIR(s.st_mode)) )
+	{
+          llvm::errs() << "Directory to log queries \""
+                       << directoryToWriteQueryLogs << "\" does not exist!"
+                       << "\n";
+          exit(1);
+        }
+
+	//check permissions okay
+	if( !( (s.st_mode & S_IWUSR) && getuid() == s.st_uid) &&
+	    !( (s.st_mode & S_IWGRP) && getgid() == s.st_gid) &&
+	    !( s.st_mode & S_IWOTH)
+	)
+	{
+          llvm::errs() << "Directory to log queries \""
+                       << directoryToWriteQueryLogs << "\" is not writable!"
+                       << "\n";
+          exit(1);
+        }
+
+	std::string path=directoryToWriteQueryLogs;
+	path+="/";
+	path+=filename;
+	return path;
 }
 
 static std::string escapedString(const char *start, unsigned length) {
@@ -115,10 +150,9 @@ static void PrintInputTokens(const MemoryBuffer *MB) {
   Token T;
   do {
     L.Lex(T);
-    std::cout << "(Token \"" << T.getKindName() << "\" "
-               << "\"" << escapedString(T.start, T.length) << "\" "
-               << T.length << " "
-               << T.line << " " << T.column << ")\n";
+    llvm::outs() << "(Token \"" << T.getKindName() << "\" "
+                 << "\"" << escapedString(T.start, T.length) << "\" "
+                 << T.length << " " << T.line << " " << T.column << ")\n";
   } while (T.kind != Token::EndOfFile);
 }
 
@@ -133,7 +167,7 @@ static bool PrintInputAST(const char *Filename,
   while (Decl *D = P->ParseTopLevelDecl()) {
     if (!P->GetNumErrors()) {
       if (isa<QueryCommand>(D))
-        std::cout << "# Query " << ++NumQueries << "\n";
+        llvm::outs() << "# Query " << ++NumQueries << "\n";
 
       D->dump();
     }
@@ -142,8 +176,7 @@ static bool PrintInputAST(const char *Filename,
 
   bool success = true;
   if (unsigned N = P->GetNumErrors()) {
-    std::cerr << Filename << ": parse failure: "
-               << N << " errors.\n";
+    llvm::errs() << Filename << ": parse failure: " << N << " errors.\n";
     success = false;
   }
 
@@ -168,42 +201,44 @@ static bool EvaluateInputAST(const char *Filename,
 
   bool success = true;
   if (unsigned N = P->GetNumErrors()) {
-    std::cerr << Filename << ": parse failure: "
-               << N << " errors.\n";
+    llvm::errs() << Filename << ": parse failure: " << N << " errors.\n";
     success = false;
   }  
 
   if (!success)
     return false;
 
-  // FIXME: Support choice of solver.
-  Solver *S, *STP = S = 
-    UseDummySolver ? createDummySolver() : new STPSolver(true);
-  if (UseSTPQueryPCLog)
-    S = createPCLoggingSolver(S, "stp-queries.pc");
-  if (UseFastCexSolver)
-    S = createFastCexSolver(S);
-  S = createCexCachingSolver(S);
-  S = createCachingSolver(S);
-  S = createIndependentSolver(S);
-  if (0)
-    S = createValidatingSolver(S, STP);
+  Solver *coreSolver = klee::createCoreSolver(CoreSolverToUse);
+
+  if (CoreSolverToUse != DUMMY_SOLVER) {
+    if (0 != MaxCoreSolverTime) {
+      coreSolver->setCoreSolverTimeout(MaxCoreSolverTime);
+    }
+  }
+
+  Solver *S = constructSolverChain(coreSolver,
+                                   getQueryLogPath(ALL_QUERIES_SMT2_FILE_NAME),
+                                   getQueryLogPath(SOLVER_QUERIES_SMT2_FILE_NAME),
+                                   getQueryLogPath(ALL_QUERIES_PC_FILE_NAME),
+                                   getQueryLogPath(SOLVER_QUERIES_PC_FILE_NAME));
 
   unsigned Index = 0;
   for (std::vector<Decl*>::iterator it = Decls.begin(),
          ie = Decls.end(); it != ie; ++it) {
     Decl *D = *it;
     if (QueryCommand *QC = dyn_cast<QueryCommand>(D)) {
-      std::cout << "Query " << Index << ":\t";
+      llvm::outs() << "Query " << Index << ":\t";
 
       assert("FIXME: Support counterexample query commands!");
       if (QC->Values.empty() && QC->Objects.empty()) {
         bool result;
         if (S->mustBeTrue(Query(ConstraintManager(QC->Constraints), QC->Query),
                           result)) {
-          std::cout << (result ? "VALID" : "INVALID");
+          llvm::outs() << (result ? "VALID" : "INVALID");
         } else {
-          std::cout << "FAIL";
+          llvm::outs() << "FAIL (reason: "
+                    << SolverImpl::getOperationStatusString(S->impl->getOperationStatusCode())
+                    << ")";
         }
       } else if (!QC->Values.empty()) {
         assert(QC->Objects.empty() && 
@@ -216,10 +251,12 @@ static bool EvaluateInputAST(const char *Filename,
         if (S->getValue(Query(ConstraintManager(QC->Constraints), 
                               QC->Values[0]),
                         result)) {
-          std::cout << "INVALID\n";
-          std::cout << "\tExpr 0:\t" << result;
+          llvm::outs() << "INVALID\n";
+          llvm::outs() << "\tExpr 0:\t" << result;
         } else {
-          std::cout << "FAIL";
+          llvm::outs() << "FAIL (reason: "
+                    << SolverImpl::getOperationStatusString(S->impl->getOperationStatusCode())
+                    << ")";
         }
       } else {
         std::vector< std::vector<unsigned char> > result;
@@ -227,27 +264,35 @@ static bool EvaluateInputAST(const char *Filename,
         if (S->getInitialValues(Query(ConstraintManager(QC->Constraints), 
                                       QC->Query),
                                 QC->Objects, result)) {
-          std::cout << "INVALID\n";
+          llvm::outs() << "INVALID\n";
 
           for (unsigned i = 0, e = result.size(); i != e; ++i) {
-            std::cout << "\tArray " << i << ":\t"
+            llvm::outs() << "\tArray " << i << ":\t"
                        << QC->Objects[i]->name
                        << "[";
             for (unsigned j = 0; j != QC->Objects[i]->size; ++j) {
-              std::cout << (unsigned) result[i][j];
+              llvm::outs() << (unsigned) result[i][j];
               if (j + 1 != QC->Objects[i]->size)
-                std::cout << ", ";
+                llvm::outs() << ", ";
             }
-            std::cout << "]";
+            llvm::outs() << "]";
             if (i + 1 != e)
-              std::cout << "\n";
+              llvm::outs() << "\n";
           }
         } else {
-          std::cout << "FAIL";
+          SolverImpl::SolverRunStatus retCode = S->impl->getOperationStatusCode();
+          if (SolverImpl::SOLVER_RUN_STATUS_TIMEOUT == retCode) {
+            llvm::outs() << " FAIL (reason: "
+                      << SolverImpl::getOperationStatusString(retCode)
+                      << ")";
+          }           
+          else {
+            llvm::outs() << "VALID (counterexample request ignored)";
+          }
         }
       }
 
-      std::cout << "\n";
+      llvm::outs() << "\n";
       ++Index;
     }
   }
@@ -260,7 +305,7 @@ static bool EvaluateInputAST(const char *Filename,
   delete S;
 
   if (uint64_t queries = *theStatisticManager->getStatisticByName("Queries")) {
-    std::cout 
+    llvm::outs()
       << "--\n"
       << "total queries = " << queries << "\n"
       << "total queries constructs = " 
@@ -276,27 +321,101 @@ static bool EvaluateInputAST(const char *Filename,
   return success;
 }
 
+static bool printInputAsSMTLIBv2(const char *Filename,
+                             const MemoryBuffer *MB,
+                             ExprBuilder *Builder)
+{
+	//Parse the input file
+	std::vector<Decl*> Decls;
+	Parser *P = Parser::Create(Filename, MB, Builder);
+	P->SetMaxErrors(20);
+	while (Decl *D = P->ParseTopLevelDecl())
+	{
+		Decls.push_back(D);
+	}
+
+	bool success = true;
+	if (unsigned N = P->GetNumErrors())
+	{
+		llvm::errs() << Filename << ": parse failure: "
+				   << N << " errors.\n";
+		success = false;
+	}
+
+	if (!success)
+	return false;
+
+	ExprSMTLIBPrinter printer;
+	printer.setOutput(llvm::outs());
+
+	unsigned int queryNumber = 0;
+	//Loop over the declarations
+	for (std::vector<Decl*>::iterator it = Decls.begin(), ie = Decls.end(); it != ie; ++it)
+	{
+		Decl *D = *it;
+		if (QueryCommand *QC = dyn_cast<QueryCommand>(D))
+		{
+			//print line break to separate from previous query
+			if(queryNumber!=0) 	llvm::outs() << "\n";
+
+			//Output header for this query as a SMT-LIBv2 comment
+			llvm::outs() << ";SMTLIBv2 Query " << queryNumber << "\n";
+
+			/* Can't pass ConstraintManager constructor directly
+			 * as argument to Query object. Like...
+			 * query(ConstraintManager(QC->Constraints),QC->Query);
+			 *
+			 * For some reason if constructed this way the first
+			 * constraint in the constraint set is set to NULL and
+			 * will later cause a NULL pointer dereference.
+			 */
+			ConstraintManager constraintM(QC->Constraints);
+			Query query(constraintM,QC->Query);
+			printer.setQuery(query);
+
+			if(!QC->Objects.empty())
+				printer.setArrayValuesToGet(QC->Objects);
+
+			printer.generateOutput();
+
+
+			queryNumber++;
+		}
+	}
+
+	//Clean up
+	for (std::vector<Decl*>::iterator it = Decls.begin(),
+			ie = Decls.end(); it != ie; ++it)
+		delete *it;
+	delete P;
+
+	return true;
+}
+
 int main(int argc, char **argv) {
   bool success = true;
 
   llvm::sys::PrintStackTraceOnErrorSignal();
+  llvm::cl::SetVersionPrinter(klee::printVersion);
   llvm::cl::ParseCommandLineOptions(argc, argv);
 
   std::string ErrorStr;
   
-#if LLVM_VERSION_CODE < LLVM_VERSION(2, 9)
-  MemoryBuffer *MB = MemoryBuffer::getFileOrSTDIN(InputFile.c_str(), &ErrorStr);
-  if (!MB) {
-    std::cerr << argv[0] << ": error: " << ErrorStr << "\n";
-    return 1;
-  }
-#else
+#if LLVM_VERSION_CODE < LLVM_VERSION(3,5)
   OwningPtr<MemoryBuffer> MB;
   error_code ec=MemoryBuffer::getFileOrSTDIN(InputFile.c_str(), MB);
   if (ec) {
-    std::cerr << argv[0] << ": error: " << ec.message() << "\n";
+    llvm::errs() << argv[0] << ": error: " << ec.message() << "\n";
     return 1;
   }
+#else
+  auto MBResult = MemoryBuffer::getFileOrSTDIN(InputFile.c_str());
+  if (!MBResult) {
+    llvm::errs() << argv[0] << ": error: " << MBResult.getError().message()
+                 << "\n";
+    return 1;
+  }
+  std::unique_ptr<MemoryBuffer> &MB = *MBResult;
 #endif
   
   ExprBuilder *Builder = 0;
@@ -317,38 +436,24 @@ int main(int argc, char **argv) {
 
   switch (ToolAction) {
   case PrintTokens:
-#if LLVM_VERSION_CODE < LLVM_VERSION(2, 9)
-    PrintInputTokens(MB);
-#else
     PrintInputTokens(MB.get());
-#endif
     break;
   case PrintAST:
-#if LLVM_VERSION_CODE < LLVM_VERSION(2, 9)
-    success = PrintInputAST(InputFile=="-" ? "<stdin>" : InputFile.c_str(), MB,
-                            Builder);
-#else
     success = PrintInputAST(InputFile=="-" ? "<stdin>" : InputFile.c_str(), MB.get(),
                             Builder);
-#endif
     break;
   case Evaluate:
-#if LLVM_VERSION_CODE < LLVM_VERSION(2, 9)
-    success = EvaluateInputAST(InputFile=="-" ? "<stdin>" : InputFile.c_str(),
-                               MB, Builder);
-#else
     success = EvaluateInputAST(InputFile=="-" ? "<stdin>" : InputFile.c_str(),
                                MB.get(), Builder);
-#endif
+    break;
+  case PrintSMTLIBv2:
+    success = printInputAsSMTLIBv2(InputFile=="-"? "<stdin>" : InputFile.c_str(), MB.get(),Builder);
     break;
   default:
-    std::cerr << argv[0] << ": error: Unknown program action!\n";
+    llvm::errs() << argv[0] << ": error: Unknown program action!\n";
   }
 
   delete Builder;
-#if LLVM_VERSION_CODE < LLVM_VERSION(2, 9)
-  delete MB;
-#endif
   llvm::llvm_shutdown();
   return success ? 0 : 1;
 }

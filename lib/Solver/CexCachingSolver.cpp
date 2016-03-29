@@ -18,7 +18,9 @@
 #include "klee/util/ExprVisitor.h"
 #include "klee/Internal/ADT/MapOfSets.h"
 
-#include "SolverStats.h"
+#include "klee/SolverStats.h"
+
+#include "klee/Internal/Support/ErrorHandling.h"
 
 #include "llvm/Support/CommandLine.h"
 
@@ -31,7 +33,12 @@ namespace {
 
   cl::opt<bool>
   CexCacheTryAll("cex-cache-try-all",
-                 cl::desc("try substituting all counterexamples before asking STP"),
+                 cl::desc("try substituting all counterexamples before asking the SMT solver"),
+                 cl::init(false));
+
+  cl::opt<bool>
+  CexCacheSuperSet("cex-cache-superset",
+                 cl::desc("try substituting SAT super-set counterexample before asking the SMT solver (default=false)"),
                  cl::init(false));
 
   cl::opt<bool>
@@ -82,6 +89,9 @@ public:
                             const std::vector<const Array*> &objects,
                             std::vector< std::vector<unsigned char> > &values,
                             bool &hasSolution);
+  SolverRunStatus getOperationStatusCode();
+  char *getConstraintLog(const Query& query);
+  void setCoreSolverTimeout(double timeout);
 };
 
 ///
@@ -121,8 +131,10 @@ bool CexCachingSolver::searchForAssignment(KeyType &key, Assignment *&result) {
   if (CexCacheTryAll) {
     // Look for a satisfying assignment for a superset, which is trivially an
     // assignment for any subset.
-    Assignment **lookup = cache.findSuperset(key, NonNullAssignment());
-    
+    Assignment **lookup = 0;
+    if (CexCacheSuperSet)
+      lookup = cache.findSuperset(key, NonNullAssignment());
+
     // Otherwise, look for a subset which is unsatisfiable, see below.
     if (!lookup) 
       lookup = cache.findSubset(key, NullAssignment());
@@ -148,7 +160,9 @@ bool CexCachingSolver::searchForAssignment(KeyType &key, Assignment *&result) {
 
     // Look for a satisfying assignment for a superset, which is trivially an
     // assignment for any subset.
-    Assignment **lookup = cache.findSuperset(key, NonNullAssignment());
+    Assignment **lookup = 0;
+    if (CexCacheSuperSet)
+      lookup = cache.findSuperset(key, NonNullAssignment());
 
     // Otherwise, look for a subset which is unsatisfiable -- if the subset is
     // unsatisfiable then no additional constraints can produce a valid
@@ -184,13 +198,19 @@ bool CexCachingSolver::lookupAssignment(const Query &query,
   if (ConstantExpr *CE = dyn_cast<ConstantExpr>(neg)) {
     if (CE->isFalse()) {
       result = (Assignment*) 0;
+      ++stats::queryCexCacheHits;
       return true;
     }
   } else {
     key.insert(neg);
   }
 
-  return searchForAssignment(key, result);
+  bool found = searchForAssignment(key, result);
+  if (found)
+    ++stats::queryCexCacheHits;
+  else ++stats::queryCexCacheMisses;
+    
+  return found;
 }
 
 bool CexCachingSolver::getAssignment(const Query& query, Assignment *&result) {
@@ -220,7 +240,11 @@ bool CexCachingSolver::getAssignment(const Query& query, Assignment *&result) {
     }
     
     if (DebugCexCacheCheckBinding)
-      assert(binding->satisfies(key.begin(), key.end()));
+      if (!binding->satisfies(key.begin(), key.end())) {
+        query.dump();
+        binding->dump();
+        klee_error("Generated assignment doesn't match query");
+      }
   } else {
     binding = (Assignment*) 0;
   }
@@ -337,6 +361,18 @@ CexCachingSolver::computeInitialValues(const Query& query,
   }
   
   return true;
+}
+
+SolverImpl::SolverRunStatus CexCachingSolver::getOperationStatusCode() {
+  return solver->impl->getOperationStatusCode();
+}
+
+char *CexCachingSolver::getConstraintLog(const Query& query) {
+  return solver->impl->getConstraintLog(query);
+}
+
+void CexCachingSolver::setCoreSolverTimeout(double timeout) {
+  solver->impl->setCoreSolverTimeout(timeout);
 }
 
 ///

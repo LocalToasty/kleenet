@@ -10,6 +10,7 @@
 #ifndef KLEE_SOLVER_H
 #define KLEE_SOLVER_H
 
+#include "klee/CommandLine.h" // FIXME: This is just for CoreSolverType
 #include "klee/Expr.h"
 
 #include <vector>
@@ -42,6 +43,9 @@ namespace klee {
     Query negateExpr() const {
       return withExpr(Expr::createIsZero(expr));
     }
+
+    /// Dump query
+    void dump() const ;
   };
 
   class Solver {
@@ -67,36 +71,72 @@ namespace klee {
     Solver(SolverImpl *_impl) : impl(_impl) {}
     virtual ~Solver();
 
-    /// evaluate - Determine the full validity of an expression in particular
-    /// state.
-    ////
-    /// \param [out] result - The validity of the given expression (provably
-    /// true, provably false, or neither).
+    /// evaluate - Determine for a particular state if the query
+    /// expression is provably true, provably false or neither.
+    ///
+    /// \param [out] result - if
+    /// \f[ \forall X constraints(X) \to query(X) \f]
+    /// then Solver::True,
+    /// else if
+    /// \f[ \forall X constraints(X) \to \lnot query(X) \f]
+    /// then Solver::False,
+    /// else
+    /// Solver::Unknown
     ///
     /// \return True on success.
     bool evaluate(const Query&, Validity &result);
   
     /// mustBeTrue - Determine if the expression is provably true.
+    /// 
+    /// This evaluates the following logical formula:
     ///
-    /// \param [out] result - On success, true iff the expresssion is provably
-    /// false.
+    /// \f[ \forall X constraints(X) \to query(X) \f]
+    ///
+    /// which is equivalent to
+    ///
+    /// \f[ \lnot \exists X constraints(X) \land \lnot query(X) \f]
+    ///
+    /// Where \f$X\f$ is some assignment, \f$constraints(X)\f$ are the constraints
+    /// in the query and \f$query(X)\f$ is the query expression.
+    ///
+    /// \param [out] result - On success, true iff the logical formula is true
     ///
     /// \return True on success.
     bool mustBeTrue(const Query&, bool &result);
 
     /// mustBeFalse - Determine if the expression is provably false.
     ///
-    /// \param [out] result - On success, true iff the expresssion is provably
-    /// false.
+    /// This evaluates the following logical formula:
+    ///
+    /// \f[ \lnot \exists X constraints(X) \land query(X) \f]
+    ///
+    /// which is equivalent to
+    ///
+    ///  \f[ \forall X constraints(X) \to \lnot query(X) \f]
+    ///
+    /// Where \f$X\f$ is some assignment, \f$constraints(X)\f$ are the constraints
+    /// in the query and \f$query(X)\f$ is the query expression.
+    ///
+    /// \param [out] result - On success, true iff the logical formula is false
     ///
     /// \return True on success.
     bool mustBeFalse(const Query&, bool &result);
 
     /// mayBeTrue - Determine if there is a valid assignment for the given state
-    /// in which the expression evaluates to false.
+    /// in which the expression evaluates to true.
     ///
-    /// \param [out] result - On success, true iff the expresssion is true for
-    /// some satisfying assignment.
+    /// This evaluates the following logical formula:
+    ///
+    /// \f[ \exists X constraints(X) \land query(X) \f]
+    ///
+    /// which is equivalent to
+    ///
+    /// \f[ \lnot \forall X constraints(X) \to \lnot query(X) \f]
+    ///
+    /// Where \f$X\f$ is some assignment, \f$constraints(X)\f$ are the constraints
+    /// in the query and \f$query(X)\f$ is the query expression.
+    ///
+    /// \param [out] result - On success, true iff the logical formula may be true
     ///
     /// \return True on success.
     bool mayBeTrue(const Query&, bool &result);
@@ -104,8 +144,18 @@ namespace klee {
     /// mayBeFalse - Determine if there is a valid assignment for the given
     /// state in which the expression evaluates to false.
     ///
-    /// \param [out] result - On success, true iff the expresssion is false for
-    /// some satisfying assignment.
+    /// This evaluates the following logical formula:
+    ///
+    /// \f[ \exists X constraints(X) \land \lnot query(X) \f]
+    ///
+    /// which is equivalent to
+    ///
+    /// \f[ \lnot \forall X constraints(X) \to query(X) \f]
+    ///
+    /// Where \f$X\f$ is some assignment, \f$constraints(X)\f$ are the constraints
+    /// in the query and \f$query(X)\f$ is the query expression.
+    ///
+    /// \param [out] result - On success, true iff the logical formula may be false
     ///
     /// \return True on success.
     bool mayBeFalse(const Query&, bool &result);
@@ -113,7 +163,7 @@ namespace klee {
     /// getValue - Compute one possible value for the given expression.
     ///
     /// \param [out] result - On success, a value for the expression in some
-    /// satisying assignment.
+    /// satisfying assignment.
     ///
     /// \return True on success.
     bool getValue(const Query&, ref<ConstantExpr> &result);
@@ -123,7 +173,7 @@ namespace klee {
     /// \param [out] result - On success, this vector will be filled in with an
     /// array of bytes for each given object (with length matching the object
     /// size). The bytes correspond to the initial values for the objects for
-    /// some satisying assignment.
+    /// some satisfying assignment.
     ///
     /// \return True on success.
     ///
@@ -148,8 +198,12 @@ namespace klee {
     //
     // FIXME: This should go into a helper class, and should handle failure.
     virtual std::pair< ref<Expr>, ref<Expr> > getRange(const Query&);
+    
+    virtual char *getConstraintLog(const Query& query);
+    virtual void setCoreSolverTimeout(double timeout);
   };
 
+#ifdef ENABLE_STP
   /// STPSolver - A complete solver based on STP.
   class STPSolver : public Solver {
   public:
@@ -161,16 +215,47 @@ namespace klee {
     /// be optimized into add/shift/multiply operations.
     STPSolver(bool useForkedSTP, bool optimizeDivides = true);
 
-    
-    
     /// getConstraintLog - Return the constraint log for the given state in CVC
     /// format.
-    char *getConstraintLog(const Query&);
-    
-    /// setTimeout - Set constraint solver timeout delay to the given value; 0
+    virtual char *getConstraintLog(const Query&);
+
+    /// setCoreSolverTimeout - Set constraint solver timeout delay to the given value; 0
     /// is off.
-    void setTimeout(double timeout);
+    virtual void setCoreSolverTimeout(double timeout);
   };
+#endif // ENABLE_STP
+
+#ifdef ENABLE_Z3
+  /// Z3Solver - A solver complete solver based on Z3
+  class Z3Solver : public Solver {
+  public:
+    /// Z3Solver - Construct a new Z3Solver.
+    Z3Solver();
+
+    /// Get the query in SMT-LIBv2 format.
+    /// \return A C-style string. The caller is responsible for freeing this.
+    virtual char *getConstraintLog(const Query &);
+
+    /// setCoreSolverTimeout - Set constraint solver timeout delay to the given
+    /// value; 0
+    /// is off.
+    virtual void setCoreSolverTimeout(double timeout);
+  };
+#endif // ENABLE_Z3
+
+#ifdef ENABLE_METASMT
+  
+  template<typename SolverContext>
+  class MetaSMTSolver : public Solver {
+  public:
+    MetaSMTSolver(bool useForked, bool optimizeDivides);
+    virtual ~MetaSMTSolver();
+  
+    virtual char *getConstraintLog(const Query&);
+    virtual void setCoreSolverTimeout(double timeout);
+};
+
+#endif /* ENABLE_METASMT */
 
   /* *** */
 
@@ -213,11 +298,21 @@ namespace klee {
   
   /// createPCLoggingSolver - Create a solver which will forward all queries
   /// after writing them to the given path in .pc format.
-  Solver *createPCLoggingSolver(Solver *s, std::string path);
+  Solver *createPCLoggingSolver(Solver *s, std::string path,
+                                int minQueryTimeToLog);
+
+  /// createSMTLIBLoggingSolver - Create a solver which will forward all queries
+  /// after writing them to the given path in .smt2 format.
+  Solver *createSMTLIBLoggingSolver(Solver *s, std::string path,
+                                    int minQueryTimeToLog);
+
 
   /// createDummySolver - Create a dummy solver implementation which always
   /// fails.
   Solver *createDummySolver();
+
+  // Create a solver based on the supplied ``CoreSolverType``.
+  Solver *createCoreSolver(CoreSolverType cst);
 }
 
 #endif

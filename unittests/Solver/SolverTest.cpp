@@ -10,9 +10,11 @@
 #include <iostream>
 #include "gtest/gtest.h"
 
+#include "klee/CommandLine.h"
 #include "klee/Constraints.h"
 #include "klee/Expr.h"
 #include "klee/Solver.h"
+#include "klee/util/ArrayCache.h"
 #include "llvm/ADT/StringExtras.h"
 
 using namespace klee;
@@ -32,6 +34,10 @@ ref<Expr> getConstant(int value, Expr::Width width) {
   return ConstantExpr::create(trunc, width);
 }
 
+// We have to have the cache globally scopped (and not in ``testOperation``)
+// because the Solver (i.e. in STP's case the STPBuilder) holds on to pointers
+// to allocated Arrays.
+ArrayCache ac;
 
 template<class T>
 void testOperation(Solver &solver,
@@ -46,7 +52,7 @@ void testOperation(Solver &solver,
 
     unsigned size = Expr::getMinBytesForWidth(operandWidth);
     static uint64_t id = 0;
-    Array *array = new Array("arr" + llvm::utostr(++id), size);
+    const Array *array = ac.CreateArray("arr" + llvm::utostr(++id), size);
     symbolicArgs.push_back(Expr::CreateArg(Expr::createTempRead(array, 
                                                                 operandWidth)));
   }
@@ -61,9 +67,7 @@ void testOperation(Solver &solver,
   // replaced value is appropriated constrained.
   for (unsigned kid = 0; kid < T::numKids; kid++) {
     std::vector<Expr::CreateArg> partiallyConstantArgs(symbolicArgs);
-    for (unsigned i = 0; i < T::numKids; i++)
-      if (i==kid)
-        partiallyConstantArgs[i] = getConstant(value, operandWidth);
+    partiallyConstantArgs[kid] = getConstant(value, operandWidth);
 
     ref<Expr> expr = 
       NotOptimizedExpr::create(EqExpr::create(partiallyConstantArgs[kid].expr,
@@ -124,8 +128,7 @@ void testOpcode(Solver &solver, bool tryBool = true, bool tryZero = true,
 }
 
 TEST(SolverTest, Evaluation) {
-  STPSolver *stpSolver = new STPSolver(true); 
-  Solver *solver = stpSolver;
+  Solver *solver = klee::createCoreSolver(CoreSolverToUse);
 
   solver = createCexCachingSolver(solver);
   solver = createCachingSolver(solver);

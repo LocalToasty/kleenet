@@ -10,11 +10,8 @@
 #include "klee/Config/Version.h"
 #include "klee/Internal/System/Time.h"
 
-#if LLVM_VERSION_CODE < LLVM_VERSION(2, 9)
-#include "llvm/System/Process.h"
-#else
+#include "llvm/Support/TimeValue.h"
 #include "llvm/Support/Process.h"
-#endif
 
 using namespace llvm;
 using namespace klee;
@@ -26,7 +23,10 @@ double util::getUserTime() {
 }
 
 double util::getWallTime() {
-  sys::TimeValue now(0,0),user(0,0),sys(0,0);
-  sys::Process::GetTimeUsage(now,user,sys);
-  return (now.seconds() + (double) now.nanoseconds() * 1e-9);
+  sys::TimeValue now = getWallTimeVal();
+  return (now.seconds() + ((double) now.nanoseconds() * 1e-9));
+}
+
+sys::TimeValue util::getWallTimeVal() {
+  return sys::TimeValue::now();
 }

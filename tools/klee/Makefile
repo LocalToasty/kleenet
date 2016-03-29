@@ -12,16 +12,24 @@ TOOLNAME = klee
 
 include $(LEVEL)/Makefile.config
 
-STP_LIBS := stp_c_interface.a stp_AST.a stp_bitvec.a stp_constantbv.a stp_sat.a \
-	stp_simplifier.a
-USEDLIBS = kleeCore.a kleeModule.a kleaverSolver.a kleaverExpr.a kleeSupport.a kleeBasic.a kleeNetStub.a
-ifeq ($(ENABLE_EXT_STP),0)
-  USEDLIBS += $(STP_LIBS)
-endif
+USEDLIBS = kleeCore.a kleeBasic.a kleeModule.a  kleaverSolver.a kleaverExpr.a kleeSupport.a kleeNetStub.a
 LINK_COMPONENTS = jit bitreader bitwriter ipo linker engine
 
+ifeq ($(shell python -c "print($(LLVM_VERSION_MAJOR).$(LLVM_VERSION_MINOR) >= 3.3)"), True)
+LINK_COMPONENTS += irreader
+endif
 include $(LEVEL)/Makefile.common
 
-ifeq ($(ENABLE_EXT_STP),1)
-  LIBS += -lstp
+ifneq ($(ENABLE_STP),0)
+  LIBS += $(STP_LDFLAGS)
+endif
+
+ifneq ($(ENABLE_Z3),0)
+  LIBS += $(Z3_LDFLAGS)
+endif
+
+include $(PROJ_SRC_ROOT)/MetaSMT.mk
+
+ifeq ($(HAVE_TCMALLOC),1)
+  LIBS += $(TCMALLOC_LIB)
 endif

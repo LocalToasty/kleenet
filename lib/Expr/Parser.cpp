@@ -16,13 +16,13 @@
 #include "klee/ExprBuilder.h"
 #include "klee/Solver.h"
 #include "klee/util/ExprPPrinter.h"
+#include "klee/util/ArrayCache.h"
 
 #include "llvm/ADT/APInt.h"
 #include "llvm/Support/MemoryBuffer.h"
 #include "llvm/Support/raw_ostream.h"
 
 #include <cassert>
-#include <iostream>
 #include <map>
 #include <cstring>
 
@@ -110,6 +110,7 @@ namespace {
     const std::string Filename;
     const MemoryBuffer *TheMemoryBuffer;
     ExprBuilder *Builder;
+    ArrayCache TheArrayCache;
 
     Lexer TheLexer;
     unsigned MaxErrors;
@@ -330,6 +331,8 @@ namespace {
                                         MaxErrors(~0u),
                                         NumErrors(0) {}
 
+    virtual ~ParserImpl();
+
     /// Initialize - Initialize the parsing state. This must be called
     /// prior to the start of parsing.
     void Initialize() {
@@ -520,12 +523,12 @@ DeclResult ParserImpl::ParseArrayDecl() {
 
   // FIXME: Array should take domain and range.
   const Identifier *Label = GetOrCreateIdentifier(Name);
-  Array *Root;
+  const Array *Root;
   if (!Values.empty())
-    Root = new Array(Label->Name, Size.get(),
-                     &Values[0], &Values[0] + Values.size());
+    Root = TheArrayCache.CreateArray(Label->Name, Size.get(), &Values[0],
+                                     &Values[0] + Values.size());
   else
-    Root = new Array(Label->Name, Size.get());
+    Root = TheArrayCache.CreateArray(Label->Name, Size.get());
   ArrayDecl *AD = new ArrayDecl(Label, Size.get(), 
                                 DomainType.get(), RangeType.get(), Root);
 
@@ -1307,7 +1310,9 @@ VersionResult ParserImpl::ParseVersionSpecifier() {
   VersionResult Res = ParseVersion();
   // Define update list to avoid use-of-undef errors.
   if (!Res.isValid()) {
-    Res = VersionResult(true, UpdateList(new Array("", 0), NULL));
+    // FIXME: I'm not sure if this is right. Do we need a unique array here?
+    Res =
+        VersionResult(true, UpdateList(TheArrayCache.CreateArray("", 0), NULL));
   }
   
   if (Label)
@@ -1496,17 +1501,9 @@ ExprResult ParserImpl::ParseNumberToken(Expr::Width Type, const Token &Tok) {
     Val = -Val;
 
   if (Type < Val.getBitWidth())
-#if LLVM_VERSION_CODE <= LLVM_VERSION(2, 8)
-    Val.trunc(Type);
-#else
     Val=Val.trunc(Type);
-#endif
   else if (Type > Val.getBitWidth())
-#if LLVM_VERSION_CODE <= LLVM_VERSION(2, 8)
-    Val.zext(Type);
-#else
     Val=Val.zext(Type);
-#endif
 
   return ExprResult(Builder->Constant(Val));
 }
@@ -1530,7 +1527,7 @@ void ParserImpl::Error(const char *Message, const Token &At) {
   if (MaxErrors && NumErrors >= MaxErrors)
     return;
 
-  std::cerr << Filename
+  llvm::errs() << Filename
             << ":" << At.line << ":" << At.column 
             << ": error: " << Message << "\n";
 
@@ -1552,18 +1549,48 @@ void ParserImpl::Error(const char *Message, const Token &At) {
     ++LineEnd;
 
   // Show the line.
-  std::cerr << std::string(LineBegin, LineEnd) << "\n";
+  llvm::errs() << std::string(LineBegin, LineEnd) << "\n";
 
   // Show the caret or squiggly, making sure to print back spaces the
   // same.
   for (const char *S=LineBegin; S != At.start; ++S)
-    std::cerr << (isspace(*S) ? *S : ' ');
+    llvm::errs() << (isspace(*S) ? *S : ' ');
   if (At.length > 1) {
     for (unsigned i=0; i<At.length; ++i)
-      std::cerr << '~';
+      llvm::errs() << '~';
   } else
-    std::cerr << '^';
-  std::cerr << '\n';
+    llvm::errs() << '^';
+  llvm::errs() << '\n';
+}
+
+ParserImpl::~ParserImpl() {
+  // Free identifiers
+  //
+  // Note the Identifiers are not disjoint across the symbol
+  // tables so we need to keep track of what has freed to
+  // avoid doing a double free.
+  std::set<const Identifier*> freedNodes;
+  for (IdentifierTabTy::iterator pi = IdentifierTab.begin(),
+                                 pe = IdentifierTab.end();
+       pi != pe; ++pi) {
+    const Identifier* id = pi->second;
+    if (freedNodes.insert(id).second)
+      delete id;
+  }
+  for (ExprSymTabTy::iterator pi = ExprSymTab.begin(),
+                              pe = ExprSymTab.end();
+       pi != pe; ++pi) {
+    const Identifier* id = pi->first;
+    if (freedNodes.insert(id).second)
+      delete id;
+  }
+  for (VersionSymTabTy::iterator pi = VersionSymTab.begin(),
+                                 pe = VersionSymTab.end();
+       pi != pe; ++pi) {
+    const Identifier* id = pi->first;
+    if (freedNodes.insert(id).second)
+      delete id;
+  }
 }
 
 // AST API
@@ -1572,20 +1599,20 @@ void ParserImpl::Error(const char *Message, const Token &At) {
 Decl::Decl(DeclKind _Kind) : Kind(_Kind) {}
 
 void ArrayDecl::dump() {
-  std::cout << "array " << Root->name
+  llvm::outs() << "array " << Root->name
             << "[" << Root->size << "]"
             << " : " << 'w' << Domain << " -> " << 'w' << Range << " = ";
 
   if (Root->isSymbolicArray()) {
-    std::cout << "symbolic\n";
+    llvm::outs() << "symbolic\n";
   } else {
-    std::cout << '[';
+    llvm::outs() << '[';
     for (unsigned i = 0, e = Root->size; i != e; ++i) {
       if (i)
-        std::cout << " ";
-      std::cout << Root->constantValues[i];
+        llvm::outs() << " ";
+      llvm::outs() << Root->constantValues[i];
     }
-    std::cout << "]\n";
+    llvm::outs() << "]\n";
   }
 }
 
@@ -1600,7 +1627,7 @@ void QueryCommand::dump() {
     ObjectsBegin = &Objects[0];
     ObjectsEnd = ObjectsBegin + Objects.size();
   }
-  ExprPPrinter::printQuery(std::cout, ConstraintManager(Constraints), 
+  ExprPPrinter::printQuery(llvm::outs(), ConstraintManager(Constraints),
                            Query, ValuesBegin, ValuesEnd,
                            ObjectsBegin, ObjectsEnd,
                            false);

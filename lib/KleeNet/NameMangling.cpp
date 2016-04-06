@@ -1,7 +1,7 @@
 #include "NameMangling.h"
 
 #include "klee/Expr.h"
-#include "klee_headers/Common.h"
+#include "klee/Internal/Support/ErrorHandling.h"
 #include "llvm/ADT/StringExtras.h"
 #include "llvm/Support/CommandLine.h"
 

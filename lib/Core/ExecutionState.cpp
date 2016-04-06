@@ -100,9 +100,6 @@ ExecutionState::~ExecutionState() {
 ExecutionState::ExecutionState(const ExecutionState& state)
   : kleenet::State(state),
     fnAliases(state.fnAliases),
-    fakeState(state.fakeState),
-    underConstrained(state.underConstrained),
-    depth(state.depth),
     pc(state.pc),
     prevPC(state.prevPC),
     stack(state.stack),

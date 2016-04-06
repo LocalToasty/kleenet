@@ -10,10 +10,10 @@
 LEVEL=../..
 TOOLNAME = kleenet-replay
 
-USEDLIBS = kleeNetBasic.a
+USEDLIBS = kleeBasic.a kleeNetBasic.a
 LINK_COMPONENTS = 
 NO_PEDANTIC=1
 
 include $(LEVEL)/Makefile.common
 
-LIBS += -lutil
+LIBS += -lutil -lcap

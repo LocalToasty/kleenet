@@ -263,8 +263,6 @@ namespace {
             cl::desc("Inhibit forking at memory cap (vs. random terminate) (default=on)"),
             cl::init(true));
 }
-using namespace executor_options;
-
 
 namespace klee {
   RNG theRNG;

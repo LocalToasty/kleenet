@@ -37,7 +37,7 @@ def main():
     llvm_path = subprocess.Popen(["llvm-config", "--bindir"], stdout=subprocess.PIPE).communicate()[0].strip()
 
     if not isLinkCommand():
-        os.execvp(llvm_path+"/clang", ["clang", "-emit-llvm", "-c"] + sys.argv[1:])
+        os.execvp(llvm_path+"/clang".encode('utf-8'), ["clang", "-emit-llvm", "-c"] + sys.argv[1:])
         return 1
 
     # Otherwise, strip out arguments that llvm-ld doesn't understand. I don't

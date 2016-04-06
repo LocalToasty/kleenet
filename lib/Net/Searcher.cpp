@@ -1,6 +1,6 @@
 #include "net/Searcher.h"
 
-#include "klee_headers/Common.h"
+#include "klee/Internal/Support/ErrorHandling.h"
 
 using namespace net;
 

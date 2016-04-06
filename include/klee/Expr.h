@@ -448,6 +448,8 @@ private:
 };
 
 class Array : public kleenet::BaseArray {
+private:
+  unsigned hashValue;
 public:
   // Name of the array
   const std::string name;
@@ -463,9 +465,6 @@ public:
   /// a symbolic array. If non-empty, this size of this array is equivalent to
   /// the array size.
   const std::vector<ref<ConstantExpr> > constantValues;
-
-private:
-  unsigned hashValue;
 
   // FIXME: Make =delete when we switch to C++11
   Array(const Array& array);
@@ -484,21 +483,8 @@ private:
   /// distinguished once printed.
   Array(const std::string &_name, uint64_t _size,
         const ref<ConstantExpr> *constantValuesBegin = 0,
-        const ref<ConstantExpr> *constantValuesEnd = 0
-        Expr::Width _domain = Expr::Int32, Expr::Width _range = Expr::Int8)
-    : name(_name), size(_size), 
-      constantValues(constantValuesBegin, constantValuesEnd), 
-      stpInitialArray(0) {
-    assert((isSymbolicArray() || constantValues.size() == size) &&
-           "Invalid size for constant array!");
-#ifndef NDEBUG
-    for (const ref<ConstantExpr> *it = constantValuesBegin;
-         it != constantValuesEnd; ++it)
-      assert((*it)->getWidth() == getRange() &&
-             "Invalid initial constant value!");
-#endif
-  }
-  ~Array();
+        const ref<ConstantExpr> *constantValuesEnd = 0,
+        Expr::Width _domain = Expr::Int32, Expr::Width _range = Expr::Int8);
 
 public:
   bool isSymbolicArray() const { return constantValues.empty(); }

@@ -1,6 +1,7 @@
 #include "NetExecutor.h"
 
 #include "llvm/Support/CommandLine.h"
+#include "klee/CommandLine.h"
 
 #include "SpecialFunctionHandler.h" // the KleeNet version! It enhances the KLEE version
 #include "ConfigurationData.h"
@@ -47,11 +48,6 @@ namespace {
     ),
     llvm::cl::init(DTB_uniformTestCase)
   );
-}
-
-namespace executor_options {
-  extern llvm::cl::opt<bool> UseCache;
-  extern llvm::cl::opt<bool> UseCexCache;
 }
 
 
@@ -134,8 +130,8 @@ Executor::Executor(const InterpreterOptions &opts,
                    InterpreterHandler *ih)
   : klee::Executor(
         OverrideChain()
-          .overrideOpt(executor_options::UseCache).withValue(false).onlyIf(Override_UseCache).chain()
-          .overrideOpt(executor_options::UseCexCache).withValue(false).onlyIf(Override_UseCexCache).chain()
+          .overrideOpt(klee::UseCache).withValue(false).onlyIf(Override_UseCache).chain()
+          .overrideOpt(klee::UseCexCache).withValue(false).onlyIf(Override_UseCexCache).chain()
           .passSomeCRef(opts)
       , ih)
   , kleenet(this)

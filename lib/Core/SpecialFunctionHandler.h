@@ -57,6 +57,7 @@ namespace klee {
     std::vector<HandlerInfo> handlerInfo;
   protected:
     void learnHandlerInfo(HandlerInfo const&);
+  public:
 
     // const_iterator to iterate over stored HandlerInfo
     // FIXME: Implement >, >=, <=, < operators

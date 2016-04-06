@@ -24,9 +24,9 @@
 
 #include "klee_headers/Context.h"
 #include "klee_headers/Memory.h"
-#include "klee_headers/Common.h"
+#include "klee/Internal/Support/ErrorHandling.h"
 
-#include "llvm/Module.h"
+#include "llvm/IR/Module.h"
 #include "llvm/ADT/Twine.h"
 #include "llvm/Support/CommandLine.h"
 
@@ -589,7 +589,7 @@ namespace kleenet {
 
   // strong debug stuff .......
   HAND(void,kleenet_dump_constraints,0) {
-    klee::ExprPPrinter::printConstraints(std::cout,ha.state.constraints);
+    klee::ExprPPrinter::printConstraints(llvm::outs(),ha.state.constraints);
   }
 
 

@@ -1,7 +1,7 @@
 
 #include "PrefixSymbols.h"
 
-#include "llvm/Module.h"
+#include "llvm/IR/Module.h"
 #include "llvm/Support/CommandLine.h"
 
 #define NELEMS(array) (sizeof(array)/sizeof(array[0]))
@@ -46,7 +46,7 @@ namespace prefix_symbols {
     // rename globals
     for (Module::global_iterator it = currModule->global_begin(),
         ie = currModule->global_end(); it != ie; ++it) {
-      std::string str = it->getNameStr();
+      std::string str = it->getName();
       if (!ignoreList.count(str)) {
         it->setName(Prefix + str);
       }
@@ -56,7 +56,7 @@ namespace prefix_symbols {
 
   // rename functions
   bool PrefixSymbols::runOnFunction(Function &F) {
-    std::string str = F.getNameStr();
+    std::string str = F.getName();
     if (!ignoreList.count(str)) {
       F.setName(Prefix + str);
     }

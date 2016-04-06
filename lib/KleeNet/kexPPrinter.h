@@ -12,6 +12,11 @@
 #include <sstream>
 #include <ostream>
 
+namespace llvm {
+  class raw_ostream;
+  class raw_string_ostream;
+}
+
 namespace klee {
   class ConstraintManager;
   template <typename> class ref;
@@ -26,18 +31,20 @@ namespace kleenet {
     };
     template <>
     struct ppHelper<klee::ConstraintManager> {
-      static void pprint(std::ostream& str, klee::ConstraintManager const& obj);
+      static void pprint(llvm::raw_ostream& str, klee::ConstraintManager const& obj);
     };
     template <>
     struct ppHelper<klee::ref<klee::Expr> > {
-      static void pprint(std::ostream& str, klee::ref<klee::Expr> const& obj);
+      static void pprint(llvm::raw_ostream& str, klee::ref<klee::Expr> const& obj);
     };
     template <typename DD, typename T>
     struct pp {
       static void pprint(T const& obj, char const* prefix) {
+        /** TODO fix to make it work with LLVM
         if (DD::enable) {
-          std::stringstream str;
-          ppHelper<T>::pprint(str,obj);
+          std::string str;
+          llvm::raw_string_ostream rawStr(str);
+          ppHelper<T>::pprint(rawStr,obj);
           char const dummy = 0;
           char const* p = &dummy;
           while (str.getline(ppHelper<void>::buf,sizeof ppHelper<void>::buf / sizeof *ppHelper<void>::buf)) {
@@ -45,6 +52,7 @@ namespace kleenet {
             p = prefix;
           }
         }
+        */
       }
     };
   }

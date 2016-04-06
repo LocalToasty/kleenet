@@ -7,7 +7,7 @@
 
 #include "klee_headers/Memory.h"
 #include "klee_headers/MemoryManager.h"
-#include "klee_headers/Common.h"
+#include "klee/Internal/Support/ErrorHandling.h"
 
 #include <tr1/unordered_set>
 #include <tr1/unordered_map>

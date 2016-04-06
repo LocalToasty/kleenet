@@ -7,10 +7,10 @@
 
 #include "klee/ExecutionState.h"
 #include "klee_headers/PTree.h"
-#include "klee_headers/Common.h"
 #include "klee_headers/Memory.h"
 #include "klee_headers/MemoryManager.h"
 #include "klee_headers/TimingSolver.h"
+#include "klee/Internal/Support/ErrorHandling.h"
 
 #include "llvm/Support/CommandLine.h"
 

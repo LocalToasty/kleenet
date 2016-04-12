@@ -19,13 +19,15 @@
 <h4 id="development-environment">Development Environment</h4>
 <p>For getting started there exists some <a href="https://www.docker.com/" title="Docker Homepage">Docker</a> container for Klee and KleeNet. Just pull one of the following containers:</p>
 <ul>
-<li><a href="https://hub.docker.com/r/dionadar/klee-dev-base/" title="Klee Container Base">dionadar/klee-dev-base</a></li>
-<li><a href="https://hub.docker.com/r/dionadar/klee-dev-base-prebuilt/" title="Klee Container Base Prebuilt">dionadar/klee-dev-base-prebuilt</a></li>
-<li><a href="https://hub.docker.com/r/dionadar/klee-dev-fat/" title="Klee Container Fat">dionadar/klee-dev-fat</a></li>
-<li><a href="https://hub.docker.com/r/dionadar/klee-dev-fat-prebuilt/" title="Klee Container Fat Prebuilt">dionadar/klee-dev-fat-prebuilt</a></li>
+<li><a href="https://hub.docker.com/r/comsys/klee-dev-base/" title="Klee Container Base">comsys/klee-dev-base</a></li>
+<li><a href="https://hub.docker.com/r/comsys/klee-dev-base-prebuilt/" title="Klee Container Base Prebuilt">comsys/klee-dev-base-prebuilt</a></li>
+<li><a href="https://hub.docker.com/r/comsys/klee-dev-fat/" title="Klee Container Fat">comsys/klee-dev-fat</a></li>
+<li><a href="https://hub.docker.com/r/comsys/klee-dev-fat-prebuilt/" title="Klee Container Fat Prebuilt">comsys/klee-dev-fat-prebuilt</a></li>
+<li><a href="https://hub.docker.com/r/comsys/kleenet-dev-base/" title="KleeNet Container Base">comsys/kleenet-dev-base</a></li>
+<li><a href="https://hub.docker.com/r/comsys/kleenet-dev-base-prebuilt/" title="KleeNet Container Base Prebuilt">comsys/kleenet-dev-base-prebuilt</a></li>
+<li><a href="https://hub.docker.com/r/comsys/kleenet-dev-fat/" title="KleeNet Container Fat">comsys/kleenet-dev-fat</a></li>
+<li><a href="https://hub.docker.com/r/comsys/kleenet-dev-fat-prebuilt/" title="KleeNet Container Fat Prebuilt">comsys/kleenet-dev-fat-prebuilt</a></li>
 </ul>
-<!-- TODO: Add KleeNet containers -->
-
 <p>The difference between the base- and fat-edition is that the base-container only ships the minimal needed packages, whereas the fat-container is suitable for development purposes. Furthermore, the container with the prebuilt postfix in their name ship already a compiled version of LLVM, Klee and/or KleeNet.</p>
 <h4 id="command-line-options">Command-Line Options</h4>
 <p>Klee and KleeNet can be executed with several command-line options to influence the behaviour. All available options can be accessed by typing &quot;klee --help&quot; or &quot;kleenet --help&quot; into the console. To distinguish the options between Klee and KleeNet, all options of KleeNet start with an sde-prefix for &quot;symbolic distributed execution&quot;. For example, via &quot;-sde-state-mapping&quot; the state mapping algorithm can be changed.</p>
@@ -58,11 +60,13 @@
 <h3 id="architecture">Architecture</h3>
 <p>The UML diagram below shows the main and most important components of Klee and KleeNet, which will be explained more in detail afterwards. Note, that neither this UML diagram nor the following UML diagrams in this documentation are complete; their purpose is just to show the central components required for understanding.</p>
 <div class="figure">
-<img src="images/kleenet_overview.png" alt="kleenet_overview" /><p class="caption">kleenet_overview</p>
+<img src="images/kleenet_overview.png" alt="kleenet_overview" />
+<p class="caption">kleenet_overview</p>
 </div>
 <h4 id="netexecutor">NetExecutor</h4>
 <div class="figure">
-<img src="images/kleenet_executor.png" alt="kleenet_executor" /><p class="caption">kleenet_executor</p>
+<img src="images/kleenet_executor.png" alt="kleenet_executor" />
+<p class="caption">kleenet_executor</p>
 </div>
 <p>The NetExecutor is the KleeNet specific implementation of the Executor in Klee. The Executor is so to speak the controller of the symbolic execution and the main concrete instance of the Interpreter class, which defines an interface to the LLVM bit code interpreter. Its entry point is the method &quot;runFunctionAsMain&quot;, which will be called from the main method of KleeNet and prepares everything for the symbolic execution of a certain function, for example, initialising the first ExecutionState. Generally, the NetExecutor performs the same steps as the Executor, since the the overridden method &quot;run&quot;, which will actually start the symbolic execution of a function, will also call the corresponding method of the Executor. Additionally, the NetExecutor initialises the KleeNet specific run environment needed for the distributed context and handles the &quot;injection&quot; of the SpecialFunctionHandler of KleeNet. The following basic steps are performed in the execution algorithm of KleeNet and Klee:</p>
 <ol style="list-style-type: decimal">
@@ -76,45 +80,55 @@
 </ol>
 <h4 id="searcher">Searcher</h4>
 <div class="figure">
-<img src="images/kleenet_searcher.png" alt="kleenet_searcher" /><p class="caption">kleenet_searcher</p>
+<img src="images/kleenet_searcher.png" alt="kleenet_searcher" />
+<p class="caption">kleenet_searcher</p>
 </div>
 <p>The KleeNet and Klee Searcher selects the next state to execute based on several strategies. As a consequence, the Searcher classes and most of its methods are abstract; the implementation of those methods is realized in the different subclasses representing the different strategies like breath-first-search, depth-first-search, random-search, etc. Thereby, the most important methods are the method &quot;selectState&quot;, which performs the actual selection of the next state based on the implemented strategy, and the method &quot;update&quot;, which will be called by the Executor during the update process of the states to add and remove states. The Net module provides several Searchers for the the distributed execution and is connected via the KleeNet Searcher to Klee. For example, the LockStepSearcher is quite similar to Klee's Searcher which executes always on instruction, since it executes one instruction alternating each node.</p>
 <h4 id="executionstate">ExecutionState</h4>
 <div class="figure">
-<img src="images/kleenet_state.png" alt="kleenet_state" /><p class="caption">kleenet_state</p>
+<img src="images/kleenet_state.png" alt="kleenet_state" />
+<p class="caption">kleenet_state</p>
 </div>
 <p>The ExecutionState stores all information of a particular state of symbolic execution. These information comprise, for example, the current instruction to be executed, the instruction which will be executed next after the current instruction, the stack, the address space and the constraints. The reason why the ExecutionState inherits from State and BasicState is that by this the Klee implementation is connected to the distributed functionality of KleeNet (please see the description of the workflows below for more details on that).</p>
 <h4 id="specialfunctionhandler">SpecialFunctionHandler</h4>
 <div class="figure">
-<img src="images/kleenet_specialfunctionhandler.png" alt="kleenet_specialfunctionhandler" /><p class="caption">kleenet_specialfunctionhandler</p>
+<img src="images/kleenet_specialfunctionhandler.png" alt="kleenet_specialfunctionhandler" />
+<p class="caption">kleenet_specialfunctionhandler</p>
 </div>
 <p>The SpecialFunctionHandler handles the specific functions of Klee and KleeNet, for example, the functions &quot;klee_make_symbolic&quot; to make memory symbolic or &quot;kleenet_memcpy&quot; for virtually sending data form one node to another. So whenever the Executor finds a not intrinsic LLVM call during interpretation, it first asks the SpecialFunctionHandler if it can handle this function before treating is as normal external function. In case you want to add an own special function there exists the macro &quot;ADD&quot; in the Klee SpecialFunctionHandler and &quot;HAND&quot; in the KleeNet SpecialFunctionHandler, which will do all the registration work.</p>
 <p>The following explanation of a little hack might be helpful if you ever need to change something in the Klee SpecialFunctionHandler: The Klee SpecialFunctionHandler stores all registered special functions in a static array &quot;handlerInfo&quot;, which is also directly statically initialised with all special functions of Klee. As a consequence, adding additional functions is not efficiently possible during runtime. Therefore, a vector with the same variable name &quot;handlerInfo&quot; was added to the Klee SpecialFunctionHandler and the special functions of Klee and KleeNet are then added to this vector with the help of the method &quot;learnHandlerInfo&quot; during runtime. By this it is possible to leave the other methods of the Klee's SpecialFunctionHandler untouched, which use the variable name &quot;handlerInfo&quot;, since private variables are preferred over outer scopes variables.</p>
 <h4 id="statemapper">StateMapper</h4>
 <div class="figure">
-<img src="images/kleenet_statemapper.png" alt="kleenet_statemapper" /><p class="caption">kleenet_statemapper</p>
+<img src="images/kleenet_statemapper.png" alt="kleenet_statemapper" />
+<p class="caption">kleenet_statemapper</p>
 </div>
 <p>The StateMapper handles the mapping of packets sent by a node's state to the states of the other nodes involved in a communication. Thereby the most important methods are the method &quot;map&quot;, which performs the actual mapping of &quot;normal&quot; packets, and &quot;phonyMap&quot;, which performs the mapping of phony packets; meaning, many cached packets and sent as one bulk packet. But the implementation is realized in the subclasses of the StateMapper, since the StateMapper itself is abstract. So the actual mapping algorithm can be exchanged, e.g. currently exists a CoBStateMapper for the copy-on-branch algorithm and a CoWStateMapper for the copy-on-write algorithm.</p>
 <h3 id="workflows">Workflows</h3>
 <h4 id="what-happens-when-an-executionstate-branchesforks">What happens when an ExecutionState branches/forks?</h4>
 <p>When the Executor executes an instruction and this instruction is a switch-statement or a branch-statement (&quot;if-statement&quot;) it will branch the corresponding ExecutionState. The branching of an ExecutionState is performed via the copy-constructor and since the ExecutionState extends State and State itself extends BasicState it will also lead to an execution of the corresponding copy-constructors of State and BasicState, respectively. This hierarchy of ExecutionState, State, and BasicState (see diagram below) is done to connect Klee with KleeNet (ExecutionState &lt;-&gt; State) and KleeNet with the Net-module (State &lt;-&gt; BasicState).</p>
 <div class="figure">
-<img src="images/kleenet_state_hierarchy.png" alt="kleenet_state_hierarchy" /><p class="caption">kleenet_state_hierarchy</p>
+<img src="images/kleenet_state_hierarchy.png" alt="kleenet_state_hierarchy" />
+<p class="caption">kleenet_state_hierarchy</p>
 </div>
 <p>Now, a BasicState has a list of StateDependants - all other BasicStates that depend on that particular BasicState - as member variable which will be cloned in the copy-constructor of the BasicState. The cloning of these StateDependants will result again in a call of the copy-constructor of each StateDependant including all of its heirs (see diagram below). Finally, this boils down to an object of either CoBInformation or CoWInformation, which are both used by the StateMapper in the mapping process (see the description of the StateMapper in the Architecture part).</p>
 <div class="figure">
-<img src="images/kleenet_statedependant_hierarchy.png" alt="kleenet_statedependant_hierarchy" /><p class="caption">kleenet_statedependant_hierarchy</p>
+<img src="images/kleenet_statedependant_hierarchy.png" alt="kleenet_statedependant_hierarchy" />
+<p class="caption">kleenet_statedependant_hierarchy</p>
 </div>
 <p>Then in case of an CoBInformation object, the copy-on-branch-mechanism will be performed directly when the copy-constructor of that object is called, resulting in a fork of all peers, because all states will be forked anyway no matter whether they are involved in the communication or not. Otherwise in case of an CoWInformation the branching will only be done after a packet was sent (see next section for more details), because only the states that are involved in the communication are forked.</p>
 <h4 id="what-happens-when-a-packet-is-sent">What happens when a packet is sent?</h4>
 <p>In KleeNet a packet is sent via the SpecialHandler function &quot;kleenet_memcpy&quot;, which is located in the SpecialFunctionHandler of KleeNet. Since KleeNet tests networks locally, the sending is actually just copying memory. So this function can somehow be compared a little bit with the &quot;memcpy&quot; function in the C library. As a consequence, to find the destination of a packet on a function call, the first step is to search for the corresponding destination memory object with the method &quot;findDestMo&quot;. Next, all relevant data is packed into in a PacketInfo object and added into the PacketCache with the method &quot;cacheMappings&quot;, which can be used to delay a certain amount of packets and send them later as bulk (phony packets). Finally, the packets in the cache are then sent with the method &quot;commitMappings&quot; and thereby handed over to the StateMapper which then decides in the method &quot;map&quot; based on the implemented algorithm (e.g., the CoWStateMapper), how to (phony)map the sent (phony)packet to each state and which states have to be therefore forked. The following diagram shows the involved classes and methods.</p>
 <div class="figure">
-<img src="images/kleenet_send_packet.png" alt="kleenet_send_packet" /><p class="caption">kleenet_send_packet</p>
+<img src="images/kleenet_send_packet.png" alt="kleenet_send_packet" />
+<p class="caption">kleenet_send_packet</p>
 </div>
 <h4 id="what-happens-if-a-state-or-cluster-is-terminated">What happens if a State or Cluster is terminated?</h4>
-<p>In Klee the termination of a state is performed via the methods &quot;terminateState&quot;, &quot;terminateStateEarly&quot;, &quot;terminateStateOnExit&quot;, and &quot;terminateOnError&quot; in the Executor. Generally, &quot;terminateState&quot; removes the state to terminate from all lists involved in the symbolic execution like addedStates, removedStates, seedMap, and processTree. All the three other methods will also call this method in the last step, but perform some additional actions like generating test cases or dumping stacks and error messages beforehand. While &quot;terminateStateOnExit&quot; and &quot;terminateStateOnError&quot; are quite self-explaining - terminate in case one path was finally executed and terminate because an error occurred in the current execution - &quot;terminateStateEarly&quot; is invoked for all other cases, for example, if the maximum search depth was reached.<br />Now, these four methods can be also found in KleeNet in the NetExecutor and each of them works generally analogously to the respective Klee method, but this time they need to handle also clusters of states. For example, if the method &quot;terminateState&quot; in the NetExecutor is called, first a specific TerminateStateHandler is created and after that the method &quot;terminateCluster&quot; of the class &quot;KleeNet&quot;, which connects Klee and the Net-module, is invoked. Finally, the method &quot;terminateCluster&quot; of the StateMapper is invoked which then terminates all states of a cluster. Thereby, the TerminateStateHandler, that is passed on every &quot;terminateCluster&quot; call, defines the way how a state is finally terminated and what additional actions are performed before. Especially, the TerminateStateHandler &quot;NetExTHnd&quot; is responsible how many test cases are generated for every cluster: one per distributed scenario (DTB_singleTestCase), one per state per distributed scenario (DTB_uniformTestCase), or one for each state per distributed scenario (DTB_forceAllTestCase) - the default case is DTB_uniformTestCase and it can be changed via the start parameter &quot;-sde-distributed-terminate&quot;.<br />At last, the NetExecutor also provides all the described methods with the suffix &quot;klee&quot;, for example, &quot;terminateStateOnError_klee&quot;, to terminate single states. These methods are just delegate methods and invoke the respective Klee version of that method. The following diagram shows the involved classes and methods.</p>
+<p>In Klee the termination of a state is performed via the methods &quot;terminateState&quot;, &quot;terminateStateEarly&quot;, &quot;terminateStateOnExit&quot;, and &quot;terminateOnError&quot; in the Executor. Generally, &quot;terminateState&quot; removes the state to terminate from all lists involved in the symbolic execution like addedStates, removedStates, seedMap, and processTree. All the three other methods will also call this method in the last step, but perform some additional actions like generating test cases or dumping stacks and error messages beforehand. While &quot;terminateStateOnExit&quot; and &quot;terminateStateOnError&quot; are quite self-explaining - terminate in case one path was finally executed and terminate because an error occurred in the current execution - &quot;terminateStateEarly&quot; is invoked for all other cases, for example, if the maximum search depth was reached.<br />
+Now, these four methods can be also found in KleeNet in the NetExecutor and each of them works generally analogously to the respective Klee method, but this time they need to handle also clusters of states. For example, if the method &quot;terminateState&quot; in the NetExecutor is called, first a specific TerminateStateHandler is created and after that the method &quot;terminateCluster&quot; of the class &quot;KleeNet&quot;, which connects Klee and the Net-module, is invoked. Finally, the method &quot;terminateCluster&quot; of the StateMapper is invoked which then terminates all states of a cluster. Thereby, the TerminateStateHandler, that is passed on every &quot;terminateCluster&quot; call, defines the way how a state is finally terminated and what additional actions are performed before. Especially, the TerminateStateHandler &quot;NetExTHnd&quot; is responsible how many test cases are generated for every cluster: one per distributed scenario (DTB_singleTestCase), one per state per distributed scenario (DTB_uniformTestCase), or one for each state per distributed scenario (DTB_forceAllTestCase) - the default case is DTB_uniformTestCase and it can be changed via the start parameter &quot;-sde-distributed-terminate&quot;.<br />
+At last, the NetExecutor also provides all the described methods with the suffix &quot;klee&quot;, for example, &quot;terminateStateOnError_klee&quot;, to terminate single states. These methods are just delegate methods and invoke the respective Klee version of that method. The following diagram shows the involved classes and methods.</p>
 <div class="figure">
-<img src="images/kleenet_termination.png" alt="kleenet_termination" /><p class="caption">kleenet_termination</p>
+<img src="images/kleenet_termination.png" alt="kleenet_termination" />
+<p class="caption">kleenet_termination</p>
 </div>
 </body>
 </html>

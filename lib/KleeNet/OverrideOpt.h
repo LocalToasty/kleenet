@@ -17,7 +17,7 @@ namespace kleenet {
   template <typename,typename,typename>
   struct OverrideOptVoid {};
 
-  template <typename Chain, typename ClOpt, template <typename Chain, typename T, typename CO> class With = OverrideOptVoid>
+  template <typename Chain, typename ClOpt, template <typename WithChain, typename T, typename CO> class With = OverrideOptVoid>
   class OverrideOpt {
     template <typename,typename,template <typename,typename,typename> class OO>
     friend class OverrideOpt;

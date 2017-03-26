@@ -11,9 +11,9 @@
 
 using namespace kleenet;
 
-Searcher::Searcher(KleeNet& kn, std::auto_ptr<net::Searcher> ns)
+Searcher::Searcher(KleeNet& kn, std::unique_ptr<net::Searcher> ns)
   : klee::Searcher()
-  , ns(ns) {
+  , ns(std::move(ns)) {
   kn.registerSearcher(this);
 }
 

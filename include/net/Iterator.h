@@ -16,6 +16,7 @@ namespace net {
         return 0; // double dispatch, in a sense
       }
     public:
+      virtual ~ConstIteratable() {}
       typedef typename util::RemoveReference<T>::Type Content;
       virtual Content operator*() const = 0;
       virtual Content operator->() const {

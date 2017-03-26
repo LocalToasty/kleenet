@@ -64,7 +64,7 @@ namespace kleenet {
         if (condition) {
           net::Searcher* const ns = newSearcher(pcb);
           if (ns) {
-            return new Searcher(kn,std::auto_ptr<net::Searcher>(ns));
+            return new Searcher(kn,std::unique_ptr<net::Searcher>(ns));
           }
         }
         return NULL;

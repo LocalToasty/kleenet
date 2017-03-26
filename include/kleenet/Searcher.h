@@ -25,9 +25,9 @@ namespace kleenet {
 
   class Searcher : public klee::Searcher {
     private:
-      std::auto_ptr<net::Searcher> ns;
+      std::unique_ptr<net::Searcher> ns;
     public:
-      Searcher(KleeNet&, std::auto_ptr<net::Searcher> ns);
+      Searcher(KleeNet&, std::unique_ptr<net::Searcher> ns);
       ~Searcher();
       net::Searcher* netSearcher() const;
       net::Time getStateTime(State*) const;

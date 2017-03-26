@@ -25,7 +25,7 @@ namespace net {
       typedef util::SharedPtr<Searcher> SearcherP;
       typedef std::map<StateCluster*,SearcherP> InternalSearchers;
     private:
-      std::auto_ptr<ClusterInformationHandler> cih;
+      std::unique_ptr<ClusterInformationHandler> cih;
       InternalSearchers internalSearchers;
       void clear();
       SearcherP of(BasicState*) const;

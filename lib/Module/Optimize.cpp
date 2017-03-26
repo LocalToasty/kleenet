@@ -267,7 +267,7 @@ void Optimize(Module *M, const std::string &EntryPoint) {
 
 #if 0
   // Create a new optimization pass for each one specified on the command line
-  std::auto_ptr<TargetMachine> target;
+  std::unique_ptr<TargetMachine> target;
   for (unsigned i = 0; i < OptimizationList.size(); ++i) {
     const PassInfo *Opt = OptimizationList[i];
     if (Opt->getNormalCtor())

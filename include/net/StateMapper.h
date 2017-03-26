@@ -80,12 +80,12 @@ namespace net {
 #endif
       bool paranoidExplosionsActive() const;
       /// A log where newly created states are protocolled, you have to subscribe to it.
-      std::auto_ptr<SmStateLogger> const stateLogger;
+      std::unique_ptr<SmStateLogger> const stateLogger;
       /// Which nodes are defined?
       Nodes _nodes;
       unsigned _truncatedDScenarios;
 
-      std::auto_ptr<NodeChangeObserver> nco;
+      std::unique_ptr<NodeChangeObserver> nco;
 
 
     private:

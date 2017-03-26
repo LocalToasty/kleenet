@@ -15,7 +15,7 @@ namespace kleenet {
     };
     class SearcherAutoRun {
       private:
-        typedef std::auto_ptr<AF> F;
+        typedef std::unique_ptr<AF> F;
         net::util::SharedPtr<net::SearcherStrategy> baseStrategy;
         net::util::SharedPtr<net::SearcherStrategy> strategyAdapter;
         F lockStep, cooja, clusterLockStep, clusterCooja;

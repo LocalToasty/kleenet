@@ -137,6 +137,7 @@ namespace kleenet {
               executor->terminateStateOnError(
                 ha.state,
                 llvm::Twine() + "Argument " + llvm::Twine(k) + " of " + llvm::Twine(ha.arguments.size()) + " to special function `" + binding + "` does not evaluate to a constant expression.",
+                Executor::ReportError,
                 "exec.err");
               return;
               // ignore invalid argument for now, NOTE: the state is dead already
@@ -518,11 +519,13 @@ namespace kleenet {
       executor->terminateStateOnError(
         ha.state,
         llvm::Twine() + "Invalid node id (" + llvm::Twine(node.id) + ") passed to kleenet_set_node_id. This is used as magic number. Note: The default node id is (" + llvm::Twine(Node::FIRST_NODE.id) + ") but you may specify any id greater or equal " + llvm::Twine(Node::INVALID_NODE.id) + ".",
+        Executor::ReportError,
         "exec.err");
     } else if (node < net::Node::FIRST_NODE) {
       executor->terminateStateOnError(
         ha.state,
         llvm::Twine() + "Invalid node id (" + llvm::Twine(node.id) + ") passed to kleenet_set_node_id. Note: The default node id is (" + llvm::Twine(Node::FIRST_NODE.id) + ") but you may specify any id greater or equal " + llvm::Twine(Node::FIRST_NODE.id) + ".",
+        Executor::ReportError,
         "exec.err");
     } else {
       return executor->kleeNet.setStateNode(ha.state,node);

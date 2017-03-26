@@ -95,7 +95,7 @@ klee::Array const* State::makeNewSymbol(std::string name, size_t size) {
   klee::Array const* const array = new klee::Array(name,size);
   if (addExtraPacketSymbols) {
     klee::ExecutionState& es = *executionState();
-    klee::MemoryObject const* const mo = es.getExecutor()->memory->allocate(size,false,true,NULL);
+    klee::MemoryObject const* const mo = es.getExecutor()->memory->allocate(size,false,true,NULL,1);
     mo->setName(name);
     klee::ObjectState* const ose = new klee::ObjectState(mo,array);
     ose->initializeToZero();

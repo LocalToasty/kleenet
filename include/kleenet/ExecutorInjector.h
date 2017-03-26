@@ -25,6 +25,21 @@ namespace klee {
 namespace kleenet {
   class ExecutorInjector {
     friend class klee::Executor; // this can only be instantiated by klee::Executor!
+    public:
+      enum TerminateReason {
+        Abort,
+        Assert,
+        Exec,
+        External,
+        Free,
+        Model,
+        Overflow,
+        Ptr,
+        ReadOnly,
+        ReportError,
+        User,
+        Unhandled
+      };
     private:
       ExecutorInjector();
     protected:
@@ -36,7 +51,7 @@ namespace kleenet {
       // call exit handler and terminate state
       virtual void terminateStateOnExit(klee::ExecutionState&) = 0;
       // call exit handler and terminate state
-      virtual void terminateStateOnError(klee::ExecutionState&, llvm::Twine const&, char const*, llvm::Twine const&) = 0;
+      virtual void terminateStateOnError(klee::ExecutionState&, llvm::Twine const&, TerminateReason, char const*, llvm::Twine const&) = 0;
       // KleeNet extension: we inject our own special-function-handlers by overriding this.
       virtual klee::SpecialFunctionHandler* newSpecialFunctionHandler() = 0;
       // KleeNet extension: we inject our own searchers by overriding this.

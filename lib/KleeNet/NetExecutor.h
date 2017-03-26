@@ -50,13 +50,23 @@ namespace kleenet {
       void addedState(klee::ExecutionState*);
       klee::PTree* getPTree() const;
       klee::TimingSolver* getTimingSolver();
-      std::vector<std::pair<std::set<klee::ExecutionState*>*,StateCondition::Enum> > conditionals;
+
+      struct SetOrVec {
+        std::set<klee::ExecutionState*>* set{nullptr};
+        std::vector<klee::ExecutionState*>* vec{nullptr};
+
+        SetOrVec(std::set<klee::ExecutionState*>* s) : set(s) {}
+        SetOrVec(std::vector<klee::ExecutionState*>* v) : vec(v) {}
+        bool isSet() const { return set; }
+        bool isVec() const { return vec; }
+      };
+      std::vector<std::pair<SetOrVec,StateCondition::Enum> > conditionals;
     protected:
       KleeNet kleenet;
       // this is the same handler as klee::Executor::interpreterHandler but with correct type
       InterpreterHandler* const netInterpreterHandler;
       Searcher* netSearcher;
-      Executor(const klee::Interpreter::InterpreterOptions &opts, InterpreterHandler *ie);
+      Executor(llvm::LLVMContext &context, const klee::Interpreter::InterpreterOptions &opts, InterpreterHandler *ie);
       klee::SpecialFunctionHandler* newSpecialFunctionHandler();
       klee::Searcher* constructUserSearcher(klee::Executor&);
       void run(klee::ExecutionState& initialState); // intrusively overrides klee::Executor::run
@@ -76,8 +86,8 @@ namespace kleenet {
       void terminateStateEarly_klee(klee::ExecutionState&, llvm::Twine const&);
       void terminateStateOnExit(klee::ExecutionState&);
       void terminateStateOnExit_klee(klee::ExecutionState&);
-      void terminateStateOnError(klee::ExecutionState&, llvm::Twine const&, char const*, llvm::Twine const& = "");
-      void terminateStateOnError_klee(klee::ExecutionState&, llvm::Twine const&, char const*, llvm::Twine const& = "");
+      void terminateStateOnError(klee::ExecutionState&, llvm::Twine const&, enum TerminateReason, char const*, llvm::Twine const& = "");
+      void terminateStateOnError_klee(klee::ExecutionState&, llvm::Twine const&, enum TerminateReason, char const*, llvm::Twine const& = "");
   };
 }
 

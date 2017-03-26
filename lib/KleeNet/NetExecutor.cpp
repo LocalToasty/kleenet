@@ -126,9 +126,10 @@ namespace kleenet {
 
 using namespace kleenet;
 
-Executor::Executor(const InterpreterOptions &opts,
+Executor::Executor(llvm::LLVMContext& context,
+                   const InterpreterOptions &opts,
                    InterpreterHandler *ih)
-  : klee::Executor(
+  : klee::Executor(context,
         OverrideChain()
           .overrideOpt(klee::UseCache).withValue(false).onlyIf(Override_UseCache).chain()
           .overrideOpt(klee::UseCexCache).withValue(false).onlyIf(Override_UseCexCache).chain()
@@ -146,10 +147,17 @@ Executor::Executor(const InterpreterOptions &opts,
 }
 
 Executor::StateCondition::Enum Executor::stateCondition(klee::ExecutionState* es) const {
-  typedef std::vector<std::pair<std::set<klee::ExecutionState*>*,StateCondition::Enum> > Conditionals;
-  for (Conditionals::const_iterator it = conditionals.begin(), end = conditionals.end(); it != end; ++it) {
-    if (it->first->find(es) != it->first->end())
-      return it->second;
+  for (auto it = conditionals.cbegin(), end = conditionals.end(); it != end; ++it) {
+    if (it->first.isVec()) {
+      auto res = std::find(it->first.vec->begin(), it->first.vec->end(), es);
+      if (res != it->first.vec->end()) {
+        return it->second;
+      }
+    } else {
+      if (it->first.set->find(es) != it->first.set->end()) {
+        return it->second;
+      }
+    }
   }
   return StateCondition::invalid;
 }
@@ -164,7 +172,7 @@ Searcher* Executor::getNetSearcher() const {
 }
 
 void Executor::addedState(klee::ExecutionState* added) {
-  addedStates.insert(added);
+  addedStates.push_back(added);
 }
 
 klee::PTree* Executor::getPTree() const {
@@ -242,13 +250,15 @@ void Executor::terminateStateOnExit(klee::ExecutionState& state) {
 
 void Executor::terminateStateOnError_klee(klee::ExecutionState& state,
                                           llvm::Twine const& messaget,
+                                          enum TerminateReason termReason,
                                           char const* suffix,
                                           llvm::Twine const& info) {
-  klee::Executor::terminateStateOnError(state,messaget,suffix,info);
+  klee::Executor::terminateStateOnError(state,messaget,termReason,suffix,info);
 }
 
 void Executor::terminateStateOnError(klee::ExecutionState& state,
                                      llvm::Twine const& messaget,
+                                     enum TerminateReason termReason,
                                      char const* suffix,
                                      llvm::Twine const& info) {
   struct TSoE : NetExTHnd {
@@ -260,7 +270,7 @@ void Executor::terminateStateOnError(klee::ExecutionState& state,
     void term(klee::ExecutionState& state) const {
       if (state.configurationData && (state.configurationData->self().flags & StateFlags::ERROR)) {
         DD::cout << "[TSoError] term(" << &state << ") /* error condition */ {" << DD::endl;
-        getExecutor()->terminateStateOnError_klee(state,messaget,suffix,info);
+        getExecutor()->terminateStateOnError_klee(state,messaget,ReportError,suffix,info);
         DD::cout << "[TSoError] } term(" << &state << ")" << DD::endl;
       } else {
         DD::cout << "[TSoError] term(" << &state << ") /* other (early) */ {" << DD::endl;

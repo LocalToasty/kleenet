@@ -61,8 +61,8 @@ UseForkedCoreSolver("use-forked-solver",
 
 llvm::cl::opt<bool>
 CoreSolverOptimizeDivides("solver-optimize-divides", 
-                 llvm::cl::desc("Optimize constant divides into add/shift/multiplies before passing to core SMT solver (default=on)"),
-                 llvm::cl::init(true));
+                 llvm::cl::desc("Optimize constant divides into add/shift/multiplies before passing to core SMT solver (default=off)"),
+                 llvm::cl::init(false));
 
 
 /* Using cl::list<> instead of cl::bits<> results in quite a bit of ugliness when it comes to checking
@@ -73,9 +73,9 @@ llvm::cl::list<QueryLoggingSolverType> queryLoggingOptions(
     "use-query-log",
     llvm::cl::desc("Log queries to a file. Multiple options can be specified separated by a comma. By default nothing is logged."),
     llvm::cl::values(
-        clEnumValN(ALL_PC,"all:pc","All queries in .pc (KQuery) format"),
+        clEnumValN(ALL_KQUERY,"all:kquery","All queries in .kquery (KQuery) format"),
         clEnumValN(ALL_SMTLIB,"all:smt2","All queries in .smt2 (SMT-LIBv2) format"),
-        clEnumValN(SOLVER_PC,"solver:pc","All queries reaching the solver in .pc (KQuery) format"),
+        clEnumValN(SOLVER_KQUERY,"solver:kquery","All queries reaching the solver in .kquery (KQuery) format"),
         clEnumValN(SOLVER_SMTLIB,"solver:smt2","All queries reaching the solver in .smt2 (SMT-LIBv2) format"),
         clEnumValEnd
 	),
@@ -84,16 +84,30 @@ llvm::cl::list<QueryLoggingSolverType> queryLoggingOptions(
 
 #ifdef ENABLE_METASMT
 
+#ifdef METASMT_DEFAULT_BACKEND_IS_BTOR
+#define METASMT_DEFAULT_BACKEND_STR "(default = btor)."
+#define METASMT_DEFAULT_BACKEND METASMT_BACKEND_BOOLECTOR
+#elif METASMT_DEFAULT_BACKEND_IS_Z3
+#define METASMT_DEFAULT_BACKEND_STR "(default = z3)."
+#define METASMT_DEFAULT_BACKEND METASMT_BACKEND_Z3
+#else
+#define METASMT_DEFAULT_BACKEND_STR "(default = stp)."
+#define METASMT_DEFAULT_BACKEND METASMT_BACKEND_STP
+#endif
+
 llvm::cl::opt<klee::MetaSMTBackendType> MetaSMTBackend(
     "metasmt-backend",
-    llvm::cl::desc("Specify the MetaSMT solver backend type (default=STP)."),
+    llvm::cl::desc("Specify the MetaSMT solver backend type " METASMT_DEFAULT_BACKEND_STR),
     llvm::cl::values(
         clEnumValN(METASMT_BACKEND_STP, "stp", "Use metaSMT with STP"),
         clEnumValN(METASMT_BACKEND_Z3, "z3", "Use metaSMT with Z3"),
         clEnumValN(METASMT_BACKEND_BOOLECTOR, "btor",
                    "Use metaSMT with Boolector"),
         clEnumValEnd),
-    llvm::cl::init(METASMT_BACKEND_STP));
+    llvm::cl::init(METASMT_DEFAULT_BACKEND));
+
+#undef METASMT_DEFAULT_BACKEND
+#undef METASMT_DEFAULT_BACKEND_STR
 
 #endif /* ENABLE_METASMT */
 
@@ -125,6 +139,19 @@ llvm::cl::opt<CoreSolverType> CoreSolverToUse(
                      clEnumValN(Z3_SOLVER, "z3", "Z3" Z3_IS_DEFAULT_STR),
                      clEnumValEnd),
     llvm::cl::init(DEFAULT_CORE_SOLVER));
+
+llvm::cl::opt<CoreSolverType> DebugCrossCheckCoreSolverWith(
+    "debug-crosscheck-core-solver",
+    llvm::cl::desc(
+        "Specifiy a solver to use for cross checking with the core solver"),
+    llvm::cl::values(clEnumValN(STP_SOLVER, "stp", "stp"),
+                     clEnumValN(METASMT_SOLVER, "metasmt", "metaSMT"),
+                     clEnumValN(DUMMY_SOLVER, "dummy", "Dummy solver"),
+                     clEnumValN(Z3_SOLVER, "z3", "Z3"),
+                     clEnumValN(NO_SOLVER, "none",
+                                "Do not cross check (default)"),
+                     clEnumValEnd),
+    llvm::cl::init(NO_SOLVER));
 }
 #undef STP_IS_DEFAULT_STR
 #undef METASMT_IS_DEFAULT_STR

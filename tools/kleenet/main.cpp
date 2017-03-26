@@ -1354,7 +1354,7 @@ int main(int argc, char **argv, char **envp) {
   }
 
   std::string LibraryDir = KleeHandler::getRunTimeLibraryPath(argv[0]);
-  Interpreter::ModuleOptions Opts(LibraryDir.c_str(),
+  Interpreter::ModuleOptions Opts(LibraryDir.c_str(), EntryPoint,
                                   /*Optimize=*/OptimizeModule,
                                   /*CheckDivZero=*/CheckDivZero,
                                   /*CheckOvershift=*/CheckOvershift);
@@ -1450,11 +1450,12 @@ int main(int argc, char **argv, char **envp) {
     KleeHandler::loadPathFile(ReplayPathFile, replayPath);
   }
 
+  llvm::LLVMContext context;
   Interpreter::InterpreterOptions IOpts;
   IOpts.MakeConcreteSymbolic = MakeConcreteSymbolic;
   KleeHandler *handler = new KleeHandler(pArgc, pArgv);
   Interpreter *interpreter = 
-    theInterpreter = kleenet::NetExecutorBuilder::create(IOpts, handler); // FIXME
+    theInterpreter = kleenet::NetExecutorBuilder::create(context, IOpts, handler); // FIXME
   handler->setInterpreter(interpreter);
 
   llvm::raw_ostream &infoFile = handler->getInfoStream();
@@ -1511,7 +1512,7 @@ int main(int argc, char **argv, char **envp) {
            it = kTests.begin(), ie = kTests.end();
          it != ie; ++it) {
       KTest *out = *it;
-      interpreter->setReplayOut(out);
+      interpreter->setReplayKTest(out);
       llvm::errs() << "KLEE: replaying: " << *it << " (" << kTest_numBytes(out)
                    << " bytes)"
                    << " (" << ++i << "/" << outFiles.size() << ")\n";
@@ -1519,7 +1520,7 @@ int main(int argc, char **argv, char **envp) {
       interpreter->runFunctionAsMain(mainFn, out->numArgs, out->args, pEnvp);
       if (interrupted) break;
     }
-    interpreter->setReplayOut(0);
+    interpreter->setReplayKTest(0);
     while (!kTests.empty()) {
       kTest_free(kTests.back());
       kTests.pop_back();

@@ -12,7 +12,7 @@
 #include "klee_headers/Searcher.h"
 #include "net/Time.h"
 
-#include <set>
+#include <vector>
 #include <memory>
 
 namespace net {
@@ -34,7 +34,7 @@ namespace kleenet {
       net::Time getStateTime(State&) const;
     public: // interface to klee::Searcher
       klee::ExecutionState& selectState();
-      void update(klee::ExecutionState*, std::set<klee::ExecutionState*> const&, std::set<klee::ExecutionState*> const&);
+      void update(klee::ExecutionState*, std::vector<klee::ExecutionState*> const&, std::vector<klee::ExecutionState*> const&);
       bool empty();
   };
 

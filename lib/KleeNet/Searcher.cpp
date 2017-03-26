@@ -29,7 +29,8 @@ klee::ExecutionState& Searcher::selectState() {
   assert(state && "The selected searcher probably ran out of states and panicked by returning NULL. This could be caused by yielding all states without them being scheduled.");
   return *state;
 }
-void Searcher::update(klee::ExecutionState* current, std::set<klee::ExecutionState*> const& added, std::set<klee::ExecutionState*> const& removed) {
+
+void Searcher::update(klee::ExecutionState* current, std::vector<klee::ExecutionState*> const& added, std::vector<klee::ExecutionState*> const& removed) {
   typedef net::StdIteratorFactory<net::BasicState*> Fac;
   if (!added.empty())
     ns->add(Fac::build(added.begin()), Fac::build(added.end()));

@@ -4,6 +4,6 @@
 
 using namespace kleenet;
 
-klee::Interpreter* NetExecutorBuilder::create(const klee::Interpreter::InterpreterOptions& opts, InterpreterHandler* ih) {
-  return new Executor(opts, ih);
+klee::Interpreter* NetExecutorBuilder::create(llvm::LLVMContext &context, const klee::Interpreter::InterpreterOptions& opts, InterpreterHandler* ih) {
+  return new Executor(context, opts, ih);
 }

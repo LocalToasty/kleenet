@@ -17,7 +17,7 @@ namespace kleenet {
     private:
       NetExecutorBuilder(); // prevent anybody from instantiating, let alone deriving from us
     public:
-      static klee::Interpreter* create(klee::Interpreter::InterpreterOptions const&, InterpreterHandler*);
+      static klee::Interpreter* create(llvm::LLVMContext&, klee::Interpreter::InterpreterOptions const&, InterpreterHandler*);
   };
 }
 
